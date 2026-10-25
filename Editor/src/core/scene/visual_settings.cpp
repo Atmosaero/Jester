@@ -22,7 +22,7 @@ QJsonObject defaults() {
         {"floor",QJsonObject{{"enabled",true},{"color","#757575"},{"height",0.0},{"followPhysicsGround",false}}},
         {"grid",QJsonObject{{"enabled",true},{"step",.1},{"intensity",.35},{"axes",true}}},
         {"camera",QJsonObject{{"projection","perspective"},{"fovDegrees",40.0},{"orthographicHeight",2.5}}},
-        {"post",QJsonObject{{"enabled",true},{"exposureEV",0.0},{"toneMapper","aces"},
+        {"post",QJsonObject{{"enabled",true},{"exposureEV",-8.0},{"toneMapper","aces"},
                             {"saturation",1.0},{"contrast",1.0},
                             {"bloom",QJsonObject{{"enabled",false},{"threshold",1.0},{"intensity",.1}}}}}};
 }
@@ -122,6 +122,7 @@ bool SceneVisualSettings::patch(const QJsonObject &changes,QString &error) {
         }
         if(!valid) {error="visual.invalid_value: "+field.path;return false;}
     }
+    if(at(candidate,{"lighting","fill","shadows"}).toBool()) {error="visual.unsupported_parameter: lighting.fill.shadows (one Atom directional shadow caster)";return false;}
     values=candidate;error.clear();return true;
 }
 bool SceneVisualSettings::setValue(const QString &path,const QJsonValue &value,QString &error) {

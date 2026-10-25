@@ -15,6 +15,6 @@ Windows x64 · O3DE SDK 26.10 · Visual Studio 2026 (C++) · SDK-provided Qt 6.1
 ./launch.ps1 -Demo
 ```
 
-Early alpha: CPU skinning and basic lighting. See [building](docs/BUILD.md), [portable packaging](docs/PACKAGING.md), [testing](docs/TESTING.md), and [limits](docs/LIMITATIONS.md).
+Development includes native GPU skinning, [scene modes and post effects](docs/SCENE_SETTINGS.md), and [preferences](docs/PERSONALIZATION.md). See [building](docs/BUILD.md), [portable packaging](docs/PACKAGING.md), [testing](docs/TESTING.md), and [limits](docs/LIMITATIONS.md).
 
 MIT · [Third-party notices](THIRD_PARTY.md). Character libraries are not included.

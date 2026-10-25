@@ -1,10 +1,13 @@
 #include "render/atom/AtomViewport.h"
 #include <Atom/RHI/Factory.h>
+#include <Atom/Feature/ImageBasedLights/ImageBasedLightFeatureProcessorInterface.h>
+#include <Atom/RPI.Public/Image/StreamingImage.h>
 #include <AzCore/std/smart_ptr/make_shared.h>
 #include <Atom/RPI.Public/ViewportContext.h>
 #include <Atom/RPI.Public/View.h>
 #include <Atom/RPI.Public/RenderPipeline.h>
 #include <Atom/RHI/RHISystemInterface.h>
+#include <Atom/RHI/Device.h>
 #include <Atom/RPI.Public/Model/Model.h>
 #include <Atom/RPI.Public/MeshDrawPacket.h>
 #include <Atom/RPI.Public/RPISystemInterface.h>
@@ -60,7 +63,7 @@ AtomViewport::AtomViewport(QWidget* parent, bool createDemo) : RenderViewportWid
         "AZ::Render::CapsuleLightFeatureProcessor", "AZ::Render::DecalTextureArrayFeatureProcessor",
         "AZ::Render::DirectionalLightFeatureProcessor", "AZ::Render::DiskLightFeatureProcessor",
         "AZ::Render::ImageBasedLightFeatureProcessor", "AZ::Render::PointLightFeatureProcessor",
-        "AZ::Render::PostProcessFeatureProcessor", "AZ::Render::QuadLightFeatureProcessor",
+        "AZ::Render::PostProcessFeatureProcessor", "AZ::Render::AcesDisplayMapperFeatureProcessor", "AZ::Render::QuadLightFeatureProcessor",
         "AZ::Render::ReflectionProbeFeatureProcessor", "AZ::Render::SkyBoxFeatureProcessor",
         "AZ::Render::ProjectedShadowFeatureProcessor", "AZ::Render::AuxGeomFeatureProcessor"})
         sceneDescriptor.m_featureProcessorNames.push_back(feature);
@@ -123,6 +126,15 @@ AtomViewport::~AtomViewport()
 {
     AZ::RPI::ViewportContextIdNotificationBus::Handler::BusDisconnect();
     invalidateEditorScene();
+    if(auto *ibl=m_scene->GetFeatureProcessor<AZ::Render::ImageBasedLightFeatureProcessorInterface>()) {
+        // Stop asynchronous mip expansion before scene/SDK teardown. The
+        // upload request otherwise can retain a named Vulkan image past the
+        // application's NameDictionary lifetime after a rapid close.
+        for(const auto &image:{ibl->GetSpecularImage(),ibl->GetDiffuseImage()})
+            if(auto *stream=azrtti_cast<AZ::RPI::StreamingImage*>(image.get()))stream->CancelExpanding();
+        ibl->SetSpecularImage({});ibl->SetDiffuseImage({});
+    }
+    m_visualData.reset();
     if (m_lights) for (auto& handle : m_lightHandles) m_lights->ReleaseLight(handle);
     m_handles.clear();
     m_editorData.reset();
@@ -135,6 +147,10 @@ AtomViewport::~AtomViewport()
         AZ::RPI::RPISystemInterface::Get()->UnregisterScene(m_scene);
     m_pipeline = nullptr;
     m_scene = nullptr;
+    // Vulkan defers DeviceImage release. Drain it while the SDK name/asset
+    // services still exist, after all scene references have been released.
+    if(auto *rhi=AZ::RHI::RHISystemInterface::Get())
+        for(int device=0;device<rhi->GetDeviceCount();++device)rhi->GetDevice(device)->WaitForIdle();
     m_entities.reset();
 }
 

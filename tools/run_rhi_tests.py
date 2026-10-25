@@ -25,6 +25,10 @@ def execute(command, project, folder, backend, scale, timeout):
     folder.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env['QT_SCALE_FACTOR'] = str(scale)
+    env['JESTER_PREFERENCES_FILE'] = str(folder/'preferences.json')
+    env['JESTER_VISUAL_TEST_OUTPUT'] = str(folder)
+    env['JESTER_RHI'] = backend
+    env.pop('QT_QPA_PLATFORM',None)
     started = time.monotonic()
     timed_out = False
     with (folder / 'engine.log').open('wb') as log:
@@ -53,8 +57,8 @@ def main():
     parser.add_argument('--backends', nargs='+', choices=['dx12', 'vulkan'], default=['dx12', 'vulkan'])
     parser.add_argument('--scales', nargs='+', type=float, choices=[1, 1.5], default=[1])
     parser.add_argument('--smoke-scales', nargs='+', type=float, choices=[1, 1.5], default=[1, 1.5])
-    parser.add_argument('--suites', nargs='+', choices=['Ui', 'Mvp', 'Automation', 'Notes', 'PhysicsUi', 'Motion', 'UxScope'],
-                        default=['Ui', 'Mvp', 'Automation', 'Notes', 'PhysicsUi', 'Motion', 'UxScope'])
+    parser.add_argument('--suites', nargs='+', choices=['Ui', 'Mvp', 'Visual', 'Automation', 'Notes', 'PhysicsUi', 'Motion', 'UxScope'],
+                        default=['Ui', 'Mvp', 'Visual', 'Automation', 'Notes', 'PhysicsUi', 'Motion', 'UxScope'])
     parser.add_argument('--skip-smoke', action='store_true')
     parser.add_argument('--smoke-only', action='store_true')
     parser.add_argument('--timeout', type=int, default=600)

@@ -1,4 +1,5 @@
 #include "settings/preferences.h"
+#include "core/scene/visual_settings.h"
 #include <QByteArray>
 #include <QColor>
 #include <QFile>
@@ -18,7 +19,7 @@ QJsonObject defaults() {
         {"overlays",QJsonObject{{"bones","#8ea9bc"},{"selection","#efbb62"},{"notes","#ecd58a"},
                                 {"trajectory","#62bdb4"},{"manipulatorX","#df7168"},
                                 {"manipulatorY","#72c58a"},{"manipulatorZ","#7ba5e2"}}},
-        {"shortcuts",QJsonObject{}},{"layouts",QJsonObject{}}};
+        {"shortcuts",QJsonObject{}},{"layouts",QJsonObject{}},{"scenePresets",QJsonObject{}}};
 }
 bool color(const QJsonValue &value) {
     return value.isString() && QRegularExpression("^#[0-9a-fA-F]{6}$").match(value.toString()).hasMatch() && QColor(value.toString()).isValid();
@@ -33,7 +34,7 @@ bool merge(QJsonObject &target,const QJsonObject &patch,QString &error,const QSt
     for(auto it=patch.begin();it!=patch.end();++it) {
         const auto name=prefix+it.key();
         if(!target.contains(it.key())) {error="preferences.unknown_parameter: "+name;return false;}
-        if(it.key()=="shortcuts" || it.key()=="layouts") {
+        if(it.key()=="shortcuts" || it.key()=="layouts" || it.key()=="scenePresets") {
             if(!it->isObject()) {error="preferences.expected_object: "+name;return false;}
             target[it.key()]=it.value();
         } else if(target[it.key()].isObject()) {
@@ -99,6 +100,14 @@ bool EditorPreferences::patch(const QJsonObject &patch,QString &error) {
         if(!decoded || decoded.decoded.size()<8 || decoded.decoded.size()>65536 ||
            !decoded.decoded.startsWith(QByteArray::fromHex("000000ff"))) {
             error="preferences.invalid_layout: "+it.key();return false;
+        }
+    }
+    const auto presets=candidate["scenePresets"].toObject();
+    if(presets.size()>32) {error="preferences.too_many_scene_presets";return false;}
+    for(auto it=presets.begin();it!=presets.end();++it) {
+        SceneVisualSettings settings;
+        if(it.key().trimmed().isEmpty() || it.key().size()>80 || !it->isObject() || !SceneVisualSettings::fromJson(it->toObject(),settings,error)) {
+            error="preferences.invalid_scene_preset: "+it.key()+" "+error;return false;
         }
     }
     values=candidate;error.clear();return true;

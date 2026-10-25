@@ -1,3 +1,6 @@
+#include "settings/action_registry.h"
+#include "settings/preferences_service.h"
+#include "settings/localization.h"
 #include "io/project/project_format.h"
 #include "io/project/project_io.h"
 #include "core/scene/runtime_error.h"
@@ -42,6 +45,11 @@ EditorApi::EditorApi(Window *window, QObject *parent) : QObject(parent), w(windo
     require(file.open(QIODevice::ReadOnly), "MCP tool catalog missing");
     catalog = QJsonDocument::fromJson(file.readAll()).array();
     require(!catalog.empty(), "MCP tool catalog empty");
+    for(int i=0;i<catalog.size();++i) {
+        auto tool=catalog[i].toObject();if(tool["name"]!="scene_visuals")continue;
+        auto schema=tool["inputSchema"].toObject(),properties=schema["properties"].toObject();
+        properties["settings"]=SceneVisualSettings::schema();schema["properties"]=properties;tool["inputSchema"]=schema;catalog[i]=tool;
+    }
     connect(&w->workspace, &Workspace::sceneReplaced, this, [this] {
         clipboard.reset();
         ++revision;
@@ -296,6 +304,31 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
     auto &d = w->document();
     auto &s = d.scene;
     auto op = a["operation"].toString();
+    if(name=="scene_visuals") {
+        if(op=="capabilities")return w->viewport->sceneVisualCapabilities();
+        if(op=="set" || op=="preset" || op=="reset") {
+            auto settings=op=="reset"?SceneVisualSettings():op=="preset"?SceneVisualSettings::preset(a["preset"].toString()):s.visuals;
+            QString error;
+            if(op=="set") {required(a,"settings");require(settings.patch(a["settings"].toObject(),error),error);}
+            if(op=="preset")required(a,"preset");
+            require(d.editVisual("Scene settings",settings),"visual.transaction_in_progress");
+        }
+        return {{"authored",s.visuals.toJson()},{"applied",w->viewport->sceneVisualState()},
+                {"renderer",w->viewport->renderingStats()},{"visualRevision",qint64(d.visualRevision)},
+                {"motionRevision",qint64(d.motionRevision)},{"undoIndex",d.undo.index()}};
+    }
+    if(name=="editor_preferences") {
+        auto &service=PreferencesService::instance();ActionRegistry registry(*w);
+        if(op=="set" || op=="reset") {
+            auto preferences=op=="reset"?EditorPreferences():service.current();QString error;
+            if(op=="set") {required(a,"settings");require(preferences.patch(a["settings"].toObject(),error),error);}
+            require(registry.validate(preferences,error),error);require(service.apply(preferences,error),error);registry.apply(preferences);
+        }
+        const auto &locale=LocalizationService::instance();
+        return {{"preferences",service.current().toJson()},{"language",locale.language()},
+                {"qtTranslationLoaded",locale.qtTranslationLoaded()},{"fontFamily",QApplication::font().family()},
+                {"fontPointSize",QApplication::font().pointSizeF()},{"actions",registry.state()}};
+    }
     if (name == "motion_correction" && (op == "select" || op == "compare")) {
         w->commitPendingEditor();
         EditService::execute(d, name, a);

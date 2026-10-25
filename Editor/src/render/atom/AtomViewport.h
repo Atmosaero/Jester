@@ -30,6 +30,7 @@ public:
     QJsonObject appliedSceneVisualState() const;
     QJsonObject sceneVisualCapabilities() const;
     void pollEditorResources();
+    QJsonObject validateSkinningReference();
     void invalidateEditorScene();
     QImage captureImage();
     static AZ::Data::Instance<AZ::RPI::Material> createDefaultMaterial();
@@ -46,6 +47,8 @@ private:
     void OnRenderTick() override;
     void WaitForRender() override { if(onFrame) onFrame(); }
     void drawEditorGrid();
+    void drawEditorWireframe();
+    void updateSceneShadowCamera(const QMatrix4x4 &projection);
     QJsonObject editorDiagnostics() const;
     struct EditorSceneData;
     std::shared_ptr<EditorSceneData> m_editorData;

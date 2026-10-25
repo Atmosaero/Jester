@@ -113,6 +113,9 @@ def asset_payload(project, engine, work):
     seed.write_text(json.dumps({'Type':'JsonSerialization','Version':1,
         'ClassName':'AZStd::vector<SeedInfo, allocator>','ClassData':rows},indent=2)+'\n')
     extra = ['materials/jesterdefault.azmaterial','materials/jesterunlit.azmaterial']
+    extra += ['shaders/skinnedmesh/linearskinningcs.azshader','shaders/morphtargets/morphtargetcs.azshader',
+              'envhdri/photo_studio_01_4k_iblskyboxcm_iblspecular.exr.streamingimage',
+              'envhdri/photo_studio_01_4k_iblskyboxcm_ibldiffuse.exr.streamingimage']
     extra += ['engine_dependencies.xml','materials/reflectionprobe/reflectionprobevisualization.azmaterial',
               'postprocess/default.postfxlayercategories']
     extra += [p.relative_to(assets).as_posix() for p in (assets/'models').glob('*.azmodel')]
@@ -131,6 +134,16 @@ def asset_payload(project, engine, work):
             raise RuntimeError('Unsafe asset path: '+name)
     (work/'assets.json').write_text(json.dumps(sorted(files),indent=2)+'\n')
     return files
+
+
+def qt_package_root(project):
+    cache=project/'build/CMakeCache.txt'
+    for line in cache.read_text(encoding='utf-8-sig').splitlines():
+        if line.startswith('Qt6_DIR:'):
+            root=Path(line.split('=',1)[1]).parents[2]
+            if (root/'translations/qtbase_ru.qm').is_file() and (root/'LGPL-3.0-only.txt').is_file():
+                return root
+    raise RuntimeError('Cannot resolve the actual Qt package from CMakeCache.txt')
 
 
 def main():
@@ -172,7 +185,7 @@ def main():
     (output/'Registry/jester_runtime.setreg').write_text(json.dumps(registry,indent=2)+'\n')
     engine = {'engine_name':'JesterRuntime','version':'2.7.0','file_version':2,'external_subdirectories':[]}
     (output/'engine.json').write_text(json.dumps(engine,indent=2)+'\n')
-    project_data = json.loads((source/'project.json').read_text())
+    project_data = json.loads((project/'project.json').read_text())
     project_data.update(engine='JesterRuntime',external_subdirectories=[],gem_names=[])
     (output/'project.json').write_text(json.dumps(project_data,indent=2)+'\n')
     (output/'qt.conf').write_text('[Paths]\nPrefix=.\nPlugins=.\nTranslations=translations\n')
@@ -188,8 +201,14 @@ def main():
     shutil.copytree(source/'licenses',output/'licenses')
     for name in ['LICENSE','THIRD_PARTY.md']:
         shutil.copy2(source/name,output/name)
-    shutil.copytree(source/'docs',output/'docs')
-    qt = project/'build/packages/packages/qt-6.10.2-rev5-windows/qt'
+    shutil.copytree(source/'docs',output/'docs',ignore=shutil.ignore_patterns('IMPLEMENTATION_WORKLOG.md'))
+    qt = qt_package_root(project)
+    (output/'translations').mkdir(exist_ok=True)
+    for name in ['jester_ru.qm','qtbase_ru.qm']:
+        catalog=binaries/'translations'/name
+        if not catalog.is_file():
+            raise RuntimeError('Translation catalog was not built: '+str(catalog))
+        shutil.copy2(catalog,output/'translations'/name)
     (output/'licenses/Qt').mkdir(exist_ok=True)
     for name in ['LICENSE','LGPL-3.0-only.txt','QT-NOTICE.TXT']:
         shutil.copy2(qt/name,output/'licenses/Qt'/name)
@@ -251,7 +270,8 @@ def main():
         'Jester DX12.cmd / Jester Vulkan.cmd explicitly select the renderer.\n'
         'No O3DE SDK, Qt SDK, Python, Visual Studio or Asset Processor installation is needed.\n'
         'Windows 10 version 1903+ / Windows 11 x64 and a compatible graphics driver are required.\n'
-        'Use Scene > Choose scene for the included synthetic examples, or open FBX/GLB/glTF.\n'
+        'Open the included .jst synthetic examples, or import FBX/GLB/glTF.\n'
+        'Scene controls lighting, display modes and post effects; Preferences selects language and appearance.\n'
         'Save projects in a writable folder. Local settings/logs are created under user/.\n'
         'This is an alpha; experimental physics limits are described in docs/PHYSICS.md.\n'
         'Licenses and source information are in licenses/ and THIRD_PARTY.md.\n',encoding='utf-8')

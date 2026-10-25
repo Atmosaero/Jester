@@ -90,7 +90,7 @@ class MVPUI : public QObject {
         MorphTarget morph;morph.positions.resize(mesh.vertices.size(),{.03f,.02f,0});morph.normals.resize(mesh.vertices.size(),{.02f,0,.01f});mesh.targets={morph};scene.nodes[0].morphRest={0};scene.morphs[0]={.7f};
         QImage texture(8,8,QImage::Format_RGBA8888);texture.fill(QColor(120,170,210));Texture tex;QBuffer bytes(&tex.bytes);bytes.open(QIODevice::WriteOnly);texture.save(&bytes,"PNG");mesh.textures["baseColor"]=tex;
         scene.pose[1].r=QQuaternion::fromEulerAngles(12,16,7);scene.pose[1].s={.8f,1.2f,1.1f};
-        Document document;document.replace(scene);Viewport view(&document);view.resize(640,640);view.show();QVERIFY(QTest::qWaitForWindowExposed(&view));QTest::qWait(100);
+        Document document;document.replace(scene);Viewport view(&document);view.forceCpuSkinning=true;view.resize(640,640);view.show();QVERIFY(QTest::qWaitForWindowExposed(&view));QTest::qWait(100);
         auto before=view.grabFramebuffer();auto stats=view.renderingStats();
         QCOMPARE(stats["renderer"].toString(),QString("Atom"));
         QCOMPARE(stats["weightsPerVertex"].toInt(),8);

@@ -146,6 +146,8 @@ float Viewport::sceneHeight() {
     return cachedRestHeight;
 }
 QJsonObject Viewport::renderingStats() const { return renderer->diagnostics(); }
+QJsonObject Viewport::sceneVisualState() const {const_cast<Viewport*>(this)->syncRenderer();return renderer->appliedSceneVisualState();}
+QJsonObject Viewport::sceneVisualCapabilities() const {return renderer->sceneVisualCapabilities();}
 bool Viewport::isValid() const { return renderer->diagnostics()["pipelineHasView"].toBool(); }
 QImage Viewport::grabFramebuffer() const {
     const_cast<Viewport*>(this)->syncRenderer();
@@ -167,6 +169,7 @@ void Viewport::syncRenderer() {
         renderer->setEditorCamera(view,projection);lastView=view;lastProjection=projection;
         hasCamera=true;overlayDirty=true;
     }
+    renderer->setSceneVisualSettings(doc->scene.visuals,doc->scene.physics.ground);
     renderer->syncEditorScene(doc->scene,doc->meshRevision,doc->materialRevision,showMesh,diagnosticTransparent,geometryDirty,forceCpuSkinning);
     geometryDirty=false;
 }
@@ -188,8 +191,11 @@ void Viewport::matrices() {
     QVector3D direction(std::sin(y) * std::cos(p), std::sin(p), std::cos(y) * std::cos(p));
     view.lookAt(center + direction * distance, center, {0, 1, 0});
     projection.setToIdentity();
-    projection.perspective(40, float(width()) / std::max(1, height()), std::max(distance * .001f, .0001f),
-                           distance * 100 + 100);
+    const float aspect=float(width())/std::max(1,height());
+    if(doc->scene.visuals.value("camera.projection")=="orthographic") {
+        const float half=float(doc->scene.visuals.value("camera.orthographicHeight").toDouble())*.5f;
+        projection.ortho(-half*aspect,half*aspect,-half,half,std::max(distance*.001f,.0001f),distance*100+100);
+    } else projection.perspective(float(doc->scene.visuals.value("camera.fovDegrees").toDouble()),aspect,std::max(distance*.001f,.0001f),distance*100+100);
 }
 QPointF Viewport::project(QVector3D p) const {
     QVector4D clip = projection * view * QVector4D(p, 1);
@@ -206,7 +212,8 @@ QVector3D Viewport::cameraUp() const {
 }
 float Viewport::scaleAt(QVector3D p) const {
     float z = -(view * QVector4D(p, 1)).z();
-    return 2 * std::max(z, .001f) * std::tan(qDegreesToRadians(20.f)) / std::max(1, height());
+    if(doc->scene.visuals.value("camera.projection")=="orthographic")return float(doc->scene.visuals.value("camera.orthographicHeight").toDouble())/std::max(1,height());
+    return 2 * std::max(z, .001f) * std::tan(qDegreesToRadians(float(doc->scene.visuals.value("camera.fovDegrees").toDouble())*.5f)) / std::max(1, height());
 }
 QVector3D Viewport::axisVector(int i) const {
     QVector3D a(i == 0, i == 1, i == 2);
@@ -252,7 +259,7 @@ void Viewport::fit() {
     }
     distance = std::max(
         .2f,
-        std::max(halfY, halfX / std::max(.1f, aspect)) / (std::tan(qDegreesToRadians(20.f)) * .88f) + depth);
+        std::max(halfY, halfX / std::max(.1f, aspect)) / (std::tan(qDegreesToRadians(float(doc->scene.visuals.value("camera.fovDegrees").toDouble())*.5f)) * .88f) + depth);
     matrices();
     update();
 }

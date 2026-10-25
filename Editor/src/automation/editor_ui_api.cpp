@@ -1,3 +1,4 @@
+#include "settings/action_registry.h"
 #include "core/scene/runtime_error.h"
 #include "automation/editor_api.h"
 #include "core/scene/json_helpers.h"
@@ -37,26 +38,7 @@ void EditorApi::cancelInput() {
     }
 }
 void EditorApi::nameActions() {
-    QSet<QString> ids;
-    for (auto a : w->findChildren<QAction *>()) {
-        if (a->isSeparator() || a->menu())
-            continue;
-        auto id = a->objectName();
-        if (id.isEmpty()) {
-            id = a->text().toLower();
-            id.remove('&');
-            id.replace(QRegularExpression("[^a-z0-9]+"), "_");
-            id.remove(QRegularExpression("^_|_$"));
-        }
-        if (id.isEmpty())
-            id = "action";
-        auto base = id;
-        int suffix = 2;
-        while (ids.contains(id))
-            id = base + "_" + QString::number(suffix++);
-        ids.insert(id);
-        a->setProperty("tricksterActionId", id);
-    }
+    ActionRegistry registry(*w);
 }
 QJsonArray EditorApi::actions() const {
     QJsonArray result;

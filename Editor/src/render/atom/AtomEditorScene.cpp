@@ -1,5 +1,9 @@
 #include "render/atom/AtomViewport.h"
 #include "core/scene/core.h"
+#include "render/atom/gpu_skinning.h"
+#include "render/atom/skinning_readback.h"
+#include <QJsonArray>
+#include <cstring>
 #include <Atom/RPI.Public/ViewportContext.h>
 #include <Atom/RPI.Public/View.h>
 #include <Atom/RPI.Public/Buffer/Buffer.h>
@@ -32,6 +36,7 @@
 #include <limits>
 #include <cmath>
 #include <algorithm>
+#include <unordered_set>
 
 namespace {
 using F2=std::array<float,2>;
@@ -160,6 +165,18 @@ struct AtomViewport::EditorSceneData
         size_t source=0,handle=0;
         AZ::Data::Instance<AZ::RPI::Buffer> positions,normals,tangents,bitangents;
         AZ::Data::Instance<AZ::RPI::Material> material;
+        std::unique_ptr<jester::render::GpuSkinning> gpu;
+        QString fallbackReason;
+        std::vector<uint32_t> edges;
+        std::vector<AZ::Vector3> wirePositions;
+        void ensureWireTopology(const trickster::Mesh &mesh) {
+            if(!edges.empty())return;
+            std::unordered_set<quint64> unique;unique.reserve(mesh.indices.size());
+            for(size_t triangle=0;triangle+2<mesh.indices.size();triangle+=3)for(int k=0;k<3;++k) {
+                auto a=mesh.indices[triangle+k],b=mesh.indices[triangle+(k+1)%3];if(a>b)std::swap(a,b);
+                if(unique.insert((quint64(a)<<32)|b).second) {edges.push_back(a);edges.push_back(b);}
+            }
+        }
     };
     const trickster::Scene* source=nullptr;
     quint64 meshRevision=std::numeric_limits<quint64>::max(),materialRevision=std::numeric_limits<quint64>::max();
@@ -167,11 +184,15 @@ struct AtomViewport::EditorSceneData
     trickster::MorphWeights morphs;
     std::vector<Entry> entries;
     QMap<QByteArray,AZ::Data::Instance<AZ::RPI::Image>> images;
-    double skinMs=0,preparationMs=0,bufferUpdateMs=0,meshBuildMs=0;
+    double paletteMs=0,totalPaletteMs=0,skinMs=0,preparationMs=0,bufferUpdateMs=0,meshBuildMs=0;
     double totalSkinMs=0,totalPreparationMs=0,totalBufferUpdateMs=0,totalMeshBuildMs=0;
     quint64 updates=0;
     bool transparent=false,wasHidden=false;
     float gridUnit=.1f;
+    bool forceCpu=false;
+    quint64 disableComputeAfterTick=0;
+    QString mode,color;
+    bool silhouette=false;
 };
 
 AZ::Data::Instance<AZ::RPI::Material> AtomViewport::createDefaultMaterial()
@@ -187,9 +208,9 @@ AZ::Data::Instance<AZ::RPI::Material> AtomViewport::createDefaultMaterial()
 
 void AtomViewport::invalidateEditorScene()
 {
+    m_editorData.reset(); // Release compute proxies before their output mesh handles.
     if(m_meshes) for(auto& handle:m_handles) m_meshes->ReleaseMesh(*handle);
     m_handles.clear();
-    m_editorData.reset();
 }
 
 void AtomViewport::setEditorCamera(const QMatrix4x4& view,const QMatrix4x4& projection)
@@ -203,46 +224,47 @@ void AtomViewport::setEditorCamera(const QMatrix4x4& view,const QMatrix4x4& proj
     context->SetCameraProjectionMatrix(AZ::Matrix4x4::CreateFromColumnMajorFloat16(converted.constData()));
     GetDefaultCamera()->SetWorldToViewMatrix(AZ::Matrix4x4::CreateFromColumnMajorFloat16(view.constData()));
     GetDefaultCamera()->SetViewToClipMatrix(AZ::Matrix4x4::CreateFromColumnMajorFloat16(converted.constData()));
-    if(!m_editorLighting && m_lights)
-    {
-        for(size_t i=0;i<m_lightHandles.size();++i)
-        {
-            m_lights->SetDirection(m_lightHandles[i],(i?AZ::Vector3(-.5f,-.5f,.3f):AZ::Vector3(.5f,-1.f,-.5f)).GetNormalized());
-            m_lights->SetRgbIntensity(m_lightHandles[i],AZ::Render::PhotometricColor<AZ::Render::PhotometricUnit::Lux>(AZ::Color::CreateOne()*(i?1.0f:3.0f)));
-        }
-        m_editorLighting=true;
-    }
+    updateSceneShadowCamera(projection);
 }
 
 void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRevision,quint64 materialRevision,bool visible,bool transparent,bool geometryDirty,bool forceCpuSkinning)
 {
     if(!m_meshes) return;
-    Q_UNUSED(forceCpuSkinning);
+    auto *skinning=m_scene->GetFeatureProcessor<AZ::Render::SkinnedMeshFeatureProcessorInterface>();
+    const auto mode=scene.visuals.value("mode").toString();
+    const bool silhouette=scene.visuals.value("silhouette").toBool();
+    const auto background=scene.visuals.value("background.topColor").toString();
+    bool forceCpu=forceCpuSkinning || mode=="wireframe";
+    for(const auto &mesh:scene.meshes)for(float weight:scene.morphWeights(mesh.node))if(std::abs(weight)>8.f)forceCpu=true;
     // Keep the last visible cache while hidden. Pending pose/material/structure
     // revisions are deliberately not consumed until the mesh is shown again.
     if(!visible) {
         for(auto& handle:m_handles) m_meshes->SetVisible(*handle,false);
-        if(m_editorData) m_editorData->wasHidden=true;
+        if(m_editorData) {m_editorData->wasHidden=true;
+            for(auto &entry:m_editorData->entries)if(entry.gpu)entry.gpu->setEnabled(false);
+        }
         return;
     }
-    bool rebuild=!m_editorData || m_editorData->source!=&scene || m_editorData->meshRevision!=meshRevision;
+    bool rebuild=!m_editorData || m_editorData->source!=&scene || m_editorData->meshRevision!=meshRevision || m_editorData->forceCpu!=forceCpu;
     if(rebuild)
     {
         invalidateEditorScene();
         m_editorData=std::make_shared<EditorSceneData>();
         m_editorData->source=&scene;
+        m_editorData->forceCpu=forceCpu;
         m_editorData->meshRevision=meshRevision;
         m_editorData->materialRevision=std::numeric_limits<quint64>::max();
         m_editorData->gridUnit=std::pow(10.f,std::floor(std::log10(std::max(.01f,scene.height())))-1);
     }
     auto& cache=*m_editorData;
-    const bool materialDirty=rebuild || cache.materialRevision!=materialRevision;
-    bool changed=rebuild;
+    const bool materialDirty=rebuild || cache.materialRevision!=materialRevision || cache.mode!=mode || cache.silhouette!=silhouette || (mode=="wireframe" && cache.color!=background);
+    bool changed=rebuild || (mode=="wireframe" && cache.mode!=mode);
     if(geometryDirty || cache.wasHidden) {
         changed=changed || cache.morphs!=scene.morphs || cache.pose.size()!=scene.pose.size();
         if(!changed) for(size_t i=0;i<scene.pose.size();++i)
             if(cache.pose[i].t!=scene.pose[i].t || cache.pose[i].r!=scene.pose[i].r || cache.pose[i].s!=scene.pose[i].s) { changed=true;break; }
     }
+    if(cache.wasHidden)changed=true;
     cache.wasHidden=false;
     auto imageFor=[&](const trickster::Texture& texture,int channel,bool srgb,bool normalMap)->AZ::Data::Instance<AZ::RPI::Image>
         {
@@ -260,9 +282,14 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
         };
     auto applyMaterial=[&](const AZ::Data::Instance<AZ::RPI::Material>& material,const trickster::Mesh& mesh) {
             material->SetPsoHandlingOverride(AZ::RPI::MaterialPropertyPsoHandling::Allowed);
-            AZ::Color color(float(mesh.color.redF()),float(mesh.color.greenF()),float(mesh.color.blueF()),float(mesh.color.alphaF()));
+            const auto base=silhouette?QColor(Qt::black):mode=="wireframe"?QColor(background):mesh.color;
+            AZ::Color color(float(base.redF()),float(base.greenF()),float(base.blueF()),float(mesh.color.alphaF()));
+            if(mode=="wireframe") {
+                auto linear=[](float v) {return v<=.04045f?v/12.92f:std::pow((v+.055f)/1.055f,2.4f);};
+                color=AZ::Color(linear(float(base.redF())),linear(float(base.greenF())),linear(float(base.blueF())),float(mesh.color.alphaF()));
+            }
             setMaterialProperty(material,"baseColor.color",color);
-            setMaterialProperty(material,"jester.unlit",mesh.unlit);
+            setMaterialProperty(material,"jester.unlit",mode!="lit" || silhouette || mesh.unlit);
             setMaterialProperty(material,"general.doubleSided",mesh.doubleSided);
             setMaterialProperty(material,"metallic.factor",mesh.unlit?0.0f:mesh.metallic);
             setMaterialProperty(material,"roughness.factor",mesh.roughness);
@@ -272,10 +299,10 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             setMaterialProperty(material,"emissive.enable",mesh.emissive.lengthSquared()>0 || mesh.textures.contains("emissive"));
             setMaterialProperty(material,"emissive.color",AZ::Color(mesh.emissive.x(),mesh.emissive.y(),mesh.emissive.z(),1.0f));
             setMaterialProperty(material,"emissive.intensity",3.0f);
-            setMaterialProperty(material,"jester.alphaFactor",float(mesh.color.alphaF()));
+            setMaterialProperty(material,"jester.alphaFactor",mode=="wireframe"?1.f:float(mesh.color.alphaF()));
             setMaterialProperty(material,"opacity.alphaAffectsSpecular",1.0f);
-            setMaterialProperty(material,"opacity.mode",uint32_t(mesh.alphaMode=="MASK"?1:mesh.alphaMode=="BLEND"?2:0));
-            setMaterialProperty(material,"opacity.factor",mesh.alphaMode=="MASK"?mesh.alphaCutoff:1.0f);
+            setMaterialProperty(material,"opacity.mode",uint32_t(mode=="wireframe"?0:mesh.alphaMode=="MASK"?1:mesh.alphaMode=="BLEND"?2:0));
+            setMaterialProperty(material,"opacity.factor",mode=="wireframe"?1.f:mesh.alphaMode=="MASK"?mesh.alphaCutoff:1.0f);
             auto texture=[&](const char* source,const char* target,const char* uvProperty,int channel=-1,bool srgb=false)
             {
                 auto it=mesh.textures.constFind(source);if(it==mesh.textures.cend()) return;
@@ -296,7 +323,8 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
                 if(it->minFilter==9728 || it->minFilter==9729) sampler.m_mipLodMax=0;
                 setMaterialProperty(material,(propertyPrefix+"Sampler").toUtf8().constData(),sampler);
             };
-            texture("baseColor","baseColor.textureMap","baseColor.textureMapUv",-1,true);
+            if(mode=="wireframe" || silhouette)setMaterialProperty(material,"baseColor.textureMap",AZ::Data::Instance<AZ::RPI::Image>());
+            else texture("baseColor","baseColor.textureMap","baseColor.textureMapUv",-1,true);
             if(!mesh.unlit)
             {
                 texture("normal","normal.textureMap","normal.textureMapUv");
@@ -308,14 +336,17 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             material->Compile();
     };
     if(materialDirty && !rebuild) for(auto& entry:cache.entries) applyMaterial(entry.material,scene.meshes[entry.source]);
-    cache.materialRevision=materialRevision;
+    cache.materialRevision=materialRevision;cache.mode=mode;cache.color=background;cache.silhouette=silhouette;
     if(changed)
     {
         QElapsedTimer timer;timer.start();
         auto globals=scene.globals(scene.pose);
+        cache.paletteMs=0;
         std::vector<std::vector<QVector3D>> positions(scene.meshes.size()),normals(scene.meshes.size());
         for(size_t i=0;i<scene.meshes.size();++i)
         {
+            auto entry=std::find_if(cache.entries.begin(),cache.entries.end(),[i](const auto &value){return value.source==i;});
+            if(entry!=cache.entries.end() && entry->gpu)continue;
             positions[i]=scene.skinned(scene.meshes[i],globals);
             normals[i]=scene.skinnedNormals(scene.meshes[i],globals);
         }
@@ -326,6 +357,27 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             const auto& mesh=scene.meshes[i];
             if(mesh.vertices.empty() || mesh.indices.empty()) continue;
             timer.restart();
+            if(!rebuild) {
+                auto entry=std::find_if(cache.entries.begin(),cache.entries.end(),[i](const auto &value){return value.source==i;});
+                if(entry!=cache.entries.end() && entry->gpu) {
+                    entry->gpu->setEnabled(true);entry->gpu->update(scene,mesh,globals);
+                    cache.paletteMs+=entry->gpu->paletteCpuMs;cache.bufferUpdateMs+=entry->gpu->bufferUpdateCpuMs;
+                    continue;
+                }
+            }
+            if(rebuild && !forceCpu) {
+                auto material=createDefaultMaterial();if(!material)continue;applyMaterial(material,mesh);
+                QString reason;auto gpu=jester::render::GpuSkinning::create(mesh,material,m_meshes,skinning,reason);
+                if(gpu) {
+                    gpu->update(scene,mesh,globals);cache.paletteMs+=gpu->paletteCpuMs;
+                    cache.bufferUpdateMs+=gpu->bufferUpdateCpuMs;
+                    EditorSceneData::Entry entry;entry.source=i;entry.handle=m_handles.size();entry.material=material;
+                    m_handles.push_back(gpu->meshHandle);entry.gpu=std::move(gpu);cache.entries.push_back(std::move(entry));
+                    cache.meshBuildMs+=std::max(0.,timer.nsecsElapsed()/1e6-cache.entries.back().gpu->paletteCpuMs-cache.entries.back().gpu->bufferUpdateCpuMs);continue;
+                }
+                // Allocation/format failures use the complete reference path.
+                setProperty("jesterGpuFallbackReason",reason);
+            }
             std::vector<F3> p,n;
             p.reserve(positions[i].size());n.reserve(normals[i].size());
             for(auto v:positions[i]) p.push_back(packed(v));
@@ -347,6 +399,7 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
                     AZ_Error("Jester",uploaded,"Cannot update deformed mesh buffers");
                     m_meshes->SetLocalAabb(*m_handles[entry->handle],bounds);
                     cache.bufferUpdateMs+=timer.nsecsElapsed()/1e6;
+                    if(mode=="wireframe") {entry->ensureWireTopology(mesh);entry->wirePositions.clear();entry->wirePositions.reserve(p.size());for(const auto &v:p)entry->wirePositions.push_back({v[0],v[1],v[2]});}
                 }
                 continue;
             }
@@ -393,11 +446,18 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             auto bitangentsBuffer=AZ::RPI::Buffer::FindOrCreate(bitangentAsset);
             if(!positionsBuffer || !normalsBuffer || !tangentsBuffer || !bitangentsBuffer) { AZ_Error("Jester",false,"Cannot allocate editor mesh buffers");continue; }
             auto handle=acquireMesh(descriptor);m_meshes->SetTransform(*handle,AZ::Transform::CreateIdentity());
-            cache.entries.push_back({i,m_handles.size(),positionsBuffer,normalsBuffer,tangentsBuffer,bitangentsBuffer,material});
+            EditorSceneData::Entry entry;entry.source=i;entry.handle=m_handles.size();
+            entry.positions=positionsBuffer;entry.normals=normalsBuffer;entry.tangents=tangentsBuffer;entry.bitangents=bitangentsBuffer;entry.material=material;
+            if(mode=="wireframe") {
+                entry.ensureWireTopology(mesh);
+                for(const auto &v:p)entry.wirePositions.push_back({v[0],v[1],v[2]});
+            }
+            cache.entries.push_back(std::move(entry));
             m_handles.push_back(AZStd::move(handle));
             cache.meshBuildMs+=timer.nsecsElapsed()/1e6;
         }
         cache.pose=scene.pose;cache.morphs=scene.morphs;
+        cache.disableComputeAfterTick=m_renderTicks+2;cache.totalPaletteMs+=cache.paletteMs;
         cache.totalSkinMs+=cache.skinMs;cache.totalPreparationMs+=cache.preparationMs;
         cache.totalBufferUpdateMs+=cache.bufferUpdateMs;cache.totalMeshBuildMs+=cache.meshBuildMs;++cache.updates;
     }
@@ -408,8 +468,8 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
         for(auto& entry:cache.entries)
         {
             const auto& mesh=scene.meshes[entry.source];
-            setMaterialProperty(entry.material,"opacity.mode",uint32_t(transparent?2:mesh.alphaMode=="MASK"?1:mesh.alphaMode=="BLEND"?2:0));
-            setMaterialProperty(entry.material,"opacity.factor",transparent?.25f:mesh.alphaMode=="MASK"?mesh.alphaCutoff:1.0f);
+            setMaterialProperty(entry.material,"opacity.mode",uint32_t(mode=="wireframe"?0:transparent?2:mesh.alphaMode=="MASK"?1:mesh.alphaMode=="BLEND"?2:0));
+            setMaterialProperty(entry.material,"opacity.factor",mode=="wireframe"?1.f:transparent?.25f:mesh.alphaMode=="MASK"?mesh.alphaCutoff:1.0f);
             entry.material->Compile();
         }
         cache.transparent=transparent;
@@ -418,6 +478,10 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
 
 void AtomViewport::pollEditorResources() {
     if(!m_editorData || m_editorData->wasHidden) return;
+    if(m_editorData->disableComputeAfterTick && m_renderTicks>m_editorData->disableComputeAfterTick) {
+        for(auto &entry:m_editorData->entries)if(entry.gpu)entry.gpu->setEnabled(false);
+        m_editorData->disableComputeAfterTick=0;
+    }
     for(auto& entry:m_editorData->entries)
         if(entry.material->NeedsCompile() && entry.material->CanCompile()) entry.material->Compile();
 }
@@ -426,31 +490,82 @@ QJsonObject AtomViewport::editorDiagnostics() const
 {
     if(!m_editorData) return {};
     const auto& cache=*m_editorData;
-    return {{"renderer","Atom"},{"gpuSkinningAvailable",false},{"gpuSkinningReason","Compatibility CPU evaluator uploads to native Atom buffers; eight weights and morphs preserved"},
-        {"gpuMeshes",0},{"cpuMeshes",int(cache.entries.size())},{"weightsPerVertex",8},{"paletteJointLimit",0},
+    int gpu=0;for(const auto &entry:cache.entries)if(entry.gpu)++gpu;
+    const QString path=gpu==int(cache.entries.size()) && gpu?"gpu":gpu?"mixed":"cpu";
+    return {{"renderer","Atom"},{"gpuSkinningAvailable",bool(m_scene->GetFeatureProcessor<AZ::Render::SkinnedMeshFeatureProcessorInterface>())},
+        {"gpuSkinningReason",cache.forceCpu?QString("CPU requested, wireframe readback fallback, or morph range exceeds native bound"):property("jesterGpuFallbackReason").toString()},
+        {"gpuMeshes",gpu},{"cpuMeshes",int(cache.entries.size())-gpu},{"weightsPerVertex",8},{"paletteJointLimit",65535},
+        {"cpuPaletteMs",cache.paletteMs},{"totalCpuPaletteMs",cache.totalPaletteMs},
         {"cpuSkinMs",cache.skinMs},{"vertexPreparationMs",cache.preparationMs},
         {"bufferUpdateCpuMs",cache.bufferUpdateMs},{"meshBuildCpuMs",cache.meshBuildMs},
         {"geometryUpdates",qint64(cache.updates)},{"skinUpdates",qint64(cache.updates)},
         {"totalCpuSkinMs",cache.totalSkinMs},{"totalVertexPreparationMs",cache.totalPreparationMs},
         {"totalBufferUpdateCpuMs",cache.totalBufferUpdateMs},{"totalMeshBuildCpuMs",cache.totalMeshBuildMs},
-        {"meshVisible",!cache.wasHidden},{"skinningPath","cpu"},
+        {"meshVisible",!cache.wasHidden},{"skinningPath",path},
         {"metricScope","CPU wall time; latest geometry update, cumulative totals; RPI callbacks are not display presentation"},
         {"gpuTimingStatus","Not measured"},{"gpuDrawMs",QJsonValue()}};
 }
 
-void AtomViewport::drawEditorGrid()
-{
-    if(!m_editorData || !m_editorData->source) return;
-    auto queue=AZ::RPI::AuxGeomFeatureProcessorInterface::GetDrawQueueForScene(m_scene);
-    if(!queue) return;
-    float unit=m_editorData->gridUnit;
-    float ground=m_editorData->source->physics.ground;
-    AZStd::vector<AZ::Vector3> points;
-    for(int i=-20;i<=20;++i) { points.push_back({i*unit,ground,-20*unit});points.push_back({i*unit,ground,20*unit});points.push_back({-20*unit,ground,i*unit});points.push_back({20*unit,ground,i*unit}); }
-    AZ::Color color(.16f,.20f,.26f,1.0f);
-    AZ::RPI::AuxGeomDraw::AuxGeomDynamicDrawArguments args;
-    args.m_verts=points.data();args.m_vertCount=uint32_t(points.size());args.m_colors=&color;args.m_colorCount=1;
-    queue->DrawLines(args);
+void AtomViewport::drawEditorWireframe() {
+    if(!m_editorData || m_editorData->wasHidden || m_editorData->mode!="wireframe")return;
+    const auto &scene=*m_editorData->source;
+    auto queue=AZ::RPI::AuxGeomFeatureProcessorInterface::GetDrawQueueForScene(m_scene);if(!queue)return;
+    QColor c(scene.visuals.value("wireframe.color").toString());AZ::Color color(float(c.redF()),float(c.greenF()),float(c.blueF()),1.f);
+    for(const auto &entry:m_editorData->entries)if(!entry.edges.empty()) {
+        AZ::RPI::AuxGeomDraw::AuxGeomDynamicIndexedDrawArguments args;
+        args.m_verts=entry.wirePositions.data();args.m_vertCount=uint32_t(entry.wirePositions.size());args.m_indices=entry.edges.data();args.m_indexCount=uint32_t(entry.edges.size());
+        args.m_colors=&color;args.m_colorCount=1;args.m_depthWrite=AZ::RPI::AuxGeomDraw::DepthWrite::Off;
+        args.m_depthTest=scene.visuals.value("wireframe.hiddenEdges").toBool()?AZ::RPI::AuxGeomDraw::DepthTest::Off:AZ::RPI::AuxGeomDraw::DepthTest::On;
+        queue->DrawLines(args);
+    }
+}
+
+QJsonObject AtomViewport::validateSkinningReference() {
+    if(!m_editorData || m_editorData->wasHidden)return {{"error","skinning_readback.no_visible_scene"}};
+    const auto cache=m_editorData;
+    const auto snapshot=*cache->source;
+    for(auto &entry:cache->entries)if(entry.gpu)entry.gpu->setEnabled(true);
+    cache->disableComputeAfterTick=m_renderTicks+600;
+    QElapsedTimer timer;timer.start();QString error;
+    const auto bytes=jester::render::readSkinningOutput(*m_scene,error);
+    cache->disableComputeAfterTick=m_renderTicks+2;
+    if(!error.isEmpty())return {{"error",error}};
+    const double readbackMs=timer.nsecsElapsed()/1e6;
+    if(cache!=m_editorData || snapshot.morphs!=cache->source->morphs || snapshot.pose.size()!=cache->source->pose.size())return {{"error","skinning_readback.scene_changed"}};
+    for(size_t i=0;i<snapshot.pose.size();++i)if((snapshot.pose[i].t!=cache->source->pose[i].t || snapshot.pose[i].r!=cache->source->pose[i].r || snapshot.pose[i].s!=cache->source->pose[i].s))return {{"error","skinning_readback.pose_changed"}};
+    const auto globals=snapshot.globals(snapshot.pose);QJsonArray meshes;
+    for(const auto &entry:cache->entries)if(entry.gpu) {
+        const auto &source=snapshot.meshes[entry.source];
+        const auto positions=snapshot.skinned(source,globals),normals=snapshot.skinnedNormals(source,globals);
+        std::vector<F4> tangents;std::vector<F3> bitangents;deformedBasis(snapshot,source,globals,normals,tangents,bitangents);
+        const auto model=entry.gpu->outputModel();const auto &mesh=model->GetModelAsset()->GetLodAssets()[0]->GetMeshes()[0];
+        double positionError=0,normalError=0,tangentError=0,bitangentError=0;
+        bool valid=true;QJsonObject samples;
+        auto difference=[&](const char *semantic,size_t index,const float *reference,int components,double &maximum) {
+            const auto *stream=mesh.GetSemanticBufferAssetView(AZ::Name(semantic));if(!stream) {valid=false;return;}
+            const auto &view=stream->GetBufferViewDescriptor();const uint64_t offset=uint64_t(view.m_elementOffset)*view.m_elementSize+index*view.m_elementSize;
+            if(offset+components*sizeof(float)>uint64_t(bytes.size())) {valid=false;return;}
+            float actual[4]{};std::memcpy(actual,bytes.constData()+offset,components*sizeof(float));
+            if(index==0) {
+                QJsonArray expected,observed;
+                for(int c=0;c<components;++c) {expected.append(reference[c]);observed.append(actual[c]);}
+                samples[semantic]=QJsonObject{{"cpu",expected},{"gpu",observed},{"offsetBytes",qint64(offset)}};
+            }
+            for(int c=0;c<components;++c) {
+                if(!std::isfinite(actual[c]))valid=false;
+                maximum=std::max(maximum,double(std::abs(actual[c]-reference[c])));
+            }
+        };
+        for(size_t i=0;i<source.vertices.size();++i) {
+            const auto p=packed(positions[i]),n=packed(normals[i]);
+            difference("POSITION",i,p.data(),3,positionError);difference("NORMAL",i,n.data(),3,normalError);
+            difference("TANGENT",i,tangents[i].data(),4,tangentError);difference("BITANGENT",i,bitangents[i].data(),3,bitangentError);
+        }
+        meshes.append(QJsonObject{{"mesh",qint64(entry.source)},{"vertices",qint64(source.vertices.size())},{"finiteAndComplete",valid},{"firstVertex",samples},
+            {"positionMaxComponentError",positionError},{"normalMaxComponentError",normalError},
+            {"tangentMaxComponentError",tangentError},{"bitangentMaxComponentError",bitangentError}});
+    }
+    return {{"meshes",meshes},{"readbackCpuWallMs",readbackMs},{"scope","Native skinning output buffer readback versus CPU reference; morph TBN uses native quantization"}};
 }
 
 QImage AtomViewport::captureImage()

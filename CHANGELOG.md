@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add native Atom GPU skinning with eight influences, morphs, shear-correct normal transforms, precise tagged TBN deltas and CPU fallback; verify native output against CPU on DX12/Vulkan.
+- Add authored Lit/Unlit/mesh Wireframe, Scene controls, studio IBL, separate visual floor, presets and pipeline exposure/tonemapping/grading/Bloom.
+- Add shared preference persistence, searchable preview/apply/cancel UI, stable action bindings/layouts, scene presets, and initial Qt translation infrastructure.
+- Expose scene capabilities/authored/applied state and editor preferences through shared MCP validation.
+
 - Persist scene visuals in schema 9 with independent visual Undo/Redo and revision tracking, preserving motion analysis and physics provenance.
 - Skip hidden and unchanged geometry, update materials independently, report actual RHI and separate CPU deformation/preparation/buffer/build metrics.
 - Add repeatable three-scene rendering benchmarks; distinguish RPI preparation callbacks from display presentation and measure captures separately.

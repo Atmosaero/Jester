@@ -1,6 +1,6 @@
 # Jester MCP
 
-Jester **0.1.0-alpha.1** exposes **42 tools**. Project schema **8** reads schemas **1-8**.
+Jester **0.1.0-alpha.1** exposes **44 tools**. Project schema **9** reads schemas **1-9**.
 
 MCP управляет запущенным Jester через его C++/Qt-функции. Сервер встроен в приложение; Python и отдельный процесс для HTTP-подключения не нужны.
 
@@ -212,7 +212,7 @@ Dynamics settings accept `prepareLanding` (default true) in addition to `endAtRe
 ## Motion analysis and retargeting
 
 All motion editing uses the same EditService and evaluator as Qt. Project schema
-8 reads schemas 1-8. Read-only operations keep
+9 reads schemas 1-9. Read-only operations keep
 playback, frame, selection, dirty state, Undo and pending gestures intact.
 
 | Tool | Operations and scope |
@@ -292,3 +292,5 @@ subframe intervals occupying one bin. Moving/stretching note bounds transforms
 expected target-key times by the same affine map as retime. Text remains authored
 context, never a generated constraint. See [NOTES.md](NOTES.md) for the editor
 workflow and data-safety policy.
+
+Scene display and editor preferences use `scene_visuals` and `editor_preferences`; see [Scene settings](SCENE_SETTINGS.md) and [personalization](PERSONALIZATION.md).

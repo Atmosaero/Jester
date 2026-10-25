@@ -1,0 +1,115 @@
+/*
+ * Copyright (c) Contributors to the Open 3D Engine Project.
+ * For complete copyright and license terms please see the LICENSE at the root of this distribution.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ *
+ */
+#include <Atom/Feature/Common/Assets/Shaders/MorphTargets/MorphTargetSRG.azsli>
+#include <Atom/Features/MorphTargets/MorphTargetCompression.azsli>
+
+
+// Jester tagged half-float TBN payload; untagged SDK inputs retain their format.
+float JesterHalf(uint value)
+{
+    uint mantissa=value & 1023;
+    uint exponent=(value >> 10) & 31;
+    uint sign=(value & 32768) << 16;
+    if(exponent==0) return (sign!=0 ? -1.0 : 1.0)*float(mantissa)*(1.0/16777216.0);
+    return asfloat(sign | ((exponent+112)<<23) | (mantissa<<13));
+}
+float3 JesterNormalDelta(MorphTargetDelta delta)
+{
+    return float3(JesterHalf(delta.m_compressedPositionDeltaZNormalDeltaXY & 65535),
+                  JesterHalf(delta.m_compressedNormalDeltaZTangentDelta >> 16),
+                  JesterHalf(delta.m_compressedNormalDeltaZTangentDelta & 65535));
+}
+float3 JesterTangentDelta(MorphTargetDelta delta)
+{
+    return float3(JesterHalf(delta.m_compressedPadBitangentDeltaXYZ >> 16),
+                  JesterHalf(delta.m_compressedPadBitangentDeltaXYZ & 65535),
+                  JesterHalf(delta.m_pad.x >> 16));
+}
+float3 JesterBitangentDelta(MorphTargetDelta delta)
+{
+    return float3(JesterHalf(delta.m_pad.x & 65535),JesterHalf(delta.m_pad.y >> 16),JesterHalf(delta.m_pad.y & 65535));
+}
+
+rootconstant float s_min;
+rootconstant float s_max;
+rootconstant float s_accumulatedDeltaIntegerEncoding;
+rootconstant float s_weight;
+rootconstant uint s_vertexCount;
+rootconstant uint s_targetPositionOffset;
+rootconstant uint s_targetNormalOffset;
+rootconstant uint s_targetTangentOffset;
+rootconstant uint s_targetBitangentOffset;
+
+void WriteDeltaToAccumulationBuffer(float3 delta, uint offset, uint morphedVertexIndex)
+{
+    // offset gives the start location of the final morph values
+    // morphedVertexIndex is the vertex that is being morphed by the current thread
+    int3 encodedInts = EncodeFloatsToInts(delta, s_accumulatedDeltaIntegerEncoding);
+    InterlockedAdd(MorphTargetPassSrg::m_accumulatedDeltas[offset + morphedVertexIndex * 3], encodedInts.x);
+    InterlockedAdd(MorphTargetPassSrg::m_accumulatedDeltas[offset + morphedVertexIndex * 3 + 1], encodedInts.y);
+    InterlockedAdd(MorphTargetPassSrg::m_accumulatedDeltas[offset + morphedVertexIndex * 3 + 2], encodedInts.z);
+}
+
+[numthreads(64,1,1)]
+void MainCS(uint3 thread_id: SV_DispatchThreadID)
+{
+    // Each thread is responsible for one morph
+    const uint i = thread_id.x;
+    if(i < s_vertexCount)
+    {
+        // The compressed data is packed into a strctured buffer
+        MorphTargetDelta delta = MorphTargetInstanceSrg::m_vertexDeltas[i];
+
+        uint morphedVertexIndex = delta.m_morphedVertexIndex;
+
+        uint3 compressedPositionDelta;        
+        // X is in the most significant 16 bits
+        compressedPositionDelta.x = delta.m_compressedPositionDeltaXY >> 16;
+        // Y is in the least significant 16 bits
+        compressedPositionDelta.y = delta.m_compressedPositionDeltaXY & 0x0000FFFF;
+
+        // Position z is in the most significant 16 bits
+        compressedPositionDelta.z = delta.m_compressedPositionDeltaZNormalDeltaXY >> 16;
+
+        uint3 compressedNormalDelta;
+        // Normal x and y are in the least significant 16 bits (8 bits per channel)
+        compressedNormalDelta.x = (delta.m_compressedPositionDeltaZNormalDeltaXY >> 8) & 0x000000FF;
+        compressedNormalDelta.y =  delta.m_compressedPositionDeltaZNormalDeltaXY       & 0x000000FF;
+
+        
+        // Now that we have the compressed positions, unpack them and write them to the accumulation buffer
+        float3 positionDelta = DecodePositionDelta(compressedPositionDelta, s_min, s_max) * s_weight;
+        WriteDeltaToAccumulationBuffer(positionDelta, s_targetPositionOffset, morphedVertexIndex);
+
+        // Get the normal delta z from the most significant 8 bits
+        compressedNormalDelta.z = delta.m_compressedNormalDeltaZTangentDelta >> 24;
+        
+        // Get the tangent delta from the least significant 24 bits (8 bits per channel)
+        uint3 compressedTangentDelta;
+        compressedTangentDelta.x = (delta.m_compressedNormalDeltaZTangentDelta >> 16) & 0x000000FF;
+        compressedTangentDelta.y = (delta.m_compressedNormalDeltaZTangentDelta >> 8)  & 0x000000FF;
+        compressedTangentDelta.z =  delta.m_compressedNormalDeltaZTangentDelta        & 0x000000FF;
+        
+        // Now that we have the compressed normals and tangents, unpack them and write them to the accumulation buffer
+        float3 normalDelta = (delta.m_pad.z==0x4a535448 ? JesterNormalDelta(delta) : DecodeTBNDelta(compressedNormalDelta)) * s_weight;
+        WriteDeltaToAccumulationBuffer(normalDelta, s_targetNormalOffset, morphedVertexIndex);
+
+        float3 tangentDelta = (delta.m_pad.z==0x4a535448 ? JesterTangentDelta(delta) : DecodeTBNDelta(compressedTangentDelta)) * s_weight;
+        WriteDeltaToAccumulationBuffer(tangentDelta, s_targetTangentOffset, morphedVertexIndex);
+
+        uint3 compressedBitangentDelta;
+        // Bitangents are in the least significant 24 bits (8 bits per channel)
+        compressedBitangentDelta.x = (delta.m_compressedPadBitangentDeltaXYZ >> 16) & 0x000000FF;
+        compressedBitangentDelta.y = (delta.m_compressedPadBitangentDeltaXYZ >> 8)  & 0x000000FF;
+        compressedBitangentDelta.z =  delta.m_compressedPadBitangentDeltaXYZ        & 0x000000FF;
+
+        // Now that we have the compressed bitangents, unpack them and write them to the accumulation buffer      
+        float3 bitangentDelta = (delta.m_pad.z==0x4a535448 ? JesterBitangentDelta(delta) : DecodeTBNDelta(compressedBitangentDelta)) * s_weight;
+        WriteDeltaToAccumulationBuffer(bitangentDelta, s_targetBitangentOffset, morphedVertexIndex);
+    }
+}

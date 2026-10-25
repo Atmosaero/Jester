@@ -30,7 +30,7 @@ def main():
         for scale in args.scales:
             folder=output/backend/f'{scale:g}';folder.mkdir(parents=True,exist_ok=True)
             env={**os.environ,'QT_SCALE_FACTOR':str(scale),'JESTER_BENCHMARK_OUTPUT':str(folder),
-                 'VK_LOADER_LAYERS_DISABLE':'~implicit~'}
+                 'VK_LOADER_LAYERS_DISABLE':'~implicit~','JESTER_PREFERENCES_FILE':str(folder/'preferences.json')}
             env.pop('QT_QPA_PLATFORM',None)
             if args.cpu:env['JESTER_BENCHMARK_CPU']='1'
             else:env.pop('JESTER_BENCHMARK_CPU',None)

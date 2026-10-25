@@ -29,6 +29,8 @@ class Viewport : public QWidget {
     bool readOnly = false;
     bool forceCpuSkinning = false;
     QJsonObject renderingStats() const;
+    QJsonObject sceneVisualState() const;
+    QJsonObject sceneVisualCapabilities() const;
     QImage grabFramebuffer() const;
     QImage captureOverlay() const;
     QWidget* overlayWidget() const { return overlay; }

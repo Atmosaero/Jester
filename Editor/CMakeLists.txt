@@ -1,4 +1,4 @@
-find_package(Qt6 6.10 REQUIRED COMPONENTS Widgets Network Test)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Widgets Network Test LinguistTools)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,13 +55,17 @@ if(MSVC)
     target_compile_options(JesterCore PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()
 option(JESTER_BUILD_TESTS "Build editor regression tests with the Jester Qt runtime" ON)
-add_library(JesterAtom STATIC src/render/atom/AtomViewport.cpp src/render/atom/AtomEditorScene.cpp)
+add_library(JesterAtom STATIC src/render/atom/AtomViewport.cpp src/render/atom/AtomEditorScene.cpp
+    src/render/atom/AtomVisualScene.cpp src/render/atom/gpu_skinning.cpp src/render/atom/skinning_readback.cpp)
 target_include_directories(JesterAtom PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(JesterAtom PUBLIC JesterCore Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
 if(MSVC)
     target_compile_options(JesterAtom PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()
 add_library(JesterUI STATIC
+    src/settings/action_registry.cpp src/settings/preferences_service.cpp src/settings/editor_appearance.cpp src/settings/localization.cpp
+    src/ui/widgets/localized_ui.cpp src/ui/dialogs/preferences_dialog.cpp
+    src/ui/window/scene_settings_panel.cpp src/ui/window/scene_settings_controller.cpp
     src/settings/preferences.cpp src/ui/curves/curve_canvas.cpp src/ui/curves/native_curve_plot.cpp
     src/ui/notes/notes_card.cpp src/ui/notes/notes_ui.cpp src/ui/notes/notes_overlay.cpp src/ui/motion/analysis_views.cpp
     src/ui/motion/retarget_ui.cpp src/ui/motion/motion_analysis_ui.cpp src/ui/curves/graph_editor.cpp src/ui/physics/physics_ui.cpp
@@ -69,6 +73,18 @@ add_library(JesterUI STATIC
     src/ui/window/layout_ui.cpp src/ui/window/window.cpp src/ui/window/helpers_ui.cpp src/ui/window/scenes_ui.cpp src/ui/viewport/viewport.cpp
     src/ui/timeline/timeline.cpp src/automation/editor_api.cpp src/automation/editor_ui_api.cpp src/automation/mcp_server.cpp src/automation/automation_ui.cpp)
 qt_add_resources(JesterUI mcp_catalog PREFIX "/trickster" FILES src/automation/mcp_tools.json)
+qt_add_lrelease(TS_FILES translations/jester_ru.ts
+    QM_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/translations"
+    QM_FILES_OUTPUT_VARIABLE JESTER_QM_FILES LRELEASE_TARGET JesterTranslations)
+qt_add_resources(JesterUI editor_translations PREFIX "/jester/translations"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}/translations" FILES ${JESTER_QM_FILES})
+get_target_property(JESTER_QT_QMAKE Qt6::qmake IMPORTED_LOCATION)
+get_filename_component(JESTER_QT_BIN "${JESTER_QT_QMAKE}" DIRECTORY)
+add_custom_command(TARGET JesterUI POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin/$<CONFIG>/translations"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${JESTER_QM_FILES} "${CMAKE_BINARY_DIR}/bin/$<CONFIG>/translations"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${JESTER_QT_BIN}/../translations/qtbase_ru.qm" "${CMAKE_BINARY_DIR}/bin/$<CONFIG>/translations")
+
 target_include_directories(JesterUI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(JesterUI PUBLIC JesterCore JesterAtom Qt6::Widgets Qt6::Network
     PRIVATE Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
@@ -96,6 +112,7 @@ if(JESTER_BUILD_TESTS)
     jester_gui_test(JesterMotionTests motion_tests)
     jester_gui_test(JesterUxScopeTests ux_scope_tests)
     jester_gui_test(JesterPerformanceTests render_performance_tests)
+    jester_gui_test(JesterVisualTests visual_tests)
     function(jester_core_test target source)
         add_executable(${target} tests/${source}.cpp)
         target_link_libraries(${target} PRIVATE JesterCore JesterMuJoCo Qt6::Test)
@@ -122,5 +139,5 @@ if(JESTER_BUILD_TESTS)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Test>" "$<TARGET_FILE_DIR:JesterCoreTests>")
     add_custom_target(JesterRegression DEPENDS JesterCoreTests JesterPhysicsTests JesterMvpCoreTests
         JesterMuJoCoTests JesterReliabilityTests JesterMediaTests JesterUiTests JesterMvpTests
-        JesterAutomationTests JesterNotesTests JesterPhysicsUiTests JesterMotionTests JesterUxScopeTests JesterSettingsTests)
+        JesterAutomationTests JesterNotesTests JesterPhysicsUiTests JesterMotionTests JesterUxScopeTests JesterSettingsTests JesterVisualTests)
 endif()

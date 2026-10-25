@@ -2,6 +2,11 @@
 #include "io/project/project_io.h"
 #include "ui/window/window.h"
 #include "ui/notes/notes_ui.h"
+#include "ui/window/scene_settings_panel.h"
+#include "ui/dialogs/preferences_dialog.h"
+#include "ui/widgets/localized_ui.h"
+#include "settings/action_registry.h"
+#include "settings/preferences_service.h"
 #include <QToolButton>
 #include <QMenu>
 #include "core/scene/edit_service.h"
@@ -118,6 +123,10 @@ Window::Window() {
     modernizeLayout();
     buildMotionPanel();
     new NotesController(this);
+    installSceneSettings(*this);
+    auto *preferences=new QAction(this);preferences->setObjectName("preferencesAction");bindUiText(preferences,"text","Preferences");preferences->setShortcut(QKeySequence("Ctrl+,"));
+    menuBar()->addAction(preferences);addAction(preferences);connect(preferences,&QAction::triggered,this,[this]{showPreferences(*this);});
+    connect(&PreferencesService::instance(),&PreferencesService::changed,this,[this] {ActionRegistry(*this).apply(PreferencesService::instance().current());viewport->update();});
     statusBar()->setSizeGripEnabled(true);
     frameInfo = new QLabel(this);
     statusBar()->addPermanentWidget(frameInfo);
@@ -143,6 +152,7 @@ Window::Window() {
     report("Empty scene. Choose Scene (Ctrl+Shift+O), open a character or create a mannequin.");
     buildRecovery();
     buildAutomation();
+    ActionRegistry(*this).apply(PreferencesService::instance().current());
 }
 void Window::buildInspector() {
     auto dock = new QDockWidget("Inspector", this);

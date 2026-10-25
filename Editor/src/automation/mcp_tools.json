@@ -80,6 +80,76 @@
     }
   },
   {
+    "name": "editor_preferences",
+    "description": "Query, preview-independent apply, or reset portable editor preferences. Validated settings exclude MCP credentials, recent files and private paths. Returns actual language/font/action state. Shortcuts use stable action IDs.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "get",
+            "set",
+            "reset"
+          ]
+        },
+        "settings": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "scene_visuals",
+    "description": "Query or edit authored scene visuals with the same validation and Undo as the Scene dock. settings is a partial nested patch. Read capabilities for supported features, authored and applied state. Does not invalidate motion analysis or physics.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "get",
+            "capabilities",
+            "set",
+            "preset",
+            "reset"
+          ]
+        },
+        "settings": {
+          "type": "object"
+        },
+        "preset": {
+          "type": "string",
+          "enum": [
+            "neutral",
+            "studio",
+            "silhouette"
+          ]
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
     "name": "node_select",
     "description": "Select one or multiple bones/controllers; mode replace/add/toggle. node=-1 or empty nodes clears selection. editor_state returns primary selected and full selection.",
     "inputSchema": {

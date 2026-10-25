@@ -1,0 +1,10 @@
+Photo Studio 01, by Sergej Majboroda / Poly Haven.
+https://polyhaven.com/a/photo_studio_01
+License: CC0 1.0 Universal.
+https://polyhaven.com/license
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The portable runtime includes diffuse and specular cubemaps processed by O3DE
+from its photo_studio_01_4k_iblskyboxcm.exr asset. The source HDRI is supplied by
+the O3DE SDK; it is not a private/user character asset.
+Source and license attribution verified 2026-10-26.
