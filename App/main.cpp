@@ -15,11 +15,11 @@
 #include <QFile>
 #include <QDir>
 #include <QImage>
-#include "AtomViewport.h"
-#include "window.h"
-#include "appearance.h"
+#include "render/atom/AtomViewport.h"
+#include "ui/window/window.h"
+#include "settings/appearance.h"
 #include "trickster_version.h"
-#include "mcp_server.h"
+#include "automation/mcp_server.h"
 #include <QSaveFile>
 #include <QFileInfo>
 #include <QSettings>

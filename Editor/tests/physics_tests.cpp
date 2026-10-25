@@ -1,4 +1,4 @@
-#include "core.h"
+#include "core/scene/core.h"
 #include <QTemporaryDir>
 #include <QtTest>
 using namespace trickster;

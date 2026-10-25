@@ -1,9 +1,9 @@
-#include "demo_scenes.h"
-#include "edit_service.h"
-#include "mujoco_backend.h"
-#include "physics_demos.h"
-#include "physics_tools.h"
-#include "physics_validation.h"
+#include "io/catalog/demo_scenes.h"
+#include "core/scene/edit_service.h"
+#include "physics/mujoco_backend.h"
+#include "physics/physics_demos.h"
+#include "physics/physics_tools.h"
+#include "physics/physics_validation.h"
 #include <QCoreApplication>
 #include <QFile>
 #include <QJsonDocument>

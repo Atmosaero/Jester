@@ -1,5 +1,5 @@
-#include "appearance.h"
-#include "window.h"
+#include "settings/appearance.h"
+#include "ui/window/window.h"
 #include <QApplication>
 #include <QBuffer>
 #include <QJsonDocument>

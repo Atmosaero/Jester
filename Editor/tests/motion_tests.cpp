@@ -1,8 +1,8 @@
-#include "appearance.h"
-#include "core.h"
-#include "document.h"
-#include "editor_api.h"
-#include "window.h"
+#include "settings/appearance.h"
+#include "core/scene/core.h"
+#include "core/scene/document.h"
+#include "automation/editor_api.h"
+#include "ui/window/window.h"
 #include <QApplication>
 #include <QCheckBox>
 #include <QDialog>

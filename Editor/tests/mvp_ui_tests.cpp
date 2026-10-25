@@ -1,8 +1,8 @@
-﻿#include "appearance.h"
-#include "demo_scenes.h"
-#include "edit_service.h"
-#include "editor_api.h"
-#include "window.h"
+#include "settings/appearance.h"
+#include "io/catalog/demo_scenes.h"
+#include "core/scene/edit_service.h"
+#include "automation/editor_api.h"
+#include "ui/window/window.h"
 #include <QApplication>
 #include <QDialog>
 #include <QDialogButtonBox>

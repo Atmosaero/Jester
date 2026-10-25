@@ -1,7 +1,7 @@
-﻿#include "appearance.h"
-#include "editor_api.h"
-#include "physics_demos.h"
-#include "window.h"
+#include "settings/appearance.h"
+#include "automation/editor_api.h"
+#include "physics/physics_demos.h"
+#include "ui/window/window.h"
 #include <QApplication>
 #include <QDialog>
 #include <QDialogButtonBox>

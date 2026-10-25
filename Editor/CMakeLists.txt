@@ -28,24 +28,24 @@ if(GIT_FOUND)
         endif()
     endif()
 endif()
-configure_file(src/version.h.in generated/trickster_version.h @ONLY)
+configure_file(src/settings/version.h.in generated/trickster_version.h @ONLY)
 add_library(JesterUfbx STATIC third_party/ufbx/ufbx.c)
 target_include_directories(JesterUfbx PUBLIC third_party/ufbx)
 set_target_properties(JesterUfbx PROPERTIES AUTOMOC OFF)
 
 set(JESTER_CORE_SOURCES
-    src/notes_navigation.cpp src/motion_expectations.cpp src/curve_bake.cpp
-    src/motion_validation.cpp src/analysis_jobs.cpp src/motion_compare.cpp
-    src/retarget.cpp src/motion_analysis.cpp src/animation_curves.cpp
-    src/motion_annotations.cpp src/physics_proxy.cpp src/physics_trajectory.cpp
-    src/physics_validation.cpp src/physics_demos.cpp src/demo_scenes.cpp
-    src/recovery.cpp src/evaluator.cpp src/key_editing.cpp src/edit_service.cpp
-    src/physics_jobs.cpp src/workspace.cpp src/profile.cpp src/motion.cpp
-    src/physics.cpp src/mujoco_backend.cpp src/whole_body.cpp src/flight.cpp
-    src/dynamics_optimizer.cpp src/physics_settings.cpp src/physics_telemetry.cpp
-    src/physics_provenance.cpp src/physics_replay.cpp src/fbx.cpp src/fbx_export.cpp
-    src/core.cpp src/geometry.cpp src/posing.cpp src/gltf.cpp src/document.cpp
-    src/scene_catalog.cpp)
+    src/core/annotations/notes_navigation.cpp src/core/analysis/motion_expectations.cpp src/core/animation/curve_bake.cpp
+    src/core/analysis/motion_validation.cpp src/core/analysis/analysis_jobs.cpp src/core/analysis/motion_compare.cpp
+    src/core/animation/retarget.cpp src/core/analysis/motion_analysis.cpp src/core/animation/animation_curves.cpp
+    src/core/annotations/motion_annotations.cpp src/physics/physics_proxy.cpp src/physics/physics_trajectory.cpp
+    src/physics/physics_validation.cpp src/physics/physics_demos.cpp src/io/catalog/demo_scenes.cpp
+    src/io/project/recovery.cpp src/core/animation/evaluator.cpp src/core/animation/key_editing.cpp src/core/scene/edit_service.cpp
+    src/physics/physics_jobs.cpp src/core/scene/workspace.cpp src/core/scene/profile.cpp src/core/animation/motion.cpp
+    src/physics/physics.cpp src/physics/mujoco_backend.cpp src/physics/whole_body.cpp src/physics/flight.cpp
+    src/physics/dynamics_optimizer.cpp src/physics/physics_settings.cpp src/physics/physics_telemetry.cpp
+    src/physics/physics_provenance.cpp src/physics/physics_replay.cpp src/io/import/fbx.cpp src/io/export/fbx_export.cpp
+    src/core/scene/core.cpp src/core/scene/geometry.cpp src/core/scene/posing.cpp src/io/import/gltf.cpp src/core/scene/document.cpp
+    src/io/catalog/scene_catalog.cpp)
 add_library(JesterCore STATIC ${JESTER_CORE_SOURCES})
 target_include_directories(JesterCore PUBLIC src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(JesterCore PUBLIC Qt6::Gui PRIVATE JesterUfbx JesterMuJoCo Psapi)
@@ -53,20 +53,20 @@ if(MSVC)
     target_compile_options(JesterCore PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()
 option(JESTER_BUILD_TESTS "Build editor regression tests with the Jester Qt runtime" ON)
-add_library(JesterAtom STATIC ../App/AtomViewport.cpp ../App/AtomEditorScene.cpp)
-target_include_directories(JesterAtom PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../App")
+add_library(JesterAtom STATIC src/render/atom/AtomViewport.cpp src/render/atom/AtomEditorScene.cpp)
+target_include_directories(JesterAtom PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(JesterAtom PUBLIC JesterCore Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
 if(MSVC)
     target_compile_options(JesterAtom PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()
 add_library(JesterUI STATIC
-    src/notes_card.cpp src/notes_ui.cpp src/notes_overlay.cpp src/analysis_views.cpp
-    src/retarget_ui.cpp src/motion_analysis_ui.cpp src/graph_editor.cpp src/physics_ui.cpp
-    src/physics_job.cpp src/profile_ui.cpp src/motion_ui.cpp src/icons.cpp src/panels_ui.cpp
-    src/layout_ui.cpp src/window.cpp src/helpers_ui.cpp src/scenes_ui.cpp src/viewport.cpp
-    src/timeline.cpp src/editor_api.cpp src/editor_ui_api.cpp src/mcp_server.cpp src/automation_ui.cpp)
-qt_add_resources(JesterUI mcp_catalog PREFIX "/trickster" FILES src/mcp_tools.json)
-target_include_directories(JesterUI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../App")
+    src/ui/notes/notes_card.cpp src/ui/notes/notes_ui.cpp src/ui/notes/notes_overlay.cpp src/ui/motion/analysis_views.cpp
+    src/ui/motion/retarget_ui.cpp src/ui/motion/motion_analysis_ui.cpp src/ui/curves/graph_editor.cpp src/ui/physics/physics_ui.cpp
+    src/ui/physics/physics_job.cpp src/ui/motion/profile_ui.cpp src/ui/motion/motion_ui.cpp src/ui/widgets/icons.cpp src/ui/window/panels_ui.cpp
+    src/ui/window/layout_ui.cpp src/ui/window/window.cpp src/ui/window/helpers_ui.cpp src/ui/window/scenes_ui.cpp src/ui/viewport/viewport.cpp
+    src/ui/timeline/timeline.cpp src/automation/editor_api.cpp src/automation/editor_ui_api.cpp src/automation/mcp_server.cpp src/automation/automation_ui.cpp)
+qt_add_resources(JesterUI mcp_catalog PREFIX "/trickster" FILES src/automation/mcp_tools.json)
+target_include_directories(JesterUI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(JesterUI PUBLIC JesterCore JesterAtom Qt6::Widgets Qt6::Network
     PRIVATE Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
 if(MSVC)

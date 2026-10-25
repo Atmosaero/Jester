@@ -1,5 +1,5 @@
-#include "core.h"
-#include "document.h"
+#include "core/scene/core.h"
+#include "core/scene/document.h"
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>

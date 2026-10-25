@@ -1,7 +1,7 @@
-#include "appearance.h"
-#include "editor_api.h"
-#include "mcp_server.h"
-#include "window.h"
+#include "settings/appearance.h"
+#include "automation/editor_api.h"
+#include "automation/mcp_server.h"
+#include "ui/window/window.h"
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>

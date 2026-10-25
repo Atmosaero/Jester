@@ -1,7 +1,7 @@
 #pragma once
 #ifndef Q_MOC_RUN
-#include "appearance.h"
-#include "AtomViewport.h"
+#include "settings/appearance.h"
+#include "render/atom/AtomViewport.h"
 #include <AtomToolsFramework/Application/AtomToolsApplication.h>
 #include <AzCore/Debug/Trace.h>
 #include <AzCore/Asset/AssetManagerBus.h>

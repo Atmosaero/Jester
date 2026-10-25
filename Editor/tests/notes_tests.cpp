@@ -1,10 +1,10 @@
-#include "appearance.h"
-#include "window.h"
-#include "notes_ui.h"
-#include "notes_card.h"
-#include "motion_annotations.h"
-#include "edit_service.h"
-#include "editor_api.h"
+#include "settings/appearance.h"
+#include "ui/window/window.h"
+#include "ui/notes/notes_ui.h"
+#include "ui/notes/notes_card.h"
+#include "core/annotations/motion_annotations.h"
+#include "core/scene/edit_service.h"
+#include "automation/editor_api.h"
 #include <QApplication>
 #include <QComboBox>
 #include <QContextMenuEvent>

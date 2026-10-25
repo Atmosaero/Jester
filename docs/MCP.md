@@ -69,7 +69,7 @@ python -X utf8 scripts/jester-mcp.py --config connection.json --call batch --arg
 
 ## Инструменты
 
-Полные схемы аргументов доступны через `tools/list` и в [Editor/src/mcp_tools.json](../Editor/src/mcp_tools.json).
+Полные схемы аргументов доступны через `tools/list` и в [Editor/src/automation/mcp_tools.json](../Editor/src/automation/mcp_tools.json).
 
 | Tool | Purpose |
 |---|---|
@@ -149,7 +149,7 @@ python -X utf8 scripts/jester-mcp.py --config connection.json --call batch --arg
 
 `JesterAutomationTests` проверяет протокол, полный цикл редактирования/экспорта, атомарность batch, историю, UI-контролы, диалоги, запись и зарегистрированные QAction. `tests/mcp_client_check.py` дополнительно проверяет стандартный CLI и официальный Python MCP SDK по HTTP/stdio в режимах 2025/2026. SDK используется только в проверках, не поставляется с приложением.
 
-Основные файлы: `src/editor_api.*`, `src/editor_ui_api.cpp`, `src/mcp_server.*`, `src/automation_ui.cpp`. Схемы встроены в Qt resources. Сетевые команды исполняются в UI-потоке; при вложенном запросе во время занятой операции клиент получает busy и может повторить вызов. Запрос ограничен 16 MiB, заголовки 32 KiB, одновременно принимается до 16 TCP-соединений.
+Основные файлы: `src/automation/editor_api.*`, `src/automation/editor_ui_api.cpp`, `src/automation/mcp_server.*`, `src/automation/automation_ui.cpp`. Схемы встроены в Qt resources. Сетевые команды исполняются в UI-потоке; при вложенном запросе во время занятой операции клиент получает busy и может повторить вызов. Запрос ограничен 16 MiB, заголовки 32 KiB, одновременно принимается до 16 TCP-соединений.
 
 Спецификации: [MCP 2026](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning), [Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http), [MCP 2025](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports).
 

@@ -1,7 +1,7 @@
-#include "appearance.h"
-#include "edit_service.h"
-#include "editor_api.h"
-#include "window.h"
+#include "settings/appearance.h"
+#include "core/scene/edit_service.h"
+#include "automation/editor_api.h"
+#include "ui/window/window.h"
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
