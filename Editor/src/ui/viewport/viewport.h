@@ -91,6 +91,8 @@ class Viewport : public QWidget {
     float cachedRestHeight = -1;
     float sceneHeight();
     void syncRenderer();
+    bool geometryDirty=true,overlayDirty=true,hasCamera=false;
+    QMatrix4x4 lastView,lastProjection;
     std::vector<QVector3D> trajectoryCache;
     int trajectoryNode = -1;
     void invalidateTrajectory();

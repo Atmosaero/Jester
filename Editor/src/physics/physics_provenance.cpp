@@ -16,6 +16,8 @@ void recordPhysicsProvenance(const Scene &source, int first, int last, PhysicsRe
         if(report.status=="solved")report.status="approximate";
     }
     auto json = sceneToJson(source);
+    json.remove("visuals"); // Rendering preferences are not physics inputs.
+    report.details["inputHashScope"]="authored scene data excluding visual settings";
     report.details["inputSha256"] =
         QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(json).toJson(QJsonDocument::Compact),
                                                      QCryptographicHash::Sha256)

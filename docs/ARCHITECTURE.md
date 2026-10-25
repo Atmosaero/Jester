@@ -23,4 +23,4 @@
 
 JesterCore uses Qt value types and QObject but does not depend on Window or Atom. JesterAtom consumes core data and owns SDK graphics types. JesterUI composes these services. Project/animation behavior must remain usable without creating a Window. Machine-facing values are independent of UI language.
 
-The initial mechanical move preserves serialization in the glTF implementation; the native-format work extracts it into io/project separately. Generated build identity remains in the CMake binary directory. Vendored dependencies stay under Editor/third_party.
+Native `.jst` serialization lives in io/project, independently of the glTF importer/exporter. Curve widgets are standalone classes in ui/curves. Generated build identity remains in the CMake binary directory. Vendored dependencies stay under Editor/third_party.

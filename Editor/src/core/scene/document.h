@@ -5,6 +5,7 @@
 #include <QSet>
 #include <QTimer>
 #include <QUndoStack>
+#include <QUndoCommand>
 #include <algorithm>
 #include <functional>
 #include <optional>
@@ -36,11 +37,18 @@ struct State {
     MorphWeights curveBaseMorphs;
     QJsonObject retargetProfile;
     QMap<int, Pin> curveBasePins;
+    SceneVisualSettings visuals;
 };
 struct HistoryEntry {
     State before, after;
     QString label;
     bool metadataOnly = false;
+    bool visualOnly = false;
+};
+class DocumentHistoryCommand : public QUndoCommand {
+  public:
+    using QUndoCommand::QUndoCommand;
+    virtual HistoryEntry entry() const = 0;
 };
 struct SceneSession {
     Scene scene;
@@ -55,6 +63,7 @@ class Document : public QObject {
     explicit Document(QObject *parent = nullptr);
     const QString id;
     quint64 revision = 0, motionRevision = 0, metadataRevision = 0;
+    quint64 poseRevision = 0, visualRevision = 0;
     quint64 structureRevision = 0, meshRevision = 0, profileRevision = 0, limitsRevision = 0,
             materialRevision = 0;
     Scene scene;
@@ -72,9 +81,9 @@ class Document : public QObject {
     QString path;
     int selected = -1, frame = 0;
     bool playing = false, loop = true, symmetryEditing = false;
-    quint64 playbackSession = 0, playbackOrdinal = 0, presentedPlaybackFrames = 0;
+    quint64 playbackSession = 0, playbackOrdinal = 0, preparedPlaybackOrdinals = 0;
     QJsonObject playbackStats() const;
-    void markFramePresented(quint64 session, quint64 ordinal);
+    void markFramePrepared(quint64 session, quint64 ordinal);
     bool dirty() const {
         return !undo.isClean();
     }
@@ -84,7 +93,9 @@ class Document : public QObject {
     State state() const;
     SceneSession captureSession() const;
     void restoreSession(const SceneSession &session);
-    void apply(const State &s, bool metadataOnly = false);
+    void apply(const State &s, bool metadataOnly = false, bool visualOnly = false);
+    bool editVisual(const QString &label, const SceneVisualSettings &, int mergeToken = 0);
+    void applyVisual(const SceneVisualSettings &);
     void replace(Scene s, QString file = {});
     void select(int node, bool toggle = false);
     void setSelection(QSet<int> nodes, int primary = -1);
@@ -118,6 +129,6 @@ class Document : public QObject {
     QTimer timer;
     QElapsedTimer elapsed;
     int startFrame = 0;
-    qint64 lastPresentedOrdinal = -1, playbackElapsedMs = 0;
+    qint64 lastPreparedOrdinal = -1, playbackElapsedMs = 0;
 };
 } // namespace trickster

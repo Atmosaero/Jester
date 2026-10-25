@@ -649,7 +649,7 @@ void Window::physicsProxyDialog() {
     const int sourceFrame = document().frame;
     const int sourceSelection = document().selected;
     const QString sourceId = document().id;
-    const quint64 sourceRevision = document().revision;
+    const quint64 sourceRevision = document().motionRevision;
     Scene proxy;
     QJsonObject measurement;
     Document sourceView, proxyView;
@@ -731,7 +731,7 @@ void Window::physicsProxyDialog() {
     });
     connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
         auto current = workspace.find(sourceId);
-        if (!current || current->revision != sourceRevision) {
+        if (!current || current->motionRevision != sourceRevision) {
             info->setText("Source changed. Reopen preparation to measure the current scene.");
             open->setEnabled(false);
             return;

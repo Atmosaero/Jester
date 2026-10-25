@@ -90,7 +90,7 @@ Viewport::Viewport(Document* d, QWidget* parent) : QWidget(parent), doc(nullptr)
     renderer = new AtomViewport(this, false);
     renderer->externalEvents = [this](QEvent* event) { return QCoreApplication::sendEvent(this,event); };
     renderer->onFrame = [this] {
-        if (paintedDocument) paintedDocument->markFramePresented(paintedSession,paintedOrdinal);
+        if (paintedDocument) paintedDocument->markFramePrepared(paintedSession,paintedOrdinal);
     };
     overlay = new ViewOverlay(this);
     overlay->raise();
@@ -101,7 +101,7 @@ Viewport::Viewport(Document* d, QWidget* parent) : QWidget(parent), doc(nullptr)
         static_cast<ViewOverlay*>(overlay)->syncGeometry();
         if (!isVisible() || !doc) return;
         syncRenderer();
-        overlay->update();
+        if(overlayDirty) {overlay->update();overlayDirty=false;}
     });
     timer->start(16);
     setToolTip("Right drag or Alt+Left: orbit | Middle or Shift+Right: pan | Wheel: zoom\nLeft: select / pose / IK | W/E: move/rotate | F: frame | Escape: cancel");
@@ -125,7 +125,7 @@ void Viewport::setDocument(Document *d) {
     }
     doc = d;
     hovered = -1;
-    connect(d, &Document::changed, this, QOverload<>::of(&Viewport::update));
+    connect(d, &Document::changed, this, [this] {geometryDirty=overlayDirty=true;update();});
     connect(d, &Document::sceneReplaced, this, &Viewport::fit);
     connect(d, &Document::sceneReplaced, this, &Viewport::clearTextures);
     connect(d, &Document::sceneReplaced, this, &Viewport::invalidateTrajectory);
@@ -163,11 +163,16 @@ void Viewport::syncRenderer() {
     paintedDocument=doc;
     paintedSession=doc->playbackSession;
     paintedOrdinal=doc->playbackOrdinal;
-    renderer->setEditorCamera(view,projection);
-    renderer->syncEditorScene(doc->scene,doc->meshRevision,doc->materialRevision,showMesh,diagnosticTransparent);
+    if(!hasCamera || view!=lastView || projection!=lastProjection) {
+        renderer->setEditorCamera(view,projection);lastView=view;lastProjection=projection;
+        hasCamera=true;overlayDirty=true;
+    }
+    renderer->syncEditorScene(doc->scene,doc->meshRevision,doc->materialRevision,showMesh,diagnosticTransparent,geometryDirty,forceCpuSkinning);
+    geometryDirty=false;
 }
 void Viewport::clearTextures() {
     cachedRestHeight=-1;
+    geometryDirty=overlayDirty=true;hasCamera=false;
     if (renderer) renderer->invalidateEditorScene();
 }
 void Viewport::resizeEvent(QResizeEvent* event) {
@@ -987,6 +992,7 @@ void Viewport::wheelEvent(QWheelEvent *e) {
     update();
 }
 bool Viewport::event(QEvent *e) {
+    if(e->type()==QEvent::Paint || e->type()==QEvent::Show || e->type()==QEvent::MouseMove) overlayDirty=true;
     if (dragging && e->type() == QEvent::ShortcutOverride) {
         e->accept();
         return true;

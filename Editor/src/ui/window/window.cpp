@@ -521,11 +521,12 @@ void Window::buildActions() {
             "flight, then open the result as a scene.");
     });
     add(help, "About Jester", {}, [this] {
+        const auto backend=viewport->renderingStats()["rhi"].toString().toUpper();
         QMessageBox::about(this, "Jester",
-                           "Jester " TRICKSTER_VERSION " · " TRICKSTER_BUILD_ID
-                           "\nCharacter animation editor\nC++20 · Qt 6 Widgets · O3DE Atom (DX12)"
+                           QString("Jester " TRICKSTER_VERSION " | " TRICKSTER_BUILD_ID
+                           "\nCharacter animation editor\nC++20 / Qt 6 Widgets / O3DE Atom (%1)"
                            "\n\nApplication code: MIT\nThird-party licenses: see THIRD_PARTY.md."
-                           "\nExperimental physics: MuJoCo 3.3.7. FBX: ufbx.");
+                           "\nExperimental physics: MuJoCo 3.3.7. FBX: ufbx.").arg(backend));
     });
 }
 void Window::rebuildTree() {

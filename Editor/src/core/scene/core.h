@@ -1,5 +1,6 @@
 #pragma once
 #include "core/animation/animation_curves.h"
+#include "core/scene/visual_settings.h"
 #include "physics/physics.h"
 #include <QByteArray>
 #include <QColor>
@@ -13,6 +14,7 @@
 #include <QStringList>
 #include <QVector2D>
 #include <QVector3D>
+#include <QVector4D>
 #include <array>
 #include <memory>
 #include <set>
@@ -142,6 +144,7 @@ struct Balance {
     bool supported = false;
 };
 struct Scene {
+    SceneVisualSettings visuals;
     std::vector<Node> nodes;
     std::vector<Mesh> meshes;
     Pose pose;

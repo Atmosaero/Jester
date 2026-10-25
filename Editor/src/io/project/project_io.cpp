@@ -235,7 +235,8 @@ QJsonObject sceneToJson(const Scene &s) {
             {"jointLimits", jointLimits},
             {"contacts", contacts},
             {"format", "Trickster"},
-            {"version", 8},
+            {"version", 9},
+            {"visuals",s.visuals.toJson()},
             {"layers", layers},
             {"activeLayer",s.activeLayer},
             {"compareOriginal",s.compareOriginal},
@@ -255,9 +256,14 @@ QJsonObject sceneToJson(const Scene &s) {
 }
 bool sceneFromJson(const QJsonObject &o, Scene &scene, QString &error) {
     try {
-        need(o["format"] == "Trickster" && (o["version"].toInt() >= 1 && o["version"].toInt() <= 8),
+        need(o["format"] == "Trickster" && (o["version"].toInt() >= 1 && o["version"].toInt() <= 9),
              "Unsupported Jester project version.");
         Scene s;
+        if(o.contains("visuals")) {
+            need(o["visuals"].isObject(),"Invalid Jester scene visual settings.");
+            QString visualError;
+            need(SceneVisualSettings::fromJson(o["visuals"].toObject(),s.visuals,visualError),visualError);
+        }
         s.name = o["name"].toString();
         s.first = o["first"].toInt();
         s.last = o["last"].toInt(90);

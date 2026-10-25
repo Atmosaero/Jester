@@ -34,7 +34,7 @@ target_include_directories(JesterUfbx PUBLIC third_party/ufbx)
 set_target_properties(JesterUfbx PROPERTIES AUTOMOC OFF)
 
 set(JESTER_CORE_SOURCES
-    src/core/scene/visual_settings.cpp
+    src/core/scene/visual_settings.cpp src/core/scene/visual_edits.cpp
     src/io/project/project_io.cpp src/io/project/project_format.cpp src/io/export/gltf_export.cpp
     src/core/annotations/notes_navigation.cpp src/core/analysis/motion_expectations.cpp src/core/animation/curve_bake.cpp
     src/core/analysis/motion_validation.cpp src/core/analysis/analysis_jobs.cpp src/core/analysis/motion_compare.cpp
@@ -95,6 +95,7 @@ if(JESTER_BUILD_TESTS)
     jester_gui_test(JesterNotesTests notes_tests)
     jester_gui_test(JesterMotionTests motion_tests)
     jester_gui_test(JesterUxScopeTests ux_scope_tests)
+    jester_gui_test(JesterPerformanceTests render_performance_tests)
     function(jester_core_test target source)
         add_executable(${target} tests/${source}.cpp)
         target_link_libraries(${target} PRIVATE JesterCore JesterMuJoCo Qt6::Test)

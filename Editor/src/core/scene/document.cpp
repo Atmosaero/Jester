@@ -38,27 +38,28 @@ static void trackDependencies(Document &document, const State &previous, const S
     if (!metadataOnly && previous.annotations != s.annotations)
         ++document.metadataRevision;
 }
-class StateCommand : public QUndoCommand {
+class StateCommand : public DocumentHistoryCommand {
     Document *doc;
     State a, b;
     bool skipFirst = false, metadataOnly = false;
+    bool visualOnly = false;
 
   public:
-    StateCommand(Document *d, State old, State next, QString label, bool skip = false, bool metadata = false)
-        : QUndoCommand(label), doc(d), a(std::move(old)), b(std::move(next)), skipFirst(skip),
-          metadataOnly(metadata) {}
+    StateCommand(Document *d, State old, State next, QString label, bool skip = false, bool metadata = false, bool visual = false)
+        : DocumentHistoryCommand(label), doc(d), a(std::move(old)), b(std::move(next)), skipFirst(skip),
+          metadataOnly(metadata),visualOnly(visual) {}
     HistoryEntry entry() const {
-        return {a, b, text(), metadataOnly};
+        return {a, b, text(), metadataOnly, visualOnly};
     }
     void undo() override {
-        doc->apply(a, metadataOnly);
+        doc->apply(a, metadataOnly, visualOnly);
     }
     void redo() override {
         if (skipFirst) {
             skipFirst = false;
             return;
         }
-        doc->apply(b, metadataOnly);
+        doc->apply(b, metadataOnly, visualOnly);
     }
 };
 Document::Document(QObject *parent)
@@ -112,7 +113,8 @@ State Document::state() const {
             scene.curveBasePose,
             scene.curveBaseMorphs,
             scene.retargetProfile,
-            scene.curveBasePins};
+            scene.curveBasePins,
+            scene.visuals};
 }
 SceneSession Document::captureSession() const {
     SceneSession result;
@@ -124,11 +126,13 @@ SceneSession Document::captureSession() const {
     result.index = undo.index();
     result.cleanIndex = undo.cleanIndex();
     for (int i = 0; i < undo.count(); ++i)
-        if (auto command = dynamic_cast<const StateCommand *>(undo.command(i)))
+        if (auto command = dynamic_cast<const DocumentHistoryCommand *>(undo.command(i)))
             result.history.push_back(command->entry());
     return result;
 }
 void Document::restoreSession(const SceneSession &session) {
+    ++poseRevision;
+    ++visualRevision;
     ++motionRevision;
     ++metadataRevision;
     ++structureRevision;
@@ -138,8 +142,8 @@ void Document::restoreSession(const SceneSession &session) {
     ++materialRevision;
     activeAnnotation.clear();
     timeSelection.reset();
-    playbackSession = playbackOrdinal = presentedPlaybackFrames = 0;
-    lastPresentedOrdinal = -1;
+    playbackSession = playbackOrdinal = preparedPlaybackOrdinals = 0;
+    lastPreparedOrdinal = -1;
     playbackElapsedMs = 0;
     {
         QSignalBlocker blocker(this);
@@ -155,7 +159,7 @@ void Document::restoreSession(const SceneSession &session) {
         undo.clear();
         for (const auto &entry : session.history)
             undo.push(
-                new StateCommand(this, entry.before, entry.after, entry.label, true, entry.metadataOnly));
+                new StateCommand(this, entry.before, entry.after, entry.label, true, entry.metadataOnly,entry.visualOnly));
         if (session.cleanIndex < 0)
             undo.resetClean();
         else {
@@ -175,7 +179,8 @@ void Document::restoreSession(const SceneSession &session) {
     emit selectionChanged();
     emit changed();
 }
-void Document::apply(const State &s, bool metadataOnly) {
+void Document::apply(const State &s, bool metadataOnly, bool visualOnly) {
+    if(visualOnly) {applyVisual(s.visuals);return;}
     trackDependencies(*this, state(), s, metadataOnly);
     if (metadataOnly)
         ++metadataRevision;
@@ -194,6 +199,9 @@ void Document::apply(const State &s, bool metadataOnly) {
         emit changed();
         return;
     }
+    ++poseRevision;
+    if(scene.visuals!=s.visuals)++visualRevision;
+    scene.visuals=s.visuals;
     scene.retargetProfile = s.retargetProfile;
     scene.curves = s.curves;
     scene.curveBasePose = s.curveBasePose;
@@ -226,6 +234,8 @@ void Document::apply(const State &s, bool metadataOnly) {
     emit changed();
 }
 void Document::replace(Scene s, QString file) {
+    ++poseRevision;
+    ++visualRevision;
     s.posingRestHeight=s.height();
     motionProblems={}; ++analysisRevision;
     ++revision;
@@ -238,8 +248,8 @@ void Document::replace(Scene s, QString file) {
     ++materialRevision;
     activeAnnotation.clear();
     timeSelection.reset();
-    playbackSession = playbackOrdinal = presentedPlaybackFrames = 0;
-    lastPresentedOrdinal = -1;
+    playbackSession = playbackOrdinal = preparedPlaybackOrdinals = 0;
+    lastPreparedOrdinal = -1;
     playbackElapsedMs = 0;
     play(false);
     before.reset();
@@ -323,6 +333,7 @@ void Document::seek(int f) {
         cancel();
     frame = f;
     scene.evaluate(float(frame));
+    ++poseRevision;
     emit changed();
 }
 void Document::play(bool on) {
@@ -340,8 +351,8 @@ void Document::play(bool on) {
             seek(scene.first);
         startFrame = frame;
         ++playbackSession;
-        playbackOrdinal = presentedPlaybackFrames = 0;
-        lastPresentedOrdinal = -1;
+        playbackOrdinal = preparedPlaybackOrdinals = 0;
+        lastPreparedOrdinal = -1;
         playbackElapsedMs = 0;
         elapsed.restart();
         timer.start();
@@ -356,17 +367,17 @@ QJsonObject Document::playbackStats() const {
     return {{"session", qint64(playbackSession)},
             {"active", playing},
             {"logicalFramesDue", qint64(due)},
-            {"presentedFrames", qint64(presentedPlaybackFrames)},
-            {"droppedFrames", qint64(due > presentedPlaybackFrames ? due - presentedPlaybackFrames : 0)},
+            {"preparedOrdinals", qint64(preparedPlaybackOrdinals)},
+            {"unacknowledgedOrdinals", qint64(due > preparedPlaybackOrdinals ? due - preparedPlaybackOrdinals : 0)},
+            {"presentedFrames", QJsonValue()}, {"droppedFrames", QJsonValue()},
             {"elapsedMs", playing ? double(elapsed.elapsed()) : double(playbackElapsedMs)},
-            {"presentationMethod", "Unique playback ordinals acknowledged by Atom RPI frame preparation; "
-                                   "render submission, not a physical display latency measurement"}};
+            {"measurementMethod", "Unique playback ordinals acknowledged by the Atom RPI preparation callback; presentation is not measured"}};
 }
-void Document::markFramePresented(quint64 session, quint64 ordinal) {
-    if (session != playbackSession || !session || qint64(ordinal) <= lastPresentedOrdinal)
+void Document::markFramePrepared(quint64 session, quint64 ordinal) {
+    if (session != playbackSession || !session || qint64(ordinal) <= lastPreparedOrdinal)
         return;
-    lastPresentedOrdinal = qint64(ordinal);
-    ++presentedPlaybackFrames;
+    lastPreparedOrdinal = qint64(ordinal);
+    ++preparedPlaybackOrdinals;
 }
 void Document::begin() {
     play(false);

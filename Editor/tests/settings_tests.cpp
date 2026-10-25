@@ -2,6 +2,8 @@
 #include "io/project/recovery.h"
 #include "io/catalog/demo_scenes.h"
 #include "core/annotations/motion_annotations.h"
+#include "core/analysis/analysis_jobs.h"
+#include "physics/physics_provenance.h"
 #include "core/scene/visual_settings.h"
 #include "settings/preferences.h"
 #include "ui/curves/curve_canvas.h"
@@ -16,6 +18,67 @@ using namespace trickster;
 class SettingsTests : public QObject {
     Q_OBJECT
   private slots:
+    void visualEditsDoNotInvalidateMotionOrPhysics() {
+        Workspace workspace;
+        auto &document=workspace.active();document.replace(Scene::mannequin());
+        AnalysisJobs jobs(workspace);
+        const auto id=jobs.start(document,"trajectory",{{"nodes",QJsonArray{0}},{"start",0},{"end",.2},{"step",.1}})["id"].toString();
+        QTRY_COMPARE_WITH_TIMEOUT((jobs.poll(),jobs.state(id)["status"].toString()),QString("ready"),10000);
+        const auto original=sceneToJson(document.scene);
+        const auto motion=document.motionRevision,metadata=document.metadataRevision,pose=document.poseRevision,mesh=document.meshRevision;
+        PhysicsReport before,after;
+        recordPhysicsProvenance(document.scene,0,30,before,{});
+        auto settings=document.scene.visuals;QString error;
+        QVERIFY(settings.setValue("lighting.main.intensityLux",2700,error));
+        QVERIFY(settings.setValue("post.bloom.enabled",true,error));
+        QVERIFY(document.editVisual("Scene lighting",settings));
+        QVERIFY(document.dirty());
+        QCOMPARE(document.motionRevision,motion);QCOMPARE(document.metadataRevision,metadata);
+        QCOMPARE(document.poseRevision,pose);QCOMPARE(document.meshRevision,mesh);
+        QCOMPARE(jobs.state(id)["status"].toString(),QString("ready"));
+        recordPhysicsProvenance(document.scene,0,30,after,{});
+        QCOMPARE(after.details["inputSha256"],before.details["inputSha256"]);
+        const auto changed=sceneToJson(document.scene);
+        for(const auto &field:{"keys","curves","layers","contacts","annotations","nodes","meshes","physics"})
+            QCOMPARE(changed[field],original[field]);
+        document.undo.undo();QCOMPARE(document.scene.visuals.toJson(),original["visuals"].toObject());
+        QCOMPARE(document.motionRevision,motion);QCOMPARE(document.poseRevision,pose);
+        document.undo.redo();QCOMPARE(document.scene.visuals.toJson(),settings.toJson());
+    }
+    void visualGestureIsOneUndoAndSurvivesSessionHistory() {
+        Document document;document.replace(Scene::mannequin());
+        const auto original=document.scene.visuals;
+        auto settings=original;QString error;
+        QVERIFY(settings.setValue("post.exposureEV",1,error));
+        QVERIFY(document.editVisual("Exposure",settings,71));
+        const auto firstRevision=document.revision;
+        QVERIFY(settings.setValue("post.exposureEV",2,error));
+        QVERIFY(document.editVisual("Exposure",settings,71));
+        QCOMPARE(document.undo.count(),1);
+        QVERIFY(document.revision>firstRevision);
+        const auto keys=sceneToJson(document.scene)["keys"];
+        Document restored;restored.restoreSession(document.captureSession());
+        QCOMPARE(restored.scene.visuals.toJson(),settings.toJson());
+        restored.undo.undo();QCOMPARE(restored.scene.visuals.toJson(),original.toJson());
+        QCOMPARE(sceneToJson(restored.scene)["keys"],keys);
+        restored.undo.redo();QCOMPARE(restored.scene.visuals.toJson(),settings.toJson());
+        document.play(true);QVERIFY(document.playing);
+        QVERIFY(settings.setValue("background.mode","gradient",error));
+        QVERIFY(document.editVisual("Background",settings));
+        QVERIFY(document.playing);document.play(false);
+    }
+    void visualSettingsPersistAndRejectMalformedProjectState() {
+        auto scene=Scene::mannequin();QString error;
+        scene.visuals=SceneVisualSettings::preset("studio");
+        QVERIFY(scene.visuals.setValue("mode","wireframe",error));
+        QVERIFY(scene.visuals.setValue("post.exposureEV",1.25,error));
+        const auto json=sceneToJson(scene);QCOMPARE(json["version"].toInt(),9);
+        Scene loaded;QVERIFY2(sceneFromJson(json,loaded,error),qPrintable(error));
+        QCOMPARE(loaded.visuals.toJson(),scene.visuals.toJson());
+        auto invalid=json;invalid["visuals"]=QJsonObject{{"camera",QJsonObject{{"fovDegrees",9999}}}};
+        const auto original=sceneToJson(loaded);
+        QVERIFY(!sceneFromJson(invalid,loaded,error));QCOMPARE(sceneToJson(loaded),original);
+    }
     void jstIsTheOnlyNativeExtension() {
         QString error;
         QVERIFY(isNativeProjectFile("scene.jst"));

@@ -1,4 +1,6 @@
 #include "render/atom/AtomViewport.h"
+#include <Atom/RHI/Factory.h>
+#include <AzCore/std/smart_ptr/make_shared.h>
 #include <Atom/RPI.Public/ViewportContext.h>
 #include <Atom/RPI.Public/View.h>
 #include <Atom/RPI.Public/RenderPipeline.h>
@@ -120,7 +122,7 @@ AtomViewport::AtomViewport(QWidget* parent, bool createDemo) : RenderViewportWid
 AtomViewport::~AtomViewport()
 {
     AZ::RPI::ViewportContextIdNotificationBus::Handler::BusDisconnect();
-    if (m_meshes) for (auto& handle : m_handles) m_meshes->ReleaseMesh(handle);
+    invalidateEditorScene();
     if (m_lights) for (auto& handle : m_lightHandles) m_lights->ReleaseLight(handle);
     m_handles.clear();
     m_editorData.reset();
@@ -136,15 +138,20 @@ AtomViewport::~AtomViewport()
     m_entities.reset();
 }
 
+AtomViewport::MeshHandlePtr AtomViewport::acquireMesh(const AZ::Render::MeshHandleDescriptor &descriptor)
+{
+    return AZStd::make_shared<AZ::Render::MeshFeatureProcessorInterface::MeshHandle>(m_meshes->AcquireMesh(descriptor));
+}
+
 QJsonObject AtomViewport::diagnostics() const
 {
     int loaded = 0;
-    if (m_meshes) for (const auto& h : m_handles) if (m_meshes->GetModel(h)) ++loaded;
+    if (m_meshes) for (const auto& h : m_handles) if (m_meshes->GetModel(*h)) ++loaded;
     int packets=0, pendingUploads=0;
     if(m_meshes) for(const auto& handle:m_handles)
     {
-        if(auto model=m_meshes->GetModel(handle)) pendingUploads+=model->IsUploadPending()?1:0;
-        for(const auto& lod:m_meshes->GetDrawPackets(handle)) packets+=int(lod.size());
+        if(auto model=m_meshes->GetModel(*handle)) pendingUploads+=model->IsUploadPending()?1:0;
+        for(const auto& lod:m_meshes->GetDrawPackets(*handle)) packets+=int(lod.size());
     }
     QJsonObject report{{"meshHandles", int(m_handles.size())}, {"loadedModels", loaded},
         {"drawPackets",packets},{"pendingUploads",pendingUploads},
@@ -152,6 +159,8 @@ QJsonObject AtomViewport::diagnostics() const
         {"directionalLights", int(m_lightHandles.size())}, {"renderTicks", qint64(m_renderTicks)},
         {"width", width()}, {"height", height()}, {"dpi", devicePixelRatioF()},
         {"cameraYaw", m_yaw}, {"cameraPitch", m_pitch}, {"cameraDistance", m_distance}};
+    report["rhi"]=QString::fromUtf8(AZ::RHI::Factory::Get().GetName().GetCStr()).toLower();
+    report["diagnosticsVersion"]=2;
     const auto editor=editorDiagnostics();
     for(auto it=editor.begin();it!=editor.end();++it) report[it.key()]=it.value();
     return report;
@@ -241,8 +250,8 @@ void AtomViewport::createCube(const AZ::Vector3& center, const AZ::Vector3& scal
     model.AddLodAsset(AZStd::move(lodAsset));
     AZ::Data::Asset<AZ::RPI::ModelAsset> modelAsset;
     if (!model.End(modelAsset)) return;
-    auto handle = m_meshes->AcquireMesh(AZ::Render::MeshHandleDescriptor(modelAsset, material));
-    m_meshes->SetTransform(handle, AZ::Transform::CreateIdentity());
+    auto handle = acquireMesh(AZ::Render::MeshHandleDescriptor(modelAsset, material));
+    m_meshes->SetTransform(*handle, AZ::Transform::CreateIdentity());
     m_handles.push_back(AZStd::move(handle));
 }
 

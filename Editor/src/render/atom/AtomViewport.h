@@ -5,6 +5,7 @@
 #include <Atom/Feature/Mesh/MeshFeatureProcessorInterface.h>
 #include <Atom/Feature/CoreLights/DirectionalLightFeatureProcessorInterface.h>
 #include <AzFramework/Entity/EntityContext.h>
+#include <AzCore/std/smart_ptr/shared_ptr.h>
 #include <Atom/RPI.Public/ViewportContextBus.h>
 #include <QJsonObject>
 #include <QPointF>
@@ -12,7 +13,7 @@
 #include <QImage>
 #include <functional>
 #include <memory>
-namespace trickster { struct Scene; }
+namespace trickster { struct Scene; class SceneVisualSettings; }
 
 class AtomViewport final : public AtomToolsFramework::RenderViewportWidget,
     private AZ::RPI::ViewportContextIdNotificationBus::Handler
@@ -23,12 +24,17 @@ public:
     QJsonObject diagnostics() const;
     void exerciseCamera();
     void setEditorCamera(const QMatrix4x4& view, const QMatrix4x4& projection);
-    void syncEditorScene(const trickster::Scene& scene, quint64 meshRevision, quint64 materialRevision, bool visible, bool transparent);
+    void syncEditorScene(const trickster::Scene& scene, quint64 meshRevision, quint64 materialRevision,
+                         bool visible, bool transparent, bool geometryDirty=true, bool forceCpuSkinning=false);
+    void setSceneVisualSettings(const trickster::SceneVisualSettings &,float physicsGround);
+    QJsonObject appliedSceneVisualState() const;
+    QJsonObject sceneVisualCapabilities() const;
+    void pollEditorResources();
     void invalidateEditorScene();
     QImage captureImage();
     static AZ::Data::Instance<AZ::RPI::Material> createDefaultMaterial();
     std::function<bool(QEvent*)> externalEvents;
-    std::function<void()> onFrame;
+    std::function<void()> onFrame; // RPI preparation callback, not display presentation.
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -43,6 +49,8 @@ private:
     QJsonObject editorDiagnostics() const;
     struct EditorSceneData;
     std::shared_ptr<EditorSceneData> m_editorData;
+    struct VisualSceneData;
+    std::shared_ptr<VisualSceneData> m_visualData;
     bool m_externalCamera = false, m_editorLighting = false;
     void updateCamera();
     void createCube(const AZ::Vector3& center, const AZ::Vector3& scale, const AZ::Color& color);
@@ -52,7 +60,9 @@ private:
     AZ::RPI::RenderPipelinePtr m_pipeline;
     AZ::Render::MeshFeatureProcessorInterface* m_meshes = nullptr;
     AZ::Render::DirectionalLightFeatureProcessorInterface* m_lights = nullptr;
-    AZStd::vector<AZ::Render::MeshFeatureProcessorInterface::MeshHandle> m_handles;
+    using MeshHandlePtr=AZStd::shared_ptr<AZ::Render::MeshFeatureProcessorInterface::MeshHandle>;
+    MeshHandlePtr acquireMesh(const AZ::Render::MeshHandleDescriptor &);
+    AZStd::vector<MeshHandlePtr> m_handles;
     AZStd::vector<AZ::Render::DirectionalLightFeatureProcessorInterface::LightHandle> m_lightHandles;
     QPointF m_lastMouse;
     float m_yaw = 0.55f, m_pitch = 0.33f, m_distance = 7.0f;

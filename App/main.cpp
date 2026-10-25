@@ -30,6 +30,23 @@
 #include <cstring>
 #include <clocale>
 
+namespace {
+QStringList sceneFileArguments(const QStringList &arguments) {
+    QStringList files;
+    bool literal=false;
+    for(int index=1;index<arguments.size();++index) {
+        const auto &argument=arguments[index];
+        if(!literal) {
+            if(argument=="--") {literal=true;continue;}
+            if(argument=="--mcp-port" || argument=="--mcp-config" || argument=="--screenshot" || argument=="--generate-demo" ||
+               argument=="--project-path" || argument=="--engine-path" || argument=="--rhi" || argument=="--regset") {++index;continue;}
+            if(argument.startsWith('-'))continue;
+        }
+        files.append(argument);
+    }
+    return files;
+}
+}
 class JesterTrace final : public AZ::Debug::TraceMessageBus::Handler
 {
 public:
@@ -85,17 +102,8 @@ public:
             auto* editor=new trickster::Window;
             m_window=editor;
             if(arguments().contains("--demo")) editor->document().demo();
-            const auto commandArguments=arguments();
-            bool literalFiles=false;
-            for(int index=1;index<commandArguments.size();++index) {
-                const auto& argument=commandArguments[index];
-                if(!literalFiles) {
-                    if(argument=="--") { literalFiles=true;continue; }
-                    if(argument=="--mcp-port" || argument=="--mcp-config" || argument=="--screenshot" || argument=="--generate-demo"
-                        || argument=="--project-path" || argument=="--engine-path" || argument=="--rhi" || argument=="--regset") { ++index;continue; }
-                    if(argument.startsWith('-')) continue;
-                }
-                if(!trickster::isSupportedSceneFile(argument) || !editor->open(argument)) {
+            for(const auto &argument:sceneFileArguments(arguments())) {
+                if(!editor->open(argument)) {
                     qCritical("Cannot open scene: use a Jester project (.jst), FBX, GLB or glTF file.");
                     m_result=2;QTimer::singleShot(0,this,&QApplication::quit);return;
                 }
@@ -258,7 +266,8 @@ int main(int argc, char** argv)
     for(int i=1;i<argc;++i) {
         if(!std::strcmp(argv[i],"--help") || !std::strcmp(argv[i],"-h")) {
             std::printf("Jester %s - Atom character animation editor\n"
-                "Usage: Jester.exe --project-path=<project> [options] [file.fbx|file.glb|file.gltf|file.jst]\n"
+                "Usage: Jester.exe [options] [file.fbx|file.glb|file.gltf|file.jst]\n"
+                "  --project-path <folder>    Optional SDK project root; portable builds auto-detect it\n"
                 "  --demo                    Open the built-in animated rig\n"
                 "  --generate-demo <folder>  Write demo project and GLB\n"
                 "  --screenshot <path>       Capture editor and viewport, then exit\n"
@@ -276,6 +285,18 @@ int main(int argc, char** argv)
             || !std::strncmp(argv[i],"--mcp-port=",11) || !std::strncmp(argv[i],"--mcp-config=",13)) mcpSettings=true;
     }
     if(mcpSettings && !mcp) { std::fprintf(stderr,"--mcp-port/--mcp-config require --mcp\n");return 2; }
+    QStringList startupArguments;
+    for(int i=0;i<argc;++i)startupArguments.append(QString::fromUtf8(argv[i]));
+    for(const auto &file:sceneFileArguments(startupArguments)) {
+        if(!trickster::isSupportedSceneFile(file)) {
+            std::fputs("Jester: unsupported scene file. Use .jst, .fbx, .glb or .gltf.\n",stderr);
+            return 2;
+        }
+        if(!QFileInfo(file).isFile()) {
+            std::fprintf(stderr,"Jester: scene file not found: %s\n",file.toUtf8().constData());
+            return 2;
+        }
+    }
     AZ::Debug::Trace trace;
     JesterTrace validation;
     AzQtComponents::AzQtApplication::InitializeDpiScaling();

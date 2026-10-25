@@ -167,9 +167,10 @@ struct AtomViewport::EditorSceneData
     trickster::MorphWeights morphs;
     std::vector<Entry> entries;
     QMap<QByteArray,AZ::Data::Instance<AZ::RPI::Image>> images;
-    double skinMs=0,uploadMs=0,totalSkinMs=0,totalUploadMs=0;
+    double skinMs=0,preparationMs=0,bufferUpdateMs=0,meshBuildMs=0;
+    double totalSkinMs=0,totalPreparationMs=0,totalBufferUpdateMs=0,totalMeshBuildMs=0;
     quint64 updates=0;
-    bool transparent=false;
+    bool transparent=false,wasHidden=false;
     float gridUnit=.1f;
 };
 
@@ -186,7 +187,7 @@ AZ::Data::Instance<AZ::RPI::Material> AtomViewport::createDefaultMaterial()
 
 void AtomViewport::invalidateEditorScene()
 {
-    if(m_meshes) for(auto& handle:m_handles) m_meshes->ReleaseMesh(handle);
+    if(m_meshes) for(auto& handle:m_handles) m_meshes->ReleaseMesh(*handle);
     m_handles.clear();
     m_editorData.reset();
 }
@@ -213,36 +214,37 @@ void AtomViewport::setEditorCamera(const QMatrix4x4& view,const QMatrix4x4& proj
     }
 }
 
-void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRevision,quint64 materialRevision,bool visible,bool transparent)
+void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRevision,quint64 materialRevision,bool visible,bool transparent,bool geometryDirty,bool forceCpuSkinning)
 {
     if(!m_meshes) return;
-    bool rebuild=!m_editorData || m_editorData->source!=&scene || m_editorData->meshRevision!=meshRevision || m_editorData->materialRevision!=materialRevision;
+    Q_UNUSED(forceCpuSkinning);
+    // Keep the last visible cache while hidden. Pending pose/material/structure
+    // revisions are deliberately not consumed until the mesh is shown again.
+    if(!visible) {
+        for(auto& handle:m_handles) m_meshes->SetVisible(*handle,false);
+        if(m_editorData) m_editorData->wasHidden=true;
+        return;
+    }
+    bool rebuild=!m_editorData || m_editorData->source!=&scene || m_editorData->meshRevision!=meshRevision;
     if(rebuild)
     {
         invalidateEditorScene();
         m_editorData=std::make_shared<EditorSceneData>();
         m_editorData->source=&scene;
         m_editorData->meshRevision=meshRevision;
-        m_editorData->materialRevision=materialRevision;
+        m_editorData->materialRevision=std::numeric_limits<quint64>::max();
         m_editorData->gridUnit=std::pow(10.f,std::floor(std::log10(std::max(.01f,scene.height())))-1);
     }
     auto& cache=*m_editorData;
-    bool changed=rebuild || cache.morphs!=scene.morphs || cache.pose.size()!=scene.pose.size();
-    if(!changed) for(size_t i=0;i<scene.pose.size();++i)
-        if(cache.pose[i].t!=scene.pose[i].t || cache.pose[i].r!=scene.pose[i].r || cache.pose[i].s!=scene.pose[i].s) { changed=true;break; }
-    if(changed)
-    {
-        QElapsedTimer timer;timer.start();
-        auto globals=scene.globals(scene.pose);
-        std::vector<std::vector<QVector3D>> positions(scene.meshes.size()),normals(scene.meshes.size());
-        for(size_t i=0;i<scene.meshes.size();++i)
-        {
-            positions[i]=scene.skinned(scene.meshes[i],globals);
-            normals[i]=scene.skinnedNormals(scene.meshes[i],globals);
-        }
-        cache.skinMs=timer.nsecsElapsed()/1e6;
-        timer.restart();
-        auto imageFor=[&](const trickster::Texture& texture,int channel,bool srgb,bool normalMap)->AZ::Data::Instance<AZ::RPI::Image>
+    const bool materialDirty=rebuild || cache.materialRevision!=materialRevision;
+    bool changed=rebuild;
+    if(geometryDirty || cache.wasHidden) {
+        changed=changed || cache.morphs!=scene.morphs || cache.pose.size()!=scene.pose.size();
+        if(!changed) for(size_t i=0;i<scene.pose.size();++i)
+            if(cache.pose[i].t!=scene.pose[i].t || cache.pose[i].r!=scene.pose[i].r || cache.pose[i].s!=scene.pose[i].s) { changed=true;break; }
+    }
+    cache.wasHidden=false;
+    auto imageFor=[&](const trickster::Texture& texture,int channel,bool srgb,bool normalMap)->AZ::Data::Instance<AZ::RPI::Image>
         {
             QByteArray key=QCryptographicHash::hash(texture.bytes,QCryptographicHash::Sha256)+QByteArray::number(channel)+(normalMap?"n":srgb?"s":"l");
             auto it=cache.images.constFind(key);if(it!=cache.images.cend()) return it.value();
@@ -256,34 +258,7 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             auto result=runtimeImage(image,srgb,normalMap);
             cache.images[key]=result;return result;
         };
-        for(size_t i=0;i<scene.meshes.size();++i)
-        {
-            const auto& mesh=scene.meshes[i];
-            if(mesh.vertices.empty() || mesh.indices.empty()) continue;
-            std::vector<F3> p,n;
-            p.reserve(positions[i].size());n.reserve(normals[i].size());
-            for(auto v:positions[i]) p.push_back(packed(v));
-            for(auto v:normals[i]) n.push_back(packed(v));
-            std::vector<F4> tangents;std::vector<F3> bitangents;
-            deformedBasis(scene,mesh,globals,normals[i],tangents,bitangents);
-            if(!rebuild)
-            {
-                auto entry=std::find_if(cache.entries.begin(),cache.entries.end(),[i](const auto& candidate){ return candidate.source==i; });
-                if(entry!=cache.entries.end())
-                {
-                    bool uploaded=updateDynamicBuffer(entry->positions,p.data(),p.size()*sizeof(F3));
-                    uploaded=updateDynamicBuffer(entry->normals,n.data(),n.size()*sizeof(F3)) && uploaded;
-                    uploaded=updateDynamicBuffer(entry->tangents,tangents.data(),tangents.size()*sizeof(F4)) && uploaded;
-                    uploaded=updateDynamicBuffer(entry->bitangents,bitangents.data(),bitangents.size()*sizeof(F3)) && uploaded;
-                    AZ_Error("Jester",uploaded,"Cannot update deformed mesh buffers");
-                    AZ::Aabb aabb=AZ::Aabb::CreateNull();for(auto v:positions[i]) aabb.AddPoint({v.x(),v.y(),v.z()});
-                    m_meshes->SetLocalAabb(m_handles[entry->handle],aabb);
-                }
-                continue;
-            }
-            auto materialAsset=AZ::RPI::AssetUtils::LoadAssetByProductPath<AZ::RPI::MaterialAsset>("materials/jesterdefault.azmaterial");
-            if(!materialAsset.IsReady()) continue;
-            auto material=AZ::RPI::Material::Create(materialAsset);
+    auto applyMaterial=[&](const AZ::Data::Instance<AZ::RPI::Material>& material,const trickster::Mesh& mesh) {
             material->SetPsoHandlingOverride(AZ::RPI::MaterialPropertyPsoHandling::Allowed);
             AZ::Color color(float(mesh.color.redF()),float(mesh.color.greenF()),float(mesh.color.blueF()),float(mesh.color.alphaF()));
             setMaterialProperty(material,"baseColor.color",color);
@@ -331,6 +306,54 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
                 texture("emissive","emissive.textureMap","emissive.textureMapUv",-1,true);
             }
             material->Compile();
+    };
+    if(materialDirty && !rebuild) for(auto& entry:cache.entries) applyMaterial(entry.material,scene.meshes[entry.source]);
+    cache.materialRevision=materialRevision;
+    if(changed)
+    {
+        QElapsedTimer timer;timer.start();
+        auto globals=scene.globals(scene.pose);
+        std::vector<std::vector<QVector3D>> positions(scene.meshes.size()),normals(scene.meshes.size());
+        for(size_t i=0;i<scene.meshes.size();++i)
+        {
+            positions[i]=scene.skinned(scene.meshes[i],globals);
+            normals[i]=scene.skinnedNormals(scene.meshes[i],globals);
+        }
+        cache.skinMs=timer.nsecsElapsed()/1e6;
+        cache.preparationMs=cache.bufferUpdateMs=cache.meshBuildMs=0;
+        for(size_t i=0;i<scene.meshes.size();++i)
+        {
+            const auto& mesh=scene.meshes[i];
+            if(mesh.vertices.empty() || mesh.indices.empty()) continue;
+            timer.restart();
+            std::vector<F3> p,n;
+            p.reserve(positions[i].size());n.reserve(normals[i].size());
+            for(auto v:positions[i]) p.push_back(packed(v));
+            for(auto v:normals[i]) n.push_back(packed(v));
+            std::vector<F4> tangents;std::vector<F3> bitangents;
+            deformedBasis(scene,mesh,globals,normals[i],tangents,bitangents);
+            AZ::Aabb bounds=AZ::Aabb::CreateNull();for(auto v:positions[i]) bounds.AddPoint({v.x(),v.y(),v.z()});
+            cache.preparationMs+=timer.nsecsElapsed()/1e6;
+            timer.restart();
+            if(!rebuild)
+            {
+                auto entry=std::find_if(cache.entries.begin(),cache.entries.end(),[i](const auto& candidate){ return candidate.source==i; });
+                if(entry!=cache.entries.end())
+                {
+                    bool uploaded=updateDynamicBuffer(entry->positions,p.data(),p.size()*sizeof(F3));
+                    uploaded=updateDynamicBuffer(entry->normals,n.data(),n.size()*sizeof(F3)) && uploaded;
+                    uploaded=updateDynamicBuffer(entry->tangents,tangents.data(),tangents.size()*sizeof(F4)) && uploaded;
+                    uploaded=updateDynamicBuffer(entry->bitangents,bitangents.data(),bitangents.size()*sizeof(F3)) && uploaded;
+                    AZ_Error("Jester",uploaded,"Cannot update deformed mesh buffers");
+                    m_meshes->SetLocalAabb(*m_handles[entry->handle],bounds);
+                    cache.bufferUpdateMs+=timer.nsecsElapsed()/1e6;
+                }
+                continue;
+            }
+            auto materialAsset=AZ::RPI::AssetUtils::LoadAssetByProductPath<AZ::RPI::MaterialAsset>("materials/jesterdefault.azmaterial");
+            if(!materialAsset.IsReady()) continue;
+            auto material=AZ::RPI::Material::Create(materialAsset);
+            applyMaterial(material,mesh);
             auto count=uint32_t(mesh.vertices.size());
             auto positionAsset=bufferAsset(p.data(),count,AZ::RHI::Format::R32G32B32_FLOAT,true);
             auto normalAsset=bufferAsset(n.data(),count,AZ::RHI::Format::R32G32B32_FLOAT,true);
@@ -338,7 +361,6 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             AZ::RPI::ModelLodAssetCreator lod;
             lod.Begin(AZ::Uuid::CreateRandom());lod.SetLodIndexBuffer(indexAsset);
             lod.BeginMesh();lod.SetMeshName(AZ::Name("Jester mesh"));lod.SetMeshMaterialSlot(0);
-            AZ::Aabb bounds=AZ::Aabb::CreateNull();for(auto v:positions[i]) bounds.AddPoint({v.x(),v.y(),v.z()});
             lod.SetMeshAabb(bounds);
             lod.SetMeshIndexBuffer({indexAsset,AZ::RHI::BufferViewDescriptor::CreateTyped(0,uint32_t(mesh.indices.size()),AZ::RHI::Format::R32_UINT)});
             auto add=[&](const char* semantic,uint32_t semanticIndex,const AZ::Data::Asset<AZ::RPI::BufferAsset>& asset,AZ::RHI::Format format,const AZ::Name& name=AZ::Name()) {
@@ -370,16 +392,18 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
             auto tangentsBuffer=AZ::RPI::Buffer::FindOrCreate(tangentAsset);
             auto bitangentsBuffer=AZ::RPI::Buffer::FindOrCreate(bitangentAsset);
             if(!positionsBuffer || !normalsBuffer || !tangentsBuffer || !bitangentsBuffer) { AZ_Error("Jester",false,"Cannot allocate editor mesh buffers");continue; }
-            auto handle=m_meshes->AcquireMesh(descriptor);m_meshes->SetTransform(handle,AZ::Transform::CreateIdentity());
+            auto handle=acquireMesh(descriptor);m_meshes->SetTransform(*handle,AZ::Transform::CreateIdentity());
             cache.entries.push_back({i,m_handles.size(),positionsBuffer,normalsBuffer,tangentsBuffer,bitangentsBuffer,material});
             m_handles.push_back(AZStd::move(handle));
+            cache.meshBuildMs+=timer.nsecsElapsed()/1e6;
         }
         cache.pose=scene.pose;cache.morphs=scene.morphs;
-        cache.uploadMs=timer.nsecsElapsed()/1e6;cache.totalSkinMs+=cache.skinMs;cache.totalUploadMs+=cache.uploadMs;++cache.updates;
+        cache.totalSkinMs+=cache.skinMs;cache.totalPreparationMs+=cache.preparationMs;
+        cache.totalBufferUpdateMs+=cache.bufferUpdateMs;cache.totalMeshBuildMs+=cache.meshBuildMs;++cache.updates;
     }
-    for(auto& handle:m_handles) m_meshes->SetVisible(handle,visible);
-    for(auto& entry:cache.entries) if(entry.material->NeedsCompile() && entry.material->CanCompile()) entry.material->Compile();
-    if(rebuild || cache.transparent!=transparent)
+    for(auto& handle:m_handles) m_meshes->SetVisible(*handle,visible);
+    pollEditorResources();
+    if(materialDirty || cache.transparent!=transparent)
     {
         for(auto& entry:cache.entries)
         {
@@ -392,14 +416,25 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
     }
 }
 
+void AtomViewport::pollEditorResources() {
+    if(!m_editorData || m_editorData->wasHidden) return;
+    for(auto& entry:m_editorData->entries)
+        if(entry.material->NeedsCompile() && entry.material->CanCompile()) entry.material->Compile();
+}
+
 QJsonObject AtomViewport::editorDiagnostics() const
 {
     if(!m_editorData) return {};
     const auto& cache=*m_editorData;
     return {{"renderer","Atom"},{"gpuSkinningAvailable",false},{"gpuSkinningReason","Compatibility CPU evaluator uploads to native Atom buffers; eight weights and morphs preserved"},
         {"gpuMeshes",0},{"cpuMeshes",int(cache.entries.size())},{"weightsPerVertex",8},{"paletteJointLimit",0},
-        {"cpuSkinMs",cache.skinMs},{"uploadMs",cache.uploadMs},{"skinUpdates",qint64(cache.updates)},
-        {"totalCpuSkinMs",cache.totalSkinMs},{"totalUploadMs",cache.totalUploadMs},{"renderedFrames",qint64(m_renderTicks)},
+        {"cpuSkinMs",cache.skinMs},{"vertexPreparationMs",cache.preparationMs},
+        {"bufferUpdateCpuMs",cache.bufferUpdateMs},{"meshBuildCpuMs",cache.meshBuildMs},
+        {"geometryUpdates",qint64(cache.updates)},{"skinUpdates",qint64(cache.updates)},
+        {"totalCpuSkinMs",cache.totalSkinMs},{"totalVertexPreparationMs",cache.totalPreparationMs},
+        {"totalBufferUpdateCpuMs",cache.totalBufferUpdateMs},{"totalMeshBuildCpuMs",cache.totalMeshBuildMs},
+        {"meshVisible",!cache.wasHidden},{"skinningPath","cpu"},
+        {"metricScope","CPU wall time; latest geometry update, cumulative totals; RPI callbacks are not display presentation"},
         {"gpuTimingStatus","Not measured"},{"gpuDrawMs",QJsonValue()}};
 }
 
@@ -432,7 +467,7 @@ QImage AtomViewport::captureImage()
         QObject::connect(&readyTimer,&QTimer::timeout,&readyLoop,[&] {
             bool modelsReady=true;
             if(m_meshes) for(const auto& handle:m_handles)
-                if(!m_meshes->GetModel(handle) || m_meshes->GetDrawPackets(handle).empty()) { modelsReady=false;break; }
+                if(!m_meshes->GetModel(*handle) || m_meshes->GetDrawPackets(*handle).empty()) { modelsReady=false;break; }
             if(modelsReady && !readyTick) readyTick=m_renderTicks+2;
             if((readyTick && m_renderTicks>=readyTick) || deadline.elapsed()>4000) readyLoop.quit();
         });

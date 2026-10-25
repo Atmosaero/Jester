@@ -108,6 +108,29 @@ class MVPUI : public QObject {
         before.save("artifacts/atom-deformation-before.png");after.save("artifacts/atom-deformation-after.png");
         QVERIFY(changedPixels>20);
     }
+    void hiddenGeometryAndIndependentMaterials() {
+        Document document;document.replace(Scene::mannequin());
+        Viewport view(&document);view.resize(640,640);view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));QVERIFY(!view.grabFramebuffer().isNull());
+        const auto initial=view.renderingStats();
+        QTest::qWait(150);QCOMPARE(view.renderingStats()["geometryUpdates"],initial["geometryUpdates"]);
+        view.showMesh=false;QTest::qWait(60);
+        document.scene.pose[1].r=QQuaternion::fromEulerAngles(35,15,7);
+        document.scene.meshes[0].color=Qt::red;++document.materialRevision;
+        ++document.meshRevision;emit document.changed();QTest::qWait(100);
+        QCOMPARE(view.renderingStats()["geometryUpdates"],initial["geometryUpdates"]);
+        QVERIFY(!view.renderingStats()["meshVisible"].toBool());
+        view.showMesh=true;QVERIFY(!view.grabFramebuffer().isNull());
+        const auto shown=view.renderingStats();QVERIFY(shown["meshVisible"].toBool());
+        QCOMPARE(shown["meshHandles"],initial["meshHandles"]);
+        document.scene.meshes[0].color=Qt::green;++document.materialRevision;emit document.changed();
+        QTest::qWait(100);QCOMPARE(view.renderingStats()["geometryUpdates"],shown["geometryUpdates"]);
+        auto settings=document.scene.visuals;QString error;
+        QVERIFY(settings.setValue("post.exposureEV",1,error));document.editVisual("Exposure",settings);
+        QTest::qWait(100);QCOMPARE(view.renderingStats()["geometryUpdates"],shown["geometryUpdates"]);
+        QVERIFY(view.renderingStats()["rhi"].toString().contains(qEnvironmentVariable("JESTER_RHI")));
+        document.undo.setClean();
+    }
     void atomSurfaceCloseAndReopen() {
         Window w;w.document().demo();w.resize(1100,720);w.show();
         QVERIFY(QTest::qWaitForWindowExposed(&w));w.viewport->fit();

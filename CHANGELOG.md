@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Persist scene visuals in schema 9 with independent visual Undo/Redo and revision tracking, preserving motion analysis and physics provenance.
+- Skip hidden and unchanged geometry, update materials independently, report actual RHI and separate CPU deformation/preparation/buffer/build metrics.
+- Add repeatable three-scene rendering benchmarks; distinguish RPI preparation callbacks from display presentation and measure captures separately.
+- Reject unsupported CLI paths before initializing the native renderer.
+
 - Use `.jst` as the sole native project extension across GUI, CLI, MCP, examples, catalogs and recovery; share classification and reject repeated/unsupported extensions.
 - Separate native project serialization and glTF import/export; preserve existing authored data and schema migrations.
 
