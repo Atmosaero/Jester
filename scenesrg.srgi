@@ -1,0 +1,3 @@
+// The SDK shader preprocessor includes the project root.
+#pragma once
+#include "ShaderLib/scenesrg.srgi"

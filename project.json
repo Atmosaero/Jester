@@ -1,0 +1,18 @@
+{
+    "project_name": "Jester",
+    "project_id": "{9B6DC1D2-C213-4DD1-96BD-EF71B0D7AC31}",
+    "version": "0.1.0-alpha.1",
+    "display_name": "Jester 3D",
+    "engine": "o3de-sdk",
+    "external_subdirectories": [
+        "App"
+    ],
+    "gem_names": [
+        "Atom",
+        "AtomToolsFramework",
+        "CommonFeaturesAtom",
+        "Camera",
+        "SceneProcessing",
+        "DiffuseProbeGrid"
+    ]
+}

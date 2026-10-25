@@ -1,0 +1,326 @@
+{
+    "description": "Jester imported PBR: independent glTF texture transforms and samplers.",
+    "version": 5,
+    "versionUpdates": [
+        {
+            "toVersion": 4,
+            "actions": [
+                {
+                    "op": "rename",
+                    "from": "opacity.doubleSided",
+                    "to": "general.doubleSided"
+                }
+            ]
+        },
+        {
+            "toVersion": 5,
+            "actions": [
+                {
+                    "op": "rename",
+                    "from": "irradiance.color",
+                    "to": "irradiance.manualColor"
+                },
+                {
+                    "op": "setValue",
+                    "name": "irradiance.irradianceColorSource",
+                    "value": "Manual"
+                }
+            ]
+        }
+    ],
+    "propertyLayout": {
+        "propertyGroups": [
+            {
+                "$import": "MaterialInputs/BaseColorPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/VertexColorPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/MetallicPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/RoughnessPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/SpecularPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/NormalPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/OcclusionPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/EmissivePropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/ClearCoatPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/ParallaxPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/OpacityPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/UvPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/IrradiancePropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/GeneralCommonPropertyGroup.json"
+            },
+            {
+                "$import": "MaterialInputs/SilhouetteBlockerPropertyGroup.json"
+            },
+            {
+                "name": "jester",
+                "properties": [
+                    {
+                        "name": "BaseRow0",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            1,
+                            0,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterBaseRow0"
+                        }
+                    },
+                    {
+                        "name": "BaseRow1",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            0,
+                            1,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterBaseRow1"
+                        }
+                    },
+                    {
+                        "name": "BaseSampler",
+                        "type": "SamplerState",
+                        "defaultValue": {
+                            "m_filterMin": "Linear",
+                            "m_filterMag": "Linear",
+                            "m_filterMip": "Linear",
+                            "m_addressU": "Wrap",
+                            "m_addressV": "Wrap"
+                        },
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterBaseSampler"
+                        }
+                    },
+                    {
+                        "name": "NormalRow0",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            1,
+                            0,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterNormalRow0"
+                        }
+                    },
+                    {
+                        "name": "NormalRow1",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            0,
+                            1,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterNormalRow1"
+                        }
+                    },
+                    {
+                        "name": "NormalSampler",
+                        "type": "SamplerState",
+                        "defaultValue": {
+                            "m_filterMin": "Linear",
+                            "m_filterMag": "Linear",
+                            "m_filterMip": "Linear",
+                            "m_addressU": "Wrap",
+                            "m_addressV": "Wrap"
+                        },
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterNormalSampler"
+                        }
+                    },
+                    {
+                        "name": "MetallicRoughnessRow0",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            1,
+                            0,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterMetallicRoughnessRow0"
+                        }
+                    },
+                    {
+                        "name": "MetallicRoughnessRow1",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            0,
+                            1,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterMetallicRoughnessRow1"
+                        }
+                    },
+                    {
+                        "name": "MetallicRoughnessSampler",
+                        "type": "SamplerState",
+                        "defaultValue": {
+                            "m_filterMin": "Linear",
+                            "m_filterMag": "Linear",
+                            "m_filterMip": "Linear",
+                            "m_addressU": "Wrap",
+                            "m_addressV": "Wrap"
+                        },
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterMetallicRoughnessSampler"
+                        }
+                    },
+                    {
+                        "name": "OcclusionRow0",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            1,
+                            0,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterOcclusionRow0"
+                        }
+                    },
+                    {
+                        "name": "OcclusionRow1",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            0,
+                            1,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterOcclusionRow1"
+                        }
+                    },
+                    {
+                        "name": "OcclusionSampler",
+                        "type": "SamplerState",
+                        "defaultValue": {
+                            "m_filterMin": "Linear",
+                            "m_filterMag": "Linear",
+                            "m_filterMip": "Linear",
+                            "m_addressU": "Wrap",
+                            "m_addressV": "Wrap"
+                        },
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterOcclusionSampler"
+                        }
+                    },
+                    {
+                        "name": "EmissiveRow0",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            1,
+                            0,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterEmissiveRow0"
+                        }
+                    },
+                    {
+                        "name": "EmissiveRow1",
+                        "type": "Vector4",
+                        "defaultValue": [
+                            0,
+                            1,
+                            0,
+                            0
+                        ],
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterEmissiveRow1"
+                        }
+                    },
+                    {
+                        "name": "EmissiveSampler",
+                        "type": "SamplerState",
+                        "defaultValue": {
+                            "m_filterMin": "Linear",
+                            "m_filterMag": "Linear",
+                            "m_filterMip": "Linear",
+                            "m_addressU": "Wrap",
+                            "m_addressV": "Wrap"
+                        },
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterEmissiveSampler"
+                        }
+                    },
+                    {
+                        "name": "alphaFactor",
+                        "type": "Float",
+                        "defaultValue": 1,
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterAlphaFactor"
+                        }
+                    },
+                    {
+                        "name": "unlit",
+                        "type": "Bool",
+                        "defaultValue": false,
+                        "connection": {
+                            "type": "ShaderInput",
+                            "name": "m_jesterUnlit"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "lightingModel": "Standard",
+    "materialShaderDefines": "JesterPBR_Defines.azsli",
+    "materialShaderCode": "JesterPBR.azsli",
+    "functors": [],
+    "uvNameMap": {
+        "UV0": "Tiled",
+        "UV1": "Unwrapped"
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "materialType": "Types/JesterPBR.materialtype",
+    "materialTypeVersion": 5,
+    "propertyValues": {
+        "baseColor.color": [
+            0.42,
+            0.62,
+            0.76,
+            1.0
+        ],
+        "roughness.factor": 0.65,
+        "metallic.factor": 0.0
+    }
+}

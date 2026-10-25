@@ -1,0 +1,5 @@
+{
+    "materialType": "@gemroot:Atom_Feature_Common@/Assets/Materials/Types/Unlit.materialtype",
+    "materialTypeVersion": 1,
+    "propertyValues": { "settings.color": [1.0, 1.0, 1.0, 1.0] }
+}

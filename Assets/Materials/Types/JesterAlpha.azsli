@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) Contributors to the Open 3D Engine Project.
+ * For complete copyright and license terms please see the LICENSE at the root of this distribution.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR MIT
+ *
+ */
+
+ #pragma once
+
+#include <Atom/Feature/Common/Assets/Shaders/Materials/MaterialInputs/AlphaInput.azsli>
+
+real GetAlphaAndClip(const MaterialParameters params, float2 uvs[UvSetCount], float4 uvDxDy = float4(0.0f, 0.0f, 0.0f, 0.0f), bool customDerivatives = false)
+{
+    // Alpha
+    float2 baseColorUV = JesterUv(uvs[params.m_baseColorMapUvIndex], params.m_jesterBaseRow0, params.m_jesterBaseRow1);
+    float2 opacityUV = uvs[params.m_opacityMapUvIndex];
+    real alpha = SampleAlpha(GetMaterialTexture(params.m_baseColorMap), GetMaterialTexture(params.m_opacityMap), baseColorUV, opacityUV, GetMaterialTextureSampler(params.m_jesterBaseSampler), o_opacity_source, uvDxDy, customDerivatives);
+    alpha *= real(params.m_jesterAlphaFactor);
+    CheckClipping(alpha, real(params.m_opacityFactor));
+    return o_opacity_mode == OpacityMode::Cutout ? real(1) : real(params.m_opacityFactor) * alpha;
+}

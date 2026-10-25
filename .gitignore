@@ -1,0 +1,28 @@
+# Local builds, processed assets, user data and captures
+/build*/
+/Cache/
+/user/
+/logs/
+/artifacts/
+/library/
+/.vs/
+/.idea/
+/.vscode/
+/CMakeUserPresets.json
+/imgui.ini
+
+# Editor and Python temporary files
+__pycache__/
+*.py[cod]
+*.user
+*.log
+*.dmp
+*.bak
+*.tmp
+*~
+
+# Local automation credentials
+*-mcp.json
+*.local.json
+.env
+.env.*

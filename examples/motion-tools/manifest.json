@@ -1,0 +1,619 @@
+{
+    "license": "MIT; original synthetic geometry and motions",
+    "retarget": {
+        "bodyScale": 0.9033707549499441,
+        "bodyScaleMeaning": "Ratio of calibrated rest skeleton role heights in the common up basis; independent of mesh availability in worker snapshots",
+        "contactMeasurementMeaning": "Calibrated sole point only, at output key times. Slip is displacement error relative to the authored anchor (moving ground for in-place), not mesh penetration depth.",
+        "contactMeasurements": [
+        ],
+        "elapsedMs": 7,
+        "fps": 30,
+        "frames": 61,
+        "limitations": "Contact anchors use authored or ground-projected local sole points. Pelvis reach projection is bounded and heuristic; joint-domain feasibility is reported, not guaranteed. Shared root/pelvis permits vertical adjustment only. No automatic contact inference or twist distribution. In-place contacts compensate source root travel; they describe a moving ground reference. Contact measurements are at baked key times.",
+        "mapping": [
+            {
+                "role": "root",
+                "source": 0,
+                "target": 0
+            },
+            {
+                "role": "pelvis",
+                "source": 0,
+                "target": 0
+            },
+            {
+                "role": "spine",
+                "source": 1,
+                "target": 1
+            },
+            {
+                "role": "chest",
+                "source": 2,
+                "target": 2
+            },
+            {
+                "role": "neck",
+                "source": 3,
+                "target": 3
+            },
+            {
+                "role": "head",
+                "source": 4,
+                "target": 4
+            },
+            {
+                "role": "leftShoulder",
+                "source": 5,
+                "target": 5
+            },
+            {
+                "role": "leftUpperArm",
+                "source": 6,
+                "target": 6
+            },
+            {
+                "role": "leftForeArm",
+                "source": 7,
+                "target": 7
+            },
+            {
+                "role": "leftHand",
+                "source": 8,
+                "target": 8
+            },
+            {
+                "role": "leftUpperLeg",
+                "source": 13,
+                "target": 13
+            },
+            {
+                "role": "leftLeg",
+                "source": 14,
+                "target": 14
+            },
+            {
+                "role": "leftFoot",
+                "source": 15,
+                "target": 15
+            },
+            {
+                "role": "leftToe",
+                "source": 16,
+                "target": 16
+            },
+            {
+                "role": "rightShoulder",
+                "source": 9,
+                "target": 9
+            },
+            {
+                "role": "rightUpperArm",
+                "source": 10,
+                "target": 10
+            },
+            {
+                "role": "rightForeArm",
+                "source": 11,
+                "target": 11
+            },
+            {
+                "role": "rightHand",
+                "source": 12,
+                "target": 12
+            },
+            {
+                "role": "rightUpperLeg",
+                "source": 17,
+                "target": 17
+            },
+            {
+                "role": "rightLeg",
+                "source": 18,
+                "target": 18
+            },
+            {
+                "role": "rightFoot",
+                "source": 19,
+                "target": 19
+            },
+            {
+                "role": "rightToe",
+                "source": 20,
+                "target": 20
+            }
+        ],
+        "maximumFootGoalResidualSceneUnits": 0.07823683321475983,
+        "maximumIkResidualSceneUnits": 0.07823683321475983,
+        "maximumPelvisAdjustmentSceneUnits": 0,
+        "maximumSolePointPenetrationMetres": 0,
+        "maximumTangentialSlipPerSampleMetres": 0,
+        "method": "Calibrated rest-relative world FK plus proportion-scaled two-bone IK",
+        "missingRoles": [
+        ],
+        "rootMotion": "scale",
+        "soleCalibration": "ground-projected rest-origin defaults; review calibration",
+        "sourceFingerprint": "bd9a70cef3958284b1ca4f645752c384f3bea66e883abccff44af355139b189d",
+        "status": "approximate",
+        "targetFingerprint": "0240a8ffdbda63e49a463e2ad09b689ed85717450fa13a39f8f58eeb86d91538",
+        "targetValidation": {
+            "adaptive": false,
+            "adaptiveDepth": 0,
+            "baseStepSeconds": 0.03333333333333333,
+            "elapsedMs": 2,
+            "limitations": "Fixed sampling may miss events between samples; no dynamic certificate. Surface pairs are explicit mesh indices; optional self checks exclude welded adjacency and report the first crossing or nested component pair per mesh.",
+            "nextOffset": -1,
+            "samples": [
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.03333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.06666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.1
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.13333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.16666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.2
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.23333333333333334
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.26666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.3
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.3333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.36666666666666664
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.4
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.43333333333333335
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.4666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.5
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.5333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.5666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.6
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.6333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.6666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.7
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.7333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.7666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.8
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.8333333333333334
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.8666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.9
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.9333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 0.9666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.0333333333333332
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.0666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.1
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.1333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.1666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.2
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.2333333333333334
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.2666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.3
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.3333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.3666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.4
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.4333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.4666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.5
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.5333333333333332
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.5666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.6
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.6333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.6666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.7
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.7333333333333334
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.7666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.8
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.8333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.8666666666666667
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.9
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.9333333333333333
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 1.9666666666666666
+                },
+                {
+                    "expectations": [
+                    ],
+                    "issues": [
+                    ],
+                    "seconds": 2
+                }
+            ],
+            "status": "complete",
+            "surfaceEnabled": false,
+            "surfacePairCount": 0,
+            "temporalMeaning": "Sampled detections only. Adaptive refinement uses midpoint curvature, rapid travel and joint-origin proximity; it is not a continuous collision certificate.",
+            "totalSamples": 61,
+            "units": "metres / degrees / seconds"
+        },
+        "timeBudgetMs": 30000,
+        "transferredContactIntentions": 0,
+        "transferredContactSamples": 0,
+        "unitScale": 1,
+        "unmappedAnnotationNodes": [
+        ],
+        "unreachableSamples": 122,
+        "verificationScope": "Automatic bounded target proxy/limit/expectation sample; use Motion analysis for a full interval and exact surface checks. Source-space expectations remain provenance until recaptured.",
+        "yawPolicy": "preserve orientation"
+    },
+    "scenes": [
+        {
+            "name": "annotated-jump",
+            "project": "annotated-jump.trickster"
+        },
+        {
+            "name": "curves-paths",
+            "project": "curves-paths.trickster"
+        },
+        {
+            "name": "penetration-and-contact",
+            "project": "penetration-and-contact.trickster"
+        },
+        {
+            "name": "retarget-target",
+            "project": "retarget-target.trickster"
+        },
+        {
+            "name": "retarget-result",
+            "project": "retarget-result.trickster"
+        }
+    ],
+    "surfacePairExample": [
+        [
+            0,
+            1
+        ]
+    ]
+}

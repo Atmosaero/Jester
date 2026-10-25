@@ -1,0 +1,3604 @@
+[
+  {
+    "name": "editor_state",
+    "description": "Read current document, scenes, selection, clip, camera, warnings, physics and optionally all node transforms. Read after commands to verify their effects.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "scene",
+    "description": "Manage document tabs and files. new templates: empty/mannequin/demo. open appends/reuses an empty tab. save writes a self-contained project and marks it clean. export writes baked FBX/GLB/glTF without a dialog. close refuses dirty documents unless discard=true. Returns current state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "list",
+            "new",
+            "open",
+            "save",
+            "export",
+            "switch",
+            "duplicate",
+            "rename",
+            "close"
+          ]
+        },
+        "template": {
+          "type": "string",
+          "enum": [
+            "empty",
+            "mannequin",
+            "demo"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1023
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "discard": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "node_select",
+    "description": "Select one or multiple bones/controllers; mode replace/add/toggle. node=-1 or empty nodes clears selection. editor_state returns primary selected and full selection.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": -1,
+                "maximum": 4095
+              },
+              {
+                "type": "string",
+                "minLength": 1
+              }
+            ]
+          },
+          "maxItems": 4096
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "add",
+            "toggle"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "pose_transform",
+    "description": "Set TRS while preserving omitted components. space controls position; rotationSpace controls rotation (default local); scale is local. Key writes into the current recording target. Pins/limits remain active.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "position": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "scale": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "local",
+            "world"
+          ]
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Optional frame to evaluate before editing."
+        },
+        "key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write a full pose key after the edit. Defaults to true for pose/morph operations."
+        },
+        "symmetric": {
+          "type": "boolean",
+          "description": "Mirror the edited bone/IK chain to its assigned partner in the same Undo operation."
+        },
+        "rotationSpace": {
+          "type": "string",
+          "enum": [
+            "local",
+            "world"
+          ],
+          "default": "local",
+          "description": "Euler rotation coordinate space, independent of position space; defaults to local for compatibility."
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "pose_ik",
+    "description": "Move an end effector with the editor two-bone IK/reach solver. World-space target and pole; unreachable goals clamp to reach. pin=true retains a world pin. Returns achieved position and residual.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "pole": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "pin": {
+          "type": "boolean"
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Optional frame to evaluate before editing."
+        },
+        "key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write a full pose key after the edit. Defaults to true for pose/morph operations."
+        },
+        "symmetric": {
+          "type": "boolean",
+          "description": "Mirror the edited bone/IK chain to its assigned partner in the same Undo operation."
+        }
+      },
+      "required": [
+        "node",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "pose_pin",
+    "description": "Set/remove a world-space pin, pin both named feet, or clear all pins. Omitted target/pole use current positions. Weight 0..1.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "set",
+            "remove",
+            "feet",
+            "clear"
+          ]
+        },
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "pole": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Optional frame to evaluate before editing."
+        },
+        "key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write a full pose key after the edit. Defaults to true for pose/morph operations."
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "pose_operation",
+    "description": "Apply rest pose, mirror, named-humanoid crouch, or toggle reach assistance. All operations support Undo.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "reset",
+            "mirror",
+            "crouch",
+            "assist",
+            "copy_opposite"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Optional frame to evaluate before editing."
+        },
+        "key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write a full pose key after the edit. Defaults to true for pose/morph operations."
+        },
+        "node": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Source bone for copy_opposite; the source stays unchanged, its opposite IK chain or FK bone is copied."
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "pose_limits",
+    "description": "Set/remove a cone rotation limit relative to rest, in degrees. Applies the limit immediately and solves pins.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "angle": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 180
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Optional frame to evaluate before editing."
+        },
+        "key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write a full pose key after the edit. Defaults to true for pose/morph operations."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "hinge",
+            "swingTwist"
+          ]
+        },
+        "axis": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "swing": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 180
+        },
+        "minimum": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "maximum": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        }
+      },
+      "required": [
+        "node"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "morph_set",
+    "description": "Set a morph target weight on a mesh node. Weight is a multiplier (1 = 100 percent), matching inspector range -100..100. Creates a key by default.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "weight": {
+          "type": "number",
+          "minimum": -100,
+          "maximum": 100
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000,
+          "description": "Optional frame to evaluate before editing."
+        },
+        "key": {
+          "type": "boolean",
+          "default": true,
+          "description": "Write a full pose key after the edit. Defaults to true for pose/morph operations."
+        }
+      },
+      "required": [
+        "node",
+        "target",
+        "weight"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "timeline",
+    "description": "Seek, set clip range/FPS, play/pause/loop, insert/delete/move/copy keys, copy/paste a pose, jump to previous/next key, or fit timeline. frame selects destination/current time; from selects source key. Existing-key replacement requires replace=true for paste only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "seek",
+            "range",
+            "play",
+            "pause",
+            "loop",
+            "insert",
+            "delete",
+            "move",
+            "copy",
+            "copy_pose",
+            "paste_pose",
+            "previous",
+            "next",
+            "fit",
+            "keys_transform",
+            "select_track"
+          ]
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "replace": {
+          "type": "boolean",
+          "default": false
+        },
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": -1
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Bone index/name; select_track accepts -1 for the explicit whole-layer/whole-pose summary."
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7,
+          "description": "Component mask: Position=1, Rotation=2, Scale=4. Explicit channel insertion does not expand an IK chain."
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1,
+          "maxItems": 4096
+        },
+        "includeChain": {
+          "type": "boolean",
+          "description": "For node-scoped insertion: include IK root/mid/end. Defaults to false with an explicit channel mask, true otherwise."
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "properties": {
+              "frame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "node": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "channels": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              }
+            },
+            "required": [
+              "frame"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "delta": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "copy": {
+          "type": "boolean"
+        },
+        "remove": {
+          "type": "boolean"
+        },
+        "whole": {
+          "type": "boolean",
+          "description": "Explicit whole-bundle insertion, bypasses selected-bone defaults."
+        },
+        "source": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "history",
+    "description": "Undo or redo completed edits. Stops playback first.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "undo",
+            "redo"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 1
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "view",
+    "description": "Control camera, viewport tools and display overlays. camera rotations are degrees, distance/center are scene units. preset: perspective/front/side/top/fit. Returns camera and node projections.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": [
+            "perspective",
+            "front",
+            "side",
+            "top",
+            "fit"
+          ]
+        },
+        "yaw": {
+          "type": "number",
+          "minimum": -3600,
+          "maximum": 3600
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": -89,
+          "maximum": 89
+        },
+        "distance": {
+          "type": "number",
+          "minimum": 0.0001,
+          "maximum": 100000
+        },
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "tool": {
+          "type": "string",
+          "enum": [
+            "select",
+            "move",
+            "rotate"
+          ]
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "mesh": {
+          "type": "boolean"
+        },
+        "bones": {
+          "type": "boolean"
+        },
+        "ghost": {
+          "type": "boolean"
+        },
+        "trajectory": {
+          "type": "boolean"
+        },
+        "balance": {
+          "type": "boolean"
+        },
+        "physics": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "contact",
+    "description": "List/add/remove/clear planted foot contact intervals. Add rejects overlapping intervals for a node. Positions and pole are world-space.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "list",
+            "add",
+            "remove",
+            "clear",
+            "diagnose",
+            "set"
+          ]
+        },
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "target": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "pole": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "orient": {
+          "type": "boolean"
+        },
+        "orientation": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "fadeIn": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "fadeOut": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "ground": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "physics_settings",
+    "description": "Set any world physics settings. Omitted properties are preserved. Changes invalidate preview and support Undo.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "settings": {
+          "type": "object",
+          "properties": {
+            "metersPerUnit": {
+              "type": "number",
+              "minimum": 1e-06,
+              "maximum": 100000
+            },
+            "gravity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "ground": {
+              "type": "number",
+              "minimum": -100000,
+              "maximum": 100000
+            },
+            "friction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "restitution": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "substeps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 512
+            },
+            "iterations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "selfCollision": {
+              "type": "boolean"
+            },
+            "followAnimation": {
+              "type": "boolean"
+            },
+            "stiffness": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "damping": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000
+            },
+            "maxTorque": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "contactTime": {
+              "type": "number",
+              "minimum": 0.0001,
+              "maximum": 1
+            },
+            "contactDamping": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 10
+            },
+            "externalAnchors": {
+              "type": "boolean"
+            },
+            "requests": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "settings"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "physics_body",
+    "description": "Fit a capsule rig or edit a single body mass/radius/COM/tip. center and end are local scene-unit coordinates. list returns fitted bodies if no explicit rig exists.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "list",
+            "fit",
+            "set",
+            "set_many",
+            "foot_pads",
+            "add",
+            "remove"
+          ]
+        },
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ],
+          "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+        },
+        "totalMass": {
+          "type": "number",
+          "minimum": 1e-06,
+          "maximum": 100000
+        },
+        "mass": {
+          "type": "number",
+          "minimum": 1e-06,
+          "maximum": 100000
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 1e-06,
+          "maximum": 10000
+        },
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "end": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "inertia": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "footHalfSize": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "inertiaRotation": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        },
+        "estimated": {
+          "type": "boolean"
+        },
+        "stiffness": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 10000
+        },
+        "damping": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1000
+        },
+        "maxTorque": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 10000
+        },
+        "bodies": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "node": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4095
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ],
+                "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+              },
+              "mass": {
+                "type": "number",
+                "minimum": 1e-06,
+                "maximum": 100000
+              },
+              "radius": {
+                "type": "number",
+                "minimum": 1e-06,
+                "maximum": 10000
+              },
+              "center": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "end": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "inertia": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "footHalfSize": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "inertiaRotation": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              },
+              "estimated": {
+                "type": "boolean"
+              },
+              "stiffness": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 10000
+              },
+              "damping": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1000
+              },
+              "maxTorque": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 10000
+              },
+              "shapeRotation": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number",
+                  "minimum": -1,
+                  "maximum": 1
+                }
+              }
+            },
+            "required": [
+              "node"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "massProfile": {
+          "type": "string",
+          "enum": [
+            "geometry",
+            "human"
+          ]
+        },
+        "shapeRotation": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          }
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "physics_preview",
+    "description": "Native MuJoCo background calculation: simulate (legacy external-anchor preview), flight (ballistic COM + conserved angular momentum) or optimize (bounded control shooting with real geom contacts and independent forward replay). Poll status/report, cancel, apply to a separate document; UUID/revision stale protection.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "simulate",
+            "flight",
+            "clear",
+            "apply",
+            "status",
+            "cancel",
+            "optimize"
+          ]
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "endpoint-positions",
+                "initial-velocity"
+              ]
+            },
+            "initialVelocity": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -100000,
+                "maximum": 100000
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "endVelocity": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -100000,
+                "maximum": 100000
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "constrainEndVelocity": {
+              "type": "boolean"
+            },
+            "conserveAngularMomentum": {
+              "type": "boolean"
+            },
+            "iterations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "seconds": {
+              "type": "number",
+              "minimum": 0.01,
+              "maximum": 300
+            },
+            "poseWeight": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 10000
+            },
+            "contactWeight": {
+              "type": "number",
+              "minimum": 0.001,
+              "maximum": 10000
+            },
+            "smoothWeight": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "importantFrames": {
+              "type": "array",
+              "maxItems": 300,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "frame": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  "weight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10000
+                  }
+                },
+                "required": [
+                  "frame"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "outputFps": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 240
+            },
+            "endAtRest": {
+              "type": "boolean"
+            },
+            "prepareLanding": {
+              "type": "boolean",
+              "description": "Prepare intermediate leg reference poses around authored landing; defaults true. Model, initial state, contact schedule and important poses stay fixed."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "scene_bake",
+    "description": "Bake corrections or an experimental parabolic COM arc to a separate scene, optionally save it. Source stays in its own tab.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "bake",
+            "arc"
+          ]
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "batch",
+    "description": "Atomically apply up to 256 pose/key/contact/physics edits to a staging copy, then commit one Undo entry. On failure scene and history remain unchanged. timeline supports seek/range/insert/delete/move/copy in a batch; contact supports add/remove/clear; physics_body fit/set. Unsupported operations reject the batch.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "tool": {
+                "type": "string",
+                "enum": [
+                  "pose_transform",
+                  "pose_ik",
+                  "pose_pin",
+                  "pose_operation",
+                  "pose_limits",
+                  "morph_set",
+                  "timeline",
+                  "contact",
+                  "physics_settings",
+                  "physics_body"
+                ]
+              },
+              "arguments": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "tool",
+              "arguments"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "operations"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "screenshot",
+    "description": "Capture the real editor window or viewport including gizmos/overlays. Returns a PNG image content block and optional saved path.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "enum": [
+            "window",
+            "viewport"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "maxWidth": {
+          "type": "integer",
+          "minimum": 320,
+          "maximum": 3840,
+          "default": 1440
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "record_frames",
+    "description": "Render a deterministic PNG sequence from the current animation, with one clip-frame per step. Restores playhead/playback afterwards. At most 600 images per call; use the returned FPS for encoding. No wall-clock playback drift.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "directory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 1
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "window",
+            "viewport"
+          ]
+        },
+        "maxWidth": {
+          "type": "integer",
+          "minimum": 320,
+          "maximum": 3840,
+          "default": 1440
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "directory"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "editor_actions",
+    "description": "List menu/toolbar actions with stable IDs, labels, shortcuts and enabled/checked state. Includes scene, layout, help and MCP controls.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "editor_action",
+    "description": "Trigger an existing QAction by ID or exact objectName. Executes on the Qt event loop after returning so modal dialogs remain controllable through ui tools. Disabled actions return errors.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "checked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ui_inspect",
+    "description": "Inspect live Qt controls and modal dialogs. IDs remain valid while widgets exist. objectName can also be used when unambiguous. visibleOnly defaults true; include hidden controls to discover collapsed panels.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "visibleOnly": {
+          "type": "boolean",
+          "default": true
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ui_set",
+    "description": "Set an existing spinbox, slider, checkbox, line edit or combo box. Spinboxes commit editingFinished; this uses the same handlers as the UI. Values outside widget ranges are rejected.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {}
+      },
+      "required": [
+        "id",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ui_click",
+    "description": "Click a button or accept/reject a Qt dialog; queued to keep modal interactions responsive. operation defaults click. ui_inspect exposes controls and buttons in every dialog.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "click",
+            "accept",
+            "reject"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ui_select",
+    "description": "Select a tree/list item by row path (e.g. [0,2,1]), combo/tab by index, or switch/close a scene tab through scene. Tree/list paths are zero-based and match ui_inspect items.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "minItems": 1,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ui_key",
+    "description": "Send a key sequence to a Qt control, e.g. Ctrl+C, Delete, Escape, Return. Window shortcuts are resolved through enabled editor actions. Use typed tools for workflows that do not need UI gestures.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "id",
+        "sequence"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "ui_pointer",
+    "description": "Send real viewport/timeline mouse gestures. Coordinates are logical widget pixels; view returns projected joint coordinates. begin/update/end allow intermediate screenshots; drag performs one complete gesture with Undo.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "click",
+            "double_click",
+            "begin",
+            "update",
+            "end",
+            "drag",
+            "wheel"
+          ]
+        },
+        "x": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "y": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "toX": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "toY": {
+          "type": "number",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "button": {
+          "type": "string",
+          "enum": [
+            "left",
+            "middle",
+            "right"
+          ]
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ctrl",
+              "shift",
+              "alt"
+            ]
+          }
+        },
+        "delta": {
+          "type": "integer",
+          "minimum": -12000,
+          "maximum": 12000
+        }
+      },
+      "required": [
+        "id",
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "motion_correction",
+    "description": "Create and edit ordered keyed additive correction layers, compare original, or bake an independent result.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "create",
+            "set",
+            "clear",
+            "bake",
+            "remove",
+            "duplicate",
+            "select",
+            "reorder",
+            "key_insert",
+            "key_delete",
+            "key_move",
+            "key_copy",
+            "compare",
+            "key_reset",
+            "keys_transform"
+          ]
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "fadeIn": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "fadeOut": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "editing": {
+          "type": "boolean"
+        },
+        "strength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "local",
+            "world"
+          ]
+        },
+        "layer": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "node": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 240
+        },
+        "channels": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7,
+          "description": "Component mask: Position=1, Rotation=2, Scale=4. Explicit channel insertion does not expand an IK chain."
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 1,
+          "maxItems": 4096
+        },
+        "includeChain": {
+          "type": "boolean",
+          "description": "For node-scoped insertion: include IK root/mid/end. Defaults to false with an explicit channel mask, true otherwise."
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "properties": {
+              "frame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "node": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "channels": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              }
+            },
+            "required": [
+              "frame"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "delta": {
+          "type": "integer",
+          "minimum": -100000,
+          "maximum": 100000
+        },
+        "copy": {
+          "type": "boolean"
+        },
+        "remove": {
+          "type": "boolean"
+        },
+        "whole": {
+          "type": "boolean",
+          "description": "Explicit whole-bundle insertion, bypasses selected-bone defaults."
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "character_profile",
+    "description": "Assign saved humanoid roles, explicit root/mid/end IK chains, rest-space pole directions and reciprocal mirror pairs. suggest applies unambiguous name suggestions.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "suggest",
+            "set"
+          ]
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          }
+        },
+        "chains": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "mid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "end": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4095
+              },
+              "pole": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": [
+              "root",
+              "mid",
+              "end",
+              "pole"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "mirrors": {
+          "type": "array",
+          "maxItems": 2048,
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "whole_body",
+    "description": "Solve multiple weighted/prioritized hard/soft effectors plus a COM projection goal, preserving bone lengths and directed limits. Current pins/contacts are kinematic goals only. Writes one key in the selected layer, one Undo; returns actual residuals and solved/infeasible status. Positions use scene units. COM projection is not dynamic validation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "goals": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "properties": {
+              "node": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4095
+                  },
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                ],
+                "description": "Node index from editor_state, or exact unique node name. Indices are scoped to the active scene."
+              },
+              "target": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "hard": {
+                "type": "boolean"
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 10000
+              },
+              "orientation": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": [
+              "node",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "comTarget": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": -100000,
+            "maximum": 100000
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "comHeight": {
+          "type": "boolean"
+        },
+        "comWeight": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 10000
+        },
+        "poseWeight": {
+          "type": "number",
+          "minimum": 1e-06,
+          "maximum": 10000
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "useContacts": {
+          "type": "boolean"
+        },
+        "frame": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "physics_analyze",
+    "description": "Compile the native model, measure SI mass/COM/inertia/linear and angular momentum, diagnose unsupported rigid transforms, or export readable MJCF. No mutable engine pointer is returned. Explicit proxy_preview measures scale and world geometry; proxy_create opens a separate approximate rigid scene. Private source assets remain unchanged.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "measure",
+            "mjcf",
+            "proxy_preview",
+            "proxy_create"
+          ]
+        },
+        "frame": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "path": {
+          "type": "string"
+        },
+        "outputFps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 240
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "motion_annotations",
+    "description": "Edit context metadata with Undo, search/filter, stable bundle-key attachments, explicit affine retime or trim. Retime/trim affect context only; outside trimmed annotations are retained and marked. Key moves carry attachments; deletion retains orphaned context; ordinary FPS changes preserve seconds.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "list",
+            "add",
+            "set",
+            "remove",
+            "duplicate",
+            "attach",
+            "detach",
+            "retime",
+            "trim"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "annotation": {
+          "type": "object"
+        },
+        "search": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "type": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "intention",
+            "observation",
+            "hypothesis"
+          ]
+        },
+        "tag": {
+          "type": "string"
+        },
+        "node": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "integer"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "scale": {
+          "type": "number",
+          "minimum": 1e-06
+        },
+        "pivot": {
+          "type": "number"
+        },
+        "offsetSeconds": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "detail": {
+          "type": "string",
+          "enum": [
+            "compact",
+            "full"
+          ]
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "motion_context",
+    "description": "Read-only authored notes and nearest events. Exact times remain seconds; display/navigation use nearest frame, ties toward +infinity. Interval frame bins are half-open; points and sub-frame intervals occupy their nearest frame. Compact notes include description (256 chars), textTruncated/textLength, nodeNames, startFrame/endFrame and point. detail full returns full text; motion_annotations list with id retrieves any complete note. Text is not a constraint.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "seconds": {
+          "type": "number"
+        },
+        "node": {
+          "type": "integer"
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "detail": {
+          "type": "string",
+          "enum": [
+            "compact",
+            "full"
+          ]
+        },
+        "measure": {
+          "type": "boolean"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "id": {
+          "type": "string",
+          "description": "Filter context to a specific annotation ID; use detail full for its entire text."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "animation_curves",
+    "description": "Author local scalar position/scale/morph and explicit unwrapped YXZ Euler curves, or SO(3) quaternion Step/SLERP/spherical cubic channels. Outgoing segment owns mode; angular tangents are local rad/s. Atomic set/remove with Undo. Layers and IK are evaluated afterwards.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "list",
+            "set",
+            "remove",
+            "extract_native",
+            "interpolation"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "curve": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "node": {
+              "type": "integer"
+            },
+            "path": {
+              "type": "string",
+              "enum": [
+                "position",
+                "scale",
+                "rotationEuler",
+                "rotationQuaternion",
+                "morph",
+                "ikTarget",
+                "ikPole",
+                "ikWeight"
+              ]
+            },
+            "component": {
+              "type": "integer"
+            },
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "time": {
+                    "type": "number"
+                  },
+                  "value": {
+                    "type": "number"
+                  },
+                  "inTime": {
+                    "type": "number"
+                  },
+                  "inValue": {
+                    "type": "number"
+                  },
+                  "outTime": {
+                    "type": "number"
+                  },
+                  "outValue": {
+                    "type": "number"
+                  },
+                  "overshoot": {
+                    "type": "number"
+                  },
+                  "amplitude": {
+                    "type": "number"
+                  },
+                  "period": {
+                    "type": "number"
+                  },
+                  "orientation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 4,
+                    "maxItems": 4
+                  },
+                  "angularIn": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "angularOut": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "interpolation": {
+                    "type": "string",
+                    "enum": [
+                      "Step",
+                      "Linear",
+                      "Bezier",
+                      "Hermite",
+                      "Bounce",
+                      "Elastic",
+                      "Back"
+                    ]
+                  },
+                  "handles": {
+                    "type": "string",
+                    "enum": [
+                      "Free",
+                      "Aligned",
+                      "Vector",
+                      "Automatic",
+                      "AutoClamped"
+                    ]
+                  },
+                  "ease": {
+                    "type": "string",
+                    "enum": [
+                      "In",
+                      "Out",
+                      "InOut"
+                    ]
+                  }
+                },
+                "required": [
+                  "time"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "layer": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "node",
+            "path",
+            "keys"
+          ],
+          "additionalProperties": false
+        },
+        "channel": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "component": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "angleToleranceDegrees": {
+          "type": "number",
+          "minimum": 0.001,
+          "maximum": 5
+        },
+        "selection": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "properties": {
+              "frame": {
+                "type": "integer"
+              },
+              "node": {
+                "type": "integer"
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "channels": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              }
+            },
+            "required": [
+              "frame"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "layer": {
+          "type": "string"
+        },
+        "interpolation": {
+          "type": "string",
+          "enum": [
+            "Step",
+            "Linear",
+            "Bezier",
+            "Hermite",
+            "Bounce",
+            "Elastic",
+            "Back"
+          ]
+        },
+        "handles": {
+          "type": "string",
+          "enum": [
+            "Free",
+            "Aligned",
+            "Vector",
+            "Automatic",
+            "AutoClamped"
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
+        "node": {
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "motion_trajectory",
+    "description": "Read-only evaluator snapshot sampling. Paginated bounded CPU work; derivative of moving-frame coordinates; explicit discontinuity status. Does not replay physics from arbitrary time.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number"
+        },
+        "point": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "space": {
+          "type": "string",
+          "enum": [
+            "world",
+            "parent",
+            "root"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "evaluated",
+            "original"
+          ]
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "budgetMs": {
+          "type": "integer"
+        },
+        "pointKind": {
+          "type": "string",
+          "enum": [
+            "origin",
+            "end",
+            "offset"
+          ]
+        },
+        "units": {
+          "type": "string",
+          "enum": [
+            "scene",
+            "metres"
+          ]
+        }
+      },
+      "required": [
+        "nodes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "retarget_profile",
+    "description": "Review role mapping / calculate bounded humanoid transfer / create independent result document. Calibrated FK plus optional two-bone IK; target proportions retained. Reports approximate reach and explicit contact-planning limitations.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "sourceScene": {
+          "type": "integer"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "mapping": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "integer"
+                  },
+                  "target": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "role",
+                  "source",
+                  "target"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "fps": {
+              "type": "integer"
+            },
+            "ik": {
+              "type": "boolean"
+            },
+            "contacts": {
+              "type": "boolean"
+            },
+            "rootMotion": {
+              "type": "string",
+              "enum": [
+                "scale",
+                "preserve",
+                "inPlace"
+              ]
+            },
+            "basisEuler": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "sourceCalibration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "rotation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "rotation"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "targetCalibration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "rotation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "rotation"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "sourceFingerprint": {
+              "type": "string"
+            },
+            "targetFingerprint": {
+              "type": "string"
+            },
+            "sourceSoles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "point": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "point"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "targetSoles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "point": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "point"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "adaptPelvis": {
+              "type": "boolean"
+            },
+            "maxPelvisHeightFraction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "report": {
+              "type": "object"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "sourceScene"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "retarget_preview",
+    "description": "Review role mapping / calculate bounded humanoid transfer / create independent result document. Calibrated FK plus optional two-bone IK; target proportions retained. Reports approximate reach and explicit contact-planning limitations.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "sourceScene": {
+          "type": "integer"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "mapping": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "integer"
+                  },
+                  "target": {
+                    "type": "integer"
+                  },
+                  "orientationWeight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ik": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "role",
+                  "source",
+                  "target"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "fps": {
+              "type": "integer"
+            },
+            "ik": {
+              "type": "boolean"
+            },
+            "contacts": {
+              "type": "boolean"
+            },
+            "rootMotion": {
+              "type": "string",
+              "enum": [
+                "scale",
+                "preserve",
+                "inPlace"
+              ]
+            },
+            "basisEuler": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "sourceCalibration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "rotation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "rotation"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "targetCalibration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "rotation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "rotation"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "sourceFingerprint": {
+              "type": "string"
+            },
+            "targetFingerprint": {
+              "type": "string"
+            },
+            "sourceSoles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "point": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "point"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "targetSoles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "point": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "point"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "adaptPelvis": {
+              "type": "boolean"
+            },
+            "maxPelvisHeightFraction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "report": {
+              "type": "object"
+            },
+            "timeBudgetMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120000
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "sourceScene"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "retarget_apply",
+    "description": "Review role mapping / calculate bounded humanoid transfer / create independent result document. Calibrated FK plus optional two-bone IK; target proportions retained. Reports approximate reach and explicit contact-planning limitations.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "sourceScene": {
+          "type": "integer"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "mapping": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "source": {
+                    "type": "integer"
+                  },
+                  "target": {
+                    "type": "integer"
+                  },
+                  "orientationWeight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "ik": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "role",
+                  "source",
+                  "target"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "fps": {
+              "type": "integer"
+            },
+            "ik": {
+              "type": "boolean"
+            },
+            "contacts": {
+              "type": "boolean"
+            },
+            "rootMotion": {
+              "type": "string",
+              "enum": [
+                "scale",
+                "preserve",
+                "inPlace"
+              ]
+            },
+            "basisEuler": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "sourceCalibration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "rotation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "rotation"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "targetCalibration": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "rotation": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "rotation"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "sourceFingerprint": {
+              "type": "string"
+            },
+            "targetFingerprint": {
+              "type": "string"
+            },
+            "sourceSoles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "point": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "point"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "targetSoles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "node": {
+                    "type": "integer"
+                  },
+                  "point": {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  }
+                },
+                "required": [
+                  "node",
+                  "point"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "adaptPelvis": {
+              "type": "boolean"
+            },
+            "maxPelvisHeightFraction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.5
+            },
+            "report": {
+              "type": "object"
+            },
+            "timeBudgetMs": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120000
+            }
+          },
+          "additionalProperties": false
+        },
+        "jobId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceScene"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "analysis_job",
+    "description": "Start snapshot trajectory/compare analysis on a worker thread; poll/cancel and page revision-bound immutable results. Finish pending edits first. One retained job per editor.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "start",
+            "status",
+            "cancel",
+            "result"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "trajectory",
+            "compare",
+            "validate",
+            "retarget"
+          ]
+        },
+        "settings": {
+          "type": "object"
+        },
+        "otherScene": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "operation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "motion_compare",
+    "description": "Bounded read-only mapped transform comparison. Time, duration-normalized phase or explicit event alignment; optional root/height normalization. Original timings preserved; sampled geometry, not a physics certificate.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "otherScene": {
+          "type": "integer"
+        },
+        "alignment": {
+          "type": "string",
+          "enum": [
+            "time",
+            "phase",
+            "event"
+          ]
+        },
+        "mapping": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string"
+              },
+              "left": {
+                "type": "integer"
+              },
+              "right": {
+                "type": "integer"
+              },
+              "axisLeft": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "axisRight": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "referenceLeft": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "referenceRight": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 3,
+                "maxItems": 3
+              }
+            },
+            "required": [
+              "left",
+              "right"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "normalizeRoot": {
+          "type": "boolean"
+        },
+        "normalizeHeight": {
+          "type": "boolean"
+        },
+        "offsetSeconds": {
+          "type": "number"
+        },
+        "leftEvent": {
+          "type": "string"
+        },
+        "rightEvent": {
+          "type": "string"
+        },
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "budgetMs": {
+          "type": "integer"
+        },
+        "restRelative": {
+          "type": "boolean"
+        },
+        "velocities": {
+          "type": "boolean"
+        },
+        "leftBasisEuler": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rightBasisEuler": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "compare",
+            "lag"
+          ]
+        },
+        "minimumLag": {
+          "type": "number"
+        },
+        "maximumLag": {
+          "type": "number"
+        },
+        "lagStep": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "otherScene"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "motion_validate",
+    "description": "Sampled proxies, directed authored joint limits, structured expectations, skinned mesh-pair or self triangle BVH intersections, and closed-volume containment. Welded adjacency is excluded from self checks; only the first hit per mesh is reported. Approximate/confirmed/uncertain/allowed remain distinct; no dynamic certificate.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "number"
+        },
+        "end": {
+          "type": "number"
+        },
+        "step": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "budgetMs": {
+          "type": "integer"
+        },
+        "surface": {
+          "type": "boolean"
+        },
+        "meshPairs": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        },
+        "selfIntersections": {
+          "type": "boolean"
+        },
+        "adaptive": {
+          "type": "boolean",
+          "description": "Bounded midpoint refinement near rapid travel, curvature and joint-origin proximity; no continuous certificate."
+        },
+        "adaptiveDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+]

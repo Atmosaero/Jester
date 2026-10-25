@@ -1,0 +1,198 @@
+<?xml version="1.0"?>
+<mujoco model="Trickster native physics">
+    <compiler angle="radian" autolimits="true" inertiafromgeom="false" alignfree="false"/>
+    <option timestep="0.0005208333333333333" gravity="0 -9.810000419616699 0" integrator="implicitfast" solver="Newton" iterations="100" tolerance="1e-10" cone="elliptic">
+        <flag autoreset="disable"/>
+    </option>
+    <worldbody>
+        <geom name="ground" type="plane" pos="0 -100 0" quat="0.7071068286895752 -0.7071068286895752 0 0" size="0 0 .1" contype="1" conaffinity="2" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+        <body name="b0" pos="0 1.039999961853027 0" quat="1 0 0 0">
+            <freejoint name="j0_free"/>
+            <inertial mass="1.847726583480835" pos="0 0.1150000095367432 0" fullinertia="0.01501280814409256 0.002258125459775329 0.01501280814409256 0 0 0"/>
+            <geom name="g0" type="capsule" fromto="0 0 0 0 0.2300000190734863 0" size="0.05060000345110893" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+            <site name="s0" pos="0 0 0" size=".003"/>
+            <body name="b1" pos="0 0.2300000190734863 0" quat="1 0 0 0">
+                <joint name="j1_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                <inertial mass="1.847726583480835" pos="0 0.1150000095367432 0" fullinertia="0.01501280814409256 0.002258125459775329 0.01501280814409256 0 0 0"/>
+                <geom name="g1" type="capsule" fromto="0 0 0 0 0.2300000190734863 0" size="0.05060000345110893" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                <site name="s1" pos="0 0 0" size=".003"/>
+                <body name="b2" pos="0 0.2300000190734863 0" quat="1 0 0 0">
+                    <joint name="j2_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                    <inertial mass="1.201267123222351" pos="0.0949999988079071 0.02999997138977051 0" fullinertia="0.001666062511503696 0.006760535296052694 0.007324844598770142 -0.001786982174962759 0 0"/>
+                    <geom name="g2" type="capsule" fromto="0 0 0 0.1899999976158142 0.05999994277954102 0" size="0.04383468255400658" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                    <site name="s2" pos="0 0 0" size=".003"/>
+                    <body name="b3" pos="0 0.1699999570846558 0" quat="1 0 0 0">
+                        <joint name="j3_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                        <inertial mass="0.7461058497428894" pos="0 0.08499997854232788 0" fullinertia="0.003311818465590477 0.0004981413949280977 0.003311818465590477 0 0 0"/>
+                        <geom name="g3" type="capsule" fromto="0 0 0 0 0.1699999570846558 0" size="0.03739998862147331" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                        <site name="s3" pos="0 0 0" size=".003"/>
+                        <body name="b4" pos="0 0.1699999570846558 0" quat="1 0 0 0">
+                            <joint name="j4_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                            <inertial mass="0.01395726483315229" pos="0 0 0" fullinertia="1.479684669902781e-06 1.479684669902781e-06 1.479684669902781e-06 0 0 0"/>
+                            <geom name="g4" type="sphere" size="0.01628000102937222" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                            <site name="s4" pos="0 0 0" size=".003"/>
+                        </body>
+                    </body>
+                    <body name="b5" pos="0.1899999976158142 0.05999994277954102 0" quat="1 0 0 0">
+                        <joint name="j5_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                        <inertial mass="0.2624205648899078" pos="0.06000000238418579 0 0" fullinertia="8.730015542823821e-05 0.0005804019747301936 0.0005804019747301936 0 0 0"/>
+                        <geom name="g5" type="capsule" fromto="0 0 0 0.1200000047683716 0 0" size="0.026400001719594" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                        <site name="s5" pos="0 0 0" size=".003"/>
+                        <body name="b6" pos="0.1200000047683716 0 0" quat="1 0 0 0">
+                            <joint name="j6_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                            <inertial mass="3.851759433746338" pos="0.1450000107288361 -0.01999998092651367 -0.01249999925494194" fullinertia="0.008799901232123375 0.05026564002037048 0.05075568705797195 0.005830327514559031 0.003643958130851388 -0.0005026143626309931"/>
+                            <geom name="g6" type="capsule" fromto="0 0 0 0.2900000214576721 -0.03999996185302734 -0.02499999850988388" size="0.06463846564292908" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                            <site name="s6" pos="0 0 0" size=".003"/>
+                            <body name="b7" pos="0.2900000214576721 -0.03999996185302734 -0.02499999850988388" quat="1 0 0 0">
+                                <joint name="j7_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                                <inertial mass="2.802014350891113" pos="0.1299999952316284 -0.01999998092651367 0.01250000018626451" fullinertia="0.005333504173904657 0.02946534566581249 0.02982183732092381 0.003802589373663068 -0.002376620890572667 0.0003656336339190602"/>
+                                <geom name="g7" type="capsule" fromto="0 0 0 0.2599999904632568 -0.03999996185302734 0.02500000037252903" size="0.05813371762633324" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                                <site name="s7" pos="0 0 0" size=".003"/>
+                                <body name="b8" pos="0.2599999904632568 -0.03999996185302734 0.02500000037252903" quat="1 0 0 0">
+                                    <joint name="j8_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                                    <inertial mass="0.01395726483315229" pos="0 0 0" fullinertia="1.479684669902781e-06 1.479684669902781e-06 1.479684669902781e-06 0 0 0"/>
+                                    <geom name="g8" type="sphere" size="0.01628000102937222" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                                    <site name="s8" pos="0 0 0" size=".003"/>
+                                </body>
+                            </body>
+                        </body>
+                    </body>
+                    <body name="b9" pos="-0.1899999976158142 0.05999994277954102 0" quat="1 0 0 0">
+                        <joint name="j9_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                        <inertial mass="0.2624205648899078" pos="-0.06000000238418579 0 0" fullinertia="8.730015542823821e-05 0.0005804019747301936 0.0005804019747301936 0 0 0"/>
+                        <geom name="g9" type="capsule" fromto="0 0 0 -0.1200000047683716 0 0" size="0.026400001719594" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                        <site name="s9" pos="0 0 0" size=".003"/>
+                        <body name="b10" pos="-0.1200000047683716 0 0" quat="1 0 0 0">
+                            <joint name="j10_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                            <inertial mass="3.851759433746338" pos="-0.1450000107288361 -0.01999998092651367 -0.01249999925494194" fullinertia="0.008799901232123375 0.05026564002037048 0.05075568705797195 -0.005830327514559031 -0.003643958130851388 -0.0005026143626309931"/>
+                            <geom name="g10" type="capsule" fromto="0 0 0 -0.2900000214576721 -0.03999996185302734 -0.02499999850988388" size="0.06463846564292908" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                            <site name="s10" pos="0 0 0" size=".003"/>
+                            <body name="b11" pos="-0.2900000214576721 -0.03999996185302734 -0.02499999850988388" quat="1 0 0 0">
+                                <joint name="j11_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                                <inertial mass="2.802014350891113" pos="-0.1299999952316284 -0.01999998092651367 0.01250000018626451" fullinertia="0.005333504173904657 0.02946534566581249 0.02982183732092381 -0.003802589373663068 0.002376620890572667 0.0003656336339190602"/>
+                                <geom name="g11" type="capsule" fromto="0 0 0 -0.2599999904632568 -0.03999996185302734 0.02500000037252903" size="0.05813371762633324" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                                <site name="s11" pos="0 0 0" size=".003"/>
+                                <body name="b12" pos="-0.2599999904632568 -0.03999996185302734 0.02500000037252903" quat="1 0 0 0">
+                                    <joint name="j12_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                                    <inertial mass="0.01395726483315229" pos="0 0 0" fullinertia="1.479684669902781e-06 1.479684669902781e-06 1.479684669902781e-06 0 0 0"/>
+                                    <geom name="g12" type="sphere" size="0.01628000102937222" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                                    <site name="s12" pos="0 0 0" size=".003"/>
+                                </body>
+                            </body>
+                        </body>
+                    </body>
+                </body>
+            </body>
+            <body name="b13" pos="0.119999997317791 -0.07999998331069946 0" quat="1 0 0 0">
+                <joint name="j13_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                <inertial mass="12.27312278747559" pos="0 -0.2150000035762787 0.02250000834465027" fullinertia="0.3523634970188141 0.0562431737780571 0.3491204082965851 0 0 0.03098934702575207"/>
+                <geom name="g13" type="capsule" fromto="0 0 0 0 -0.4300000071525574 0.04500001668930054" size="0.09511660784482956" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                <site name="s13" pos="0 0 0" size=".003"/>
+                <body name="b14" pos="0 -0.4300000071525574 0.04500001668930054" quat="1 0 0 0">
+                    <joint name="j14_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                    <inertial mass="12.27312278747559" pos="0 -0.2150000035762787 -0.02250000834465027" fullinertia="0.3523634970188141 0.0562431737780571 0.3491204082965851 0 0 -0.03098934702575207"/>
+                    <geom name="g14" type="capsule" fromto="0 0 0 0 -0.4300000071525574 -0.04500001668930054" size="0.09511660784482956" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                    <site name="s14" pos="0 0 0" size=".003"/>
+                    <body name="b15" pos="0 -0.4300000071525574 -0.04500001668930054" quat="1 0 0 0">
+                        <joint name="j15_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                        <inertial mass="0.6812514066696167" pos="0 -0.05000000074505806 0.05999999865889549" fullinertia="0.005018551833927631 0.005563553422689438 0.001680420245975256 0 0 0"/>
+                        <geom name="g15" type="box" quat="1 0 0 0" pos="0 -0.05000000074505806 0.05999999865889549" size="0.07000000029802322 0.05000000074505806 0.1400000005960464" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                        <site name="s15" pos="0 0 0" size=".003"/>
+                        <body name="b16" pos="0 -0.03999999910593033 0.1599999964237213" quat="1 0 0 0">
+                            <joint name="j16_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                            <inertial mass="0.01395726483315229" pos="0 0 0" fullinertia="1.479684669902781e-06 1.479684669902781e-06 1.479684669902781e-06 0 0 0"/>
+                            <geom name="g16" type="sphere" size="0.01628000102937222" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                            <site name="s16" pos="0 0 0" size=".003"/>
+                        </body>
+                    </body>
+                </body>
+            </body>
+            <body name="b17" pos="-0.119999997317791 -0.07999998331069946 0" quat="1 0 0 0">
+                <joint name="j17_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                <inertial mass="12.27312278747559" pos="0 -0.2150000035762787 0.02250000834465027" fullinertia="0.3523634970188141 0.0562431737780571 0.3491204082965851 0 0 0.03098934702575207"/>
+                <geom name="g17" type="capsule" fromto="0 0 0 0 -0.4300000071525574 0.04500001668930054" size="0.09511660784482956" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                <site name="s17" pos="0 0 0" size=".003"/>
+                <body name="b18" pos="0 -0.4300000071525574 0.04500001668930054" quat="1 0 0 0">
+                    <joint name="j18_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                    <inertial mass="12.27312278747559" pos="0 -0.2150000035762787 -0.02250000834465027" fullinertia="0.3523634970188141 0.0562431737780571 0.3491204082965851 0 0 -0.03098934702575207"/>
+                    <geom name="g18" type="capsule" fromto="0 0 0 0 -0.4300000071525574 -0.04500001668930054" size="0.09511660784482956" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                    <site name="s18" pos="0 0 0" size=".003"/>
+                    <body name="b19" pos="0 -0.4300000071525574 -0.04500001668930054" quat="1 0 0 0">
+                        <joint name="j19_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                        <inertial mass="0.6812514066696167" pos="0 -0.05000000074505806 0.05999999865889549" fullinertia="0.005018551833927631 0.005563553422689438 0.001680420245975256 0 0 0"/>
+                        <geom name="g19" type="box" quat="1 0 0 0" pos="0 -0.05000000074505806 0.05999999865889549" size="0.07000000029802322 0.05000000074505806 0.1400000005960464" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                        <site name="s19" pos="0 0 0" size=".003"/>
+                        <body name="b20" pos="0 -0.03999999910593033 0.1599999964237213" quat="1 0 0 0">
+                            <joint name="j20_ball" type="ball" limited="false" solreflimit=".004 1" range="0 3.141592653589793" damping="0"/>
+                            <inertial mass="0.01395726483315229" pos="0 0 0" fullinertia="1.479684669902781e-06 1.479684669902781e-06 1.479684669902781e-06 0 0 0"/>
+                            <geom name="g20" type="sphere" size="0.01628000102937222" contype="2" conaffinity="1" friction="0.800000011920929 .005 .0001" condim="6" solref="0.004000000189989805 1"/>
+                            <site name="s20" pos="0 0 0" size=".003"/>
+                        </body>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+    <actuator>
+        <general name="u1_0" joint="j1_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u1_1" joint="j1_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u1_2" joint="j1_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u2_0" joint="j2_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u2_1" joint="j2_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u2_2" joint="j2_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u3_0" joint="j3_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u3_1" joint="j3_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u3_2" joint="j3_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u4_0" joint="j4_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u4_1" joint="j4_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u4_2" joint="j4_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u5_0" joint="j5_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u5_1" joint="j5_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u5_2" joint="j5_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u6_0" joint="j6_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u6_1" joint="j6_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u6_2" joint="j6_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u7_0" joint="j7_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u7_1" joint="j7_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u7_2" joint="j7_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u8_0" joint="j8_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u8_1" joint="j8_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u8_2" joint="j8_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u9_0" joint="j9_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u9_1" joint="j9_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u9_2" joint="j9_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u10_0" joint="j10_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u10_1" joint="j10_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u10_2" joint="j10_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u11_0" joint="j11_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u11_1" joint="j11_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u11_2" joint="j11_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u12_0" joint="j12_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u12_1" joint="j12_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u12_2" joint="j12_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u13_0" joint="j13_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u13_1" joint="j13_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u13_2" joint="j13_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u14_0" joint="j14_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u14_1" joint="j14_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u14_2" joint="j14_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u15_0" joint="j15_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u15_1" joint="j15_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u15_2" joint="j15_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u16_0" joint="j16_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u16_1" joint="j16_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u16_2" joint="j16_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u17_0" joint="j17_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u17_1" joint="j17_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u17_2" joint="j17_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u18_0" joint="j18_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u18_1" joint="j18_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u18_2" joint="j18_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u19_0" joint="j19_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u19_1" joint="j19_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u19_2" joint="j19_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u20_0" joint="j20_ball" gear="1 0 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u20_1" joint="j20_ball" gear="0 1 0 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+        <general name="u20_2" joint="j20_ball" gear="0 0 1 0 0 0" ctrllimited="false" gaintype="fixed" gainprm="1" biastype="affine" biasprm="0 0 -20" forcelimited="true" forcerange="-200 200"/>
+    </actuator>
+</mujoco>
