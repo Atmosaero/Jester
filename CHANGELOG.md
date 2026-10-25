@@ -5,6 +5,8 @@
 - Organize editor sources by responsibility while preserving Core/Atom/UI boundaries.
 - Keep partially retargeted contact annotations valid, retaining source provenance and explicit warnings.
 - Select validation problem peaks from measured errors in their actual units; retain missing/uncertain peaks as null instead of zero.
+- Extract curve widgets and use the same quaternion key coordinates for painting, clicking and rectangle selection.
+- Add shared, strictly validated visual/preference data models and atomic import/export checks.
 
 - Add portable Windows packaging with app-local runtimes, a reduced asset closure, file hashes and ZIP output; exclude SDK tools, Python and developer data.
 - Embed a UTF-8 Windows manifest so the SDK module loader can open DLLs after relocation to a Unicode path.

@@ -34,6 +34,7 @@ target_include_directories(JesterUfbx PUBLIC third_party/ufbx)
 set_target_properties(JesterUfbx PROPERTIES AUTOMOC OFF)
 
 set(JESTER_CORE_SOURCES
+    src/core/scene/visual_settings.cpp
     src/core/annotations/notes_navigation.cpp src/core/analysis/motion_expectations.cpp src/core/animation/curve_bake.cpp
     src/core/analysis/motion_validation.cpp src/core/analysis/analysis_jobs.cpp src/core/analysis/motion_compare.cpp
     src/core/animation/retarget.cpp src/core/analysis/motion_analysis.cpp src/core/animation/animation_curves.cpp
@@ -60,6 +61,7 @@ if(MSVC)
     target_compile_options(JesterAtom PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()
 add_library(JesterUI STATIC
+    src/settings/preferences.cpp src/ui/curves/curve_canvas.cpp src/ui/curves/native_curve_plot.cpp
     src/ui/notes/notes_card.cpp src/ui/notes/notes_ui.cpp src/ui/notes/notes_overlay.cpp src/ui/motion/analysis_views.cpp
     src/ui/motion/retarget_ui.cpp src/ui/motion/motion_analysis_ui.cpp src/ui/curves/graph_editor.cpp src/ui/physics/physics_ui.cpp
     src/ui/physics/physics_job.cpp src/ui/motion/profile_ui.cpp src/ui/motion/motion_ui.cpp src/ui/widgets/icons.cpp src/ui/window/panels_ui.cpp
@@ -106,6 +108,9 @@ if(JESTER_BUILD_TESTS)
     jester_core_test(JesterMuJoCoTests mujoco_tests)
     jester_core_test(JesterReliabilityTests physics_reliability_tests)
     jester_core_test(JesterMediaTests media_tests)
+    jester_core_test(JesterSettingsTests settings_tests)
+    target_sources(JesterSettingsTests PRIVATE src/settings/preferences.cpp src/ui/curves/curve_canvas.cpp)
+    target_link_libraries(JesterSettingsTests PRIVATE Qt6::Widgets)
     add_executable(JesterCoreTests tests/core_tests.cpp)
     target_link_libraries(JesterCoreTests PRIVATE JesterCore Qt6::Test)
     target_compile_options(JesterCoreTests PRIVATE /WX- /utf-8 /EHsc /GR)
@@ -115,5 +120,5 @@ if(JESTER_BUILD_TESTS)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt6::Test>" "$<TARGET_FILE_DIR:JesterCoreTests>")
     add_custom_target(JesterRegression DEPENDS JesterCoreTests JesterPhysicsTests JesterMvpCoreTests
         JesterMuJoCoTests JesterReliabilityTests JesterMediaTests JesterUiTests JesterMvpTests
-        JesterAutomationTests JesterNotesTests JesterPhysicsUiTests JesterMotionTests JesterUxScopeTests)
+        JesterAutomationTests JesterNotesTests JesterPhysicsUiTests JesterMotionTests JesterUxScopeTests JesterSettingsTests)
 endif()
