@@ -1,5 +1,6 @@
 param(
     [ValidateSet('profile', 'release')][string]$Configuration = 'profile',
+    [ValidateSet('dx12', 'vulkan')][string]$Rhi = 'dx12',
     [switch]$Demo,
     [string]$File,
     [switch]$Mcp,
@@ -10,7 +11,8 @@ param(
 $ErrorActionPreference='Stop'
 $jesterExecutable=Join-Path $PSScriptRoot "build/bin/$Configuration/Jester.exe"
 if(-not (Test-Path -LiteralPath $jesterExecutable)) { throw 'Build Jester first: ./build.ps1 -Assets' }
-$jesterArguments=@("--project-path=$PSScriptRoot",'--rhi=dx12')
+$jesterRhi=$Rhi.ToLowerInvariant()
+$jesterArguments=@("--project-path=$PSScriptRoot","--rhi=$jesterRhi")
 if($Demo) { $jesterArguments+='--demo' }
 if($File) { $jesterArguments+=(Resolve-Path -LiteralPath $File).Path }
 if($Mcp) { $jesterArguments+=@('--mcp',"--mcp-port=$Port") }

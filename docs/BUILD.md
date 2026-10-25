@@ -17,6 +17,7 @@ cd Jester
 ./launch.ps1                         # Empty editor
 ./launch.ps1 -File ./examples/welcome.glb
 ./launch.ps1 -Demo -Mcp -Port 18530  # Local authenticated automation
+./launch.ps1 -Rhi vulkan -Demo       # Atom Vulkan (default: dx12)
 ./launch.ps1 -Smoke                  # Native viewport check, then exit
 ```
 

@@ -1,6 +1,6 @@
 # Jester
 
-A character animation editor powered by **O3DE Atom (DX12)** and Qt. First public alpha: **0.1.0-alpha.1**.
+A character animation editor powered by **O3DE Atom (DX12 / Vulkan)** and Qt. First public alpha: **0.1.0-alpha.1**.
 
 ![Jester animation editor](docs/images/editor.png)
 
@@ -13,6 +13,6 @@ Windows x64 · O3DE SDK 26.10 · Visual Studio 2026 (C++) · SDK-provided Qt 6.1
 ./launch.ps1 -Demo
 ```
 
-Early alpha: CPU skinning, basic lighting, source builds only. See [build instructions](docs/BUILD.md), [testing](docs/TESTING.md), and [limits](docs/LIMITATIONS.md).
+Early alpha: CPU skinning and basic lighting. See [building](docs/BUILD.md), [portable packaging](docs/PACKAGING.md), [testing](docs/TESTING.md), and [limits](docs/LIMITATIONS.md).
 
 MIT · [Third-party notices](THIRD_PARTY.md). Character libraries are not included.

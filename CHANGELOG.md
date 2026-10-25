@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add portable Windows packaging with app-local runtimes, a reduced asset closure, file hashes and ZIP output; exclude SDK tools, Python and developer data.
+- Embed a UTF-8 Windows manifest so the SDK module loader can open DLLs after relocation to a Unicode path.
+- Initialize UTF-8 character conversion for the SDK's `mbstowcs_s` path handling; mark uncommitted builds with a dirty source identity.
+
+- Add DX12/Vulkan selection to the launcher and a backend matrix runner with verified RHI selection, isolated reports and timeouts.
+- Check active-window/viewport focus before synthetic GUI shortcut tests.
+- Validate both backends on Windows/GTX 1650: GUI checks, 100%/150% viewport capture, real Windows input, textured import and a local skinned animation.
+
 ## 0.1.0-alpha.1 — 2026-10-25
 
 First public Jester alpha, derived from Trickster 0.5.0.

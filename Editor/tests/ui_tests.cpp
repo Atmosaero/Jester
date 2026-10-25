@@ -23,6 +23,16 @@ using namespace trickster;
 class UITests : public QObject {
     Q_OBJECT
   private:
+    bool focusViewport(Window &w) {
+        // Window-scoped QAction shortcuts require an active top-level window.
+        // Exposed native rendering surfaces alone do not guarantee activation.
+        w.raise();
+        w.activateWindow();
+        if (!QTest::qWaitForWindowActive(&w))
+            return false;
+        w.viewport->setFocus(Qt::OtherFocusReason);
+        return QTest::qWaitFor([&] { return w.viewport->hasFocus(); });
+    }
     void acceptFile(QString path) {
         QTimer::singleShot(200, [path] {
             for (auto w : QApplication::topLevelWidgets())
@@ -83,7 +93,7 @@ class UITests : public QObject {
                 .001);
         w.findChild<QSpinBox *>("currentFrame")->setValue(60);
         w.document().select(4);
-        w.viewport->setFocus();
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_E);
         QCOMPARE(w.viewport->tool, Viewport::Rotate);
         auto head = w.viewport->project(w.document().scene.positions(w.document().scene.pose)[4]).toPoint();
@@ -91,15 +101,19 @@ class UITests : public QObject {
         QVERIFY(w.document().scene.keys.contains(60));
         QVERIFY(std::abs(w.document().scene.pose[4].r.scalar() - 1) > .0001f);
         QCOMPARE(w.document().scene.keys.size(), 3);
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_Z, Qt::ControlModifier);
         QVERIFY(!w.document().scene.keys.contains(60));
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_Z, Qt::ControlModifier | Qt::ShiftModifier);
         QVERIFY(w.document().scene.keys.contains(60));
         w.document().seek(0);
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_Space);
         QVERIFY(w.document().playing);
         QTest::qWait(160);
         QVERIFY(w.document().frame > 0);
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_Space);
         QVERIFY(!w.document().playing);
         QString project = temp.path() + "/user.trickster";
@@ -271,6 +285,7 @@ class UITests : public QObject {
         QVERIFY(w.document().scene.nodes.empty());
         QVERIFY(w.findChild<QWidget *>("emptyScenePanel")->isVisible());
         QVERIFY(!w.findChild<QAction *>("exportAction")->isEnabled());
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_I);
         QVERIFY(w.document().scene.keys.isEmpty());
         QVERIFY(captureEditorWidget(&w).save("artifacts/empty-scene.png"));
@@ -280,6 +295,7 @@ class UITests : public QObject {
         w.document().edit("Move first scene", [](Scene &s) { s.translateWorld(0, {.2f, 0, 0}); });
         w.viewport->viewPreset(2);
         auto camera = w.viewport->camera();
+        QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_N, Qt::ControlModifier);
         QCOMPARE(tabs->count(), 2);
         QVERIFY(w.document().scene.nodes.empty());

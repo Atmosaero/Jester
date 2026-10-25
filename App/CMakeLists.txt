@@ -17,5 +17,13 @@ ly_add_target(
     TARGET_PROPERTIES OUTPUT_NAME Jester
 )
 ly_set_gem_variant_to_load(TARGETS JesterEditor VARIANTS Tools)
+if(WIN32)
+    # The SDK module loader passes UTF-8 paths to Win32 narrow APIs.
+    # A process-local UTF-8 code page keeps relocated Unicode paths working.
+    target_link_options(JesterEditor PRIVATE /MANIFEST:EMBED
+        "/MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/jester.manifest")
+    set_property(TARGET JesterEditor APPEND PROPERTY LINK_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/jester.manifest")
+endif()
 add_custom_command(TARGET JesterEditor POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:JesterMuJoCo>" "$<TARGET_FILE_DIR:JesterEditor>")

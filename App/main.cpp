@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <clocale>
 
 class JesterTrace final : public AZ::Debug::TraceMessageBus::Handler
 {
@@ -242,6 +243,14 @@ private:
 
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    // The SDK's Windows module loader uses mbstowcs_s for UTF-8 paths.
+    // Configure character conversion only; numeric serialization stays in C locale.
+    if (!std::setlocale(LC_CTYPE, ".UTF8")) {
+        std::fputs("Jester requires Windows UTF-8 locale support.\n", stderr);
+        return 2;
+    }
+#endif
     bool mcp=false,mcpSettings=false;
     for(int i=1;i<argc;++i) {
         if(!std::strcmp(argv[i],"--help") || !std::strcmp(argv[i],"-h")) {
@@ -268,6 +277,10 @@ int main(int argc, char** argv)
     JesterTrace validation;
     AzQtComponents::AzQtApplication::InitializeDpiScaling();
     JesterApplication app(&argc, &argv, &validation);
+#ifdef _WIN32
+    // Restore this after Qt/application construction, before SDK modules load.
+    std::setlocale(LC_CTYPE, ".UTF8");
+#endif
     app.Start({}, {});
     app.RunMainLoop();
     if(!app.stopped()) app.Stop();

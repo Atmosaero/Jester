@@ -4,6 +4,7 @@
 /user/
 /logs/
 /artifacts/
+/dist/
 /library/
 /.vs/
 /.idea/
