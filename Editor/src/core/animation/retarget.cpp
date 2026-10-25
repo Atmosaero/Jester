@@ -430,16 +430,38 @@ Scene retargetMotion(const Scene &source, const Scene &target, const QJsonObject
     }
     out.annotations = source.annotations;
     QJsonArray unmapped;
+    QJsonArray transferWarnings;
     for (int i = 0; i < out.annotations.size(); ++i) {
         auto a = out.annotations[i].toObject();
-        QJsonArray nodes;
+        const auto original = a;
+        QJsonArray nodes, missing;
         for (auto n : a["nodes"].toArray()) {
-            if (reverse.contains(n.toInt()))
-                nodes.append(reverse[n.toInt()]);
-            else
+            if (reverse.contains(n.toInt())) {
+                if (!nodes.contains(reverse[n.toInt()]))
+                    nodes.append(reverse[n.toInt()]);
+            } else {
                 unmapped.append(n);
+                missing.append(n);
+            }
         }
         a["nodes"] = nodes;
+        if (!missing.isEmpty()) {
+            a["sourceAnnotation"] = original;
+            a["sourceSkeletonFingerprint"] = sourceFingerprint;
+            a["unmappedSourceNodes"] = missing;
+            a["transferStatus"] = "incomplete-mapping";
+            const auto warning = QString("Annotation '%1' was only partly transferred: %2 source bones are unmapped. Review the retained source annotation.")
+                                     .arg(a["name"].toString()).arg(missing.size());
+            a["transferWarning"] = warning;
+            transferWarnings.append(warning);
+            out.warnings.append(warning);
+        }
+        if (a["type"] == "allowed-contact" &&
+            (nodes.size() != 2 || nodes[0] == nodes[1])) {
+            // Incomplete provenance must never authorize a one-ended contact.
+            // The strict allowed-contact validator remains unchanged.
+            a["type"] = "retarget-incomplete";
+        }
         if (a.contains("attachment")) {
             a["sourceAttachment"] = a["attachment"];
             a.remove("attachment");
@@ -516,6 +538,7 @@ Scene retargetMotion(const Scene &source, const Scene &target, const QJsonObject
               {"mapping", pairs},
               {"missingRoles", suggestion["missingRoles"]},
               {"unmappedAnnotationNodes", unmapped},
+              {"warnings", transferWarnings},
               {"rootMotion", policy},
               {"yawPolicy", "preserve orientation"},
               {"bodyScale", bodyScale},

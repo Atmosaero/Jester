@@ -3,8 +3,36 @@
 #include "core/animation/retarget.h"
 #include <QElapsedTimer>
 #include <QUuid>
+#include <cmath>
+#include <optional>
 namespace trickster {
 using namespace api_detail;
+namespace {
+struct IssuePeak { double value; QString metric, units; };
+std::optional<IssuePeak> issuePeak(const QJsonObject &issue, double metresPerUnit) {
+    if (issue.contains("measurement")) {
+        const auto measurement=issue["measurement"].toObject();
+        const auto error=measurement["error"];
+        if ((measurement["status"]!="fail" && measurement["status"]!="pass") ||
+            !error.isDouble() || !std::isfinite(error.toDouble())) return {};
+        auto units=measurement["units"].toString();
+        double value=error.toDouble();
+        if (units=="scene" || units=="scene/s") {
+            value*=metresPerUnit;
+            units=units=="scene"?"m":"m/s";
+        } else if (units=="metres") units="m";
+        else if (units=="metres/s") units="m/s";
+        if (units!="m" && units!="m/s" && units!="degrees") return {};
+        return IssuePeak{value,"measurement.error",units};
+    }
+    for (const auto &field : {QString("angleDegrees"),QString("depthMetres")}) {
+        const auto value=issue[field];
+        if (value.isDouble() && std::isfinite(value.toDouble()))
+            return IssuePeak{value.toDouble(),field,field=="angleDegrees"?"degrees":"m"};
+    }
+    return {}; // Missing/uncertain measurements do not imply a zero-sized defect.
+}
+}
 AnalysisJobs::~AnalysisJobs() {
     if (job)
         job->control.cancel.store(true);
@@ -146,22 +174,28 @@ QJsonObject AnalysisJobs::start(Document &d, const QString &operation, const QJs
                             issue["problemId"] = j->id + ":" + QString::number(++serial);
                             issue["firstSeconds"] = time;
                             issue["lastSeconds"] = time;
-                            issue["peakSeconds"] = time;
+                            issue["peakSeconds"] = QJsonValue();
+                            issue["peakValue"] = QJsonValue();
+                            issue["peakUnits"] = QJsonValue();
+                            issue["peakMetric"] = QJsonValue();
+                            issue["unmeasuredSamples"] = 0;
                             issue["samples"] = 0;
                             active[base] = issue;
                         }
                         auto &problem = active[base];
                         problem["lastSeconds"] = time;
                         problem["samples"] = problem["samples"].toInt() + 1;
-                        double peak = issue.contains("angleDegrees") ? issue["angleDegrees"].toDouble()
-                                                                     : issue["depthMetres"].toDouble();
-                        double previous = problem.contains("angleDegrees")
-                                              ? problem["angleDegrees"].toDouble()
-                                              : problem["depthMetres"].toDouble();
-                        if (peak > previous) {
+                        auto peak = issuePeak(issue,snapshot.physics.metersPerUnit);
+                        if (!peak) {
+                            problem["unmeasuredSamples"] = problem["unmeasuredSamples"].toInt()+1;
+                        } else if (!problem["peakValue"].isDouble() ||
+                                   (problem["peakUnits"]==peak->units && problem["peakMetric"]==peak->metric &&
+                                    peak->value>problem["peakValue"].toDouble())) {
                             for (auto field = issue.begin(); field != issue.end(); ++field)
                                 problem[field.key()] = field.value();
-                            problem[issue.contains("angleDegrees") ? "angleDegrees" : "depthMetres"] = peak;
+                            problem["peakValue"] = peak->value;
+                            problem["peakUnits"] = peak->units;
+                            problem["peakMetric"] = peak->metric;
                             problem["peakSeconds"] = time;
                         }
                     }

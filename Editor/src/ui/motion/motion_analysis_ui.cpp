@@ -341,8 +341,9 @@ void Window::showMotionAnalysis() {
         auto issue = item->data(Qt::UserRole).toJsonObject();
         viewport->selectedMotionProblem = issue;
         viewport->diagnosticOverlay = true;
-        d.seek(
-            std::clamp(qRound(issue["peakSeconds"].toDouble() * d.scene.fps), d.scene.first, d.scene.last));
+        const double seconds=issue["peakSeconds"].isDouble()
+                                 ? issue["peakSeconds"].toDouble() : issue["firstSeconds"].toDouble();
+        d.seek(std::clamp(qRound(seconds*d.scene.fps),d.scene.first,d.scene.last));
         QSet<int> nodes;
         for (auto value : issue["nodes"].toArray())
             nodes.insert(value.toInt());

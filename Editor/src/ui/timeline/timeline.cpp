@@ -582,7 +582,9 @@ void Timeline::mousePressEvent(QMouseEvent *e) {
             auto issue = entry.toObject();
             if (issue["problemId"] != scope.reference) continue;
             doc->play(false);
-            doc->seek(std::clamp(qRound(issue["peakSeconds"].toDouble() * doc->scene.fps),
+            const double seconds=issue["peakSeconds"].isDouble()
+                                     ? issue["peakSeconds"].toDouble() : issue["firstSeconds"].toDouble();
+            doc->seek(std::clamp(qRound(seconds * doc->scene.fps),
                                  doc->scene.first, doc->scene.last));
             QSet<int> bones;
             for (auto node : issue["nodes"].toArray()) bones.insert(node.toInt());

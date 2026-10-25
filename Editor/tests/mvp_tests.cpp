@@ -18,6 +18,81 @@ using namespace trickster;
 class MVPTests : public QObject {
     Q_OBJECT
   private slots:
+    void partialRetargetKeepsContactProvenanceAndValidity() {
+        Scene source=Scene::mannequin(), target=source;
+        source.last=3;
+        source.keys[0]={source.pose,{},source.morphs};
+        source.keys[3]=source.keys[0];
+        editAnnotations(source,{{"operation","add"},{"annotation",QJsonObject{
+            {"id","allowed-pair"},{"name","Authored contact"},{"type","allowed-contact"},
+            {"start",0.0},{"end",.1},{"nodes",QJsonArray{0,4}},
+            {"description","These two bones may touch"},{"provenance","intention"}}}});
+        const auto original=source.annotations;
+        QJsonObject report;
+        auto result=retargetMotion(source,target,{{"fps",30},{"ik",false},{"contacts",false},
+            {"mapping",QJsonArray{QJsonObject{{"role","pelvis"},{"source",0},{"target",0}}}}},report);
+        QString error;
+        QVERIFY2(result.validate(&error),qPrintable(error));
+        QCOMPARE(source.annotations,original);
+        auto annotation=result.annotations[0].toObject();
+        QVERIFY(annotation["type"]!="allowed-contact");
+        QCOMPARE(annotation["sourceAnnotation"].toObject(),original[0].toObject());
+        QCOMPARE(annotation["transferStatus"].toString(),QString("incomplete-mapping"));
+        QVERIFY(!report["warnings"].toArray().isEmpty());
+        QTemporaryDir folder;
+        QVERIFY2(saveProject(folder.filePath("retarget.jst"),result,error),qPrintable(error));
+        Scene reopened;
+        QVERIFY2(loadProject(folder.filePath("retarget.jst"),reopened,error),qPrintable(error));
+        QCOMPARE(reopened.annotations,result.annotations);
+        // The validator must continue rejecting actual one-ended allowed contacts.
+        auto invalid=source;
+        auto contact=invalid.annotations[0].toObject();contact["nodes"]=QJsonArray{0};
+        invalid.annotations[0]=contact;
+        QVERIFY(!invalid.validate(&error));
+    }
+    void expectationProblemPeakUsesMeasuredError() {
+        Workspace workspace;
+        auto scene=Scene::mannequin();
+        scene.first=0;scene.last=30;scene.physics.metersPerUnit=.01f;
+        scene.curveBasePose=scene.pose;
+        scene.curves={{"deviation","position",0,0,{{0,2},{.5,5},{1,3}}}};
+        for(auto &key:scene.curves[0].keys)key.interpolation="Linear";
+        const auto origin=scene.positions(scene.pose)[0]*scene.physics.metersPerUnit;
+        editAnnotations(scene,{{"operation","add"},{"annotation",QJsonObject{
+            {"name","Position intent"},{"start",0.0},{"end",1.01},{"nodes",QJsonArray{0}},
+            {"expectations",QJsonArray{QJsonObject{{"kind","position"},{"space","world"},
+                {"units","metres"},{"target",QJsonArray{0,origin.y(),origin.z()}},{"tolerance",.001}}}}}}});
+        workspace.active().replace(scene);
+        AnalysisJobs jobs(workspace);
+        auto id=jobs.start(workspace.active(),"validate",{{"start",0},{"end",1},{"step",.25}})["id"].toString();
+        QTRY_COMPARE_WITH_TIMEOUT((jobs.poll(),jobs.state(id)["status"].toString()),QString("ready"),10000);
+        QJsonObject problem;
+        for(auto value:jobs.result(id,0,100)["problems"].toArray())
+            if(value.toObject()["kind"]=="expectation-fail")problem=value.toObject();
+        QVERIFY(!problem.isEmpty());
+        QCOMPARE(problem["peakSeconds"].toDouble(),.5);
+        QVERIFY(std::abs(problem["measurement"].toObject()["error"].toDouble()-.05)<1e-5);
+        QCOMPARE(problem["measurement"].toObject()["units"].toString(),QString("metres"));
+    }
+    void undefinedExpectationHasNoInventedPeak() {
+        Workspace workspace;
+        auto scene=Scene::mannequin();scene.last=30;
+        editAnnotations(scene,{{"operation","add"},{"annotation",QJsonObject{
+            {"name","Unmeasurable orientation"},{"start",0.0},{"end",1.01},{"nodes",QJsonArray{0}},
+            {"expectations",QJsonArray{QJsonObject{{"kind","orientation"},{"space","world"},
+                {"units","degrees"},{"target",QJsonArray{0,0,0,0}},{"tolerance",1}}}}}}});
+        workspace.active().replace(scene);
+        AnalysisJobs jobs(workspace);
+        auto id=jobs.start(workspace.active(),"validate",{{"start",0},{"end",1},{"step",.25}})["id"].toString();
+        QTRY_COMPARE_WITH_TIMEOUT((jobs.poll(),jobs.state(id)["status"].toString()),QString("ready"),10000);
+        QJsonObject problem;
+        for(auto value:jobs.result(id,0,100)["problems"].toArray())
+            if(value.toObject()["kind"]=="expectation-undefined")problem=value.toObject();
+        QVERIFY(!problem.isEmpty());
+        QVERIFY(problem["peakSeconds"].isNull());
+        QVERIFY(problem["peakValue"].isNull());
+        QCOMPARE(problem["status"].toString(),QString("uncertain"));
+    }
     void poseEditingOverAuthoredCurves() {
         Document d;d.replace(Scene::mannequin());ScalarCurve source;source.id="source";source.node=0;source.path="position";source.keys={{0,0},{1,1}};source.keys[0].interpolation="Linear";
         EditService::execute(d,"animation_curves",{{"operation","set"},{"curve",curvesJson({source})[0]}});d.seek(15);auto before=d.scene.pose;
