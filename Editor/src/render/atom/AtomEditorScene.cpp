@@ -2,6 +2,7 @@
 #include "core/scene/core.h"
 #include "render/atom/gpu_skinning.h"
 #include "render/atom/skinning_readback.h"
+#include "render/atom/gpu_profiler.h"
 #include <QJsonArray>
 #include <cstring>
 #include <Atom/RPI.Public/ViewportContext.h>
@@ -178,6 +179,7 @@ struct AtomViewport::EditorSceneData
             }
         }
     };
+    std::unique_ptr<jester::render::GpuProfiler> profiler;
     const trickster::Scene* source=nullptr;
     quint64 meshRevision=std::numeric_limits<quint64>::max(),materialRevision=std::numeric_limits<quint64>::max();
     trickster::Pose pose;
@@ -341,7 +343,7 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
     {
         QElapsedTimer timer;timer.start();
         auto globals=scene.globals(scene.pose);
-        cache.paletteMs=0;
+        cache.paletteMs=timer.nsecsElapsed()/1e6;timer.restart();
         std::vector<std::vector<QVector3D>> positions(scene.meshes.size()),normals(scene.meshes.size());
         for(size_t i=0;i<scene.meshes.size();++i)
         {
@@ -482,6 +484,10 @@ void AtomViewport::pollEditorResources() {
         for(auto &entry:m_editorData->entries)if(entry.gpu)entry.gpu->setEnabled(false);
         m_editorData->disableComputeAfterTick=0;
     }
+    if(qEnvironmentVariableIsSet("JESTER_GPU_TIMING")) {
+        if(!m_editorData->profiler)m_editorData->profiler=std::make_unique<jester::render::GpuProfiler>();
+        m_editorData->profiler->update(*m_scene);
+    }
     for(auto& entry:m_editorData->entries)
         if(entry.material->NeedsCompile() && entry.material->CanCompile()) entry.material->Compile();
 }
@@ -503,7 +509,8 @@ QJsonObject AtomViewport::editorDiagnostics() const
         {"totalBufferUpdateCpuMs",cache.totalBufferUpdateMs},{"totalMeshBuildCpuMs",cache.totalMeshBuildMs},
         {"meshVisible",!cache.wasHidden},{"skinningPath",path},
         {"metricScope","CPU wall time; latest geometry update, cumulative totals; RPI callbacks are not display presentation"},
-        {"gpuTimingStatus","Not measured"},{"gpuDrawMs",QJsonValue()}};
+        {"gpuTimingStatus",cache.profiler?"Native pass timestamp queries requested":"Not measured"},
+        {"gpuPassTimings",cache.profiler?QJsonValue(cache.profiler->report()):QJsonValue()},{"gpuDrawMs",QJsonValue()}};
 }
 
 void AtomViewport::drawEditorWireframe() {

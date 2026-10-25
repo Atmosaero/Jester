@@ -56,7 +56,7 @@ if(MSVC)
 endif()
 option(JESTER_BUILD_TESTS "Build editor regression tests with the Jester Qt runtime" ON)
 add_library(JesterAtom STATIC src/render/atom/AtomViewport.cpp src/render/atom/AtomEditorScene.cpp
-    src/render/atom/AtomVisualScene.cpp src/render/atom/gpu_skinning.cpp src/render/atom/skinning_readback.cpp)
+    src/render/atom/AtomVisualScene.cpp src/render/atom/gpu_skinning.cpp src/render/atom/skinning_readback.cpp src/render/atom/gpu_profiler.cpp)
 target_include_directories(JesterAtom PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(JesterAtom PUBLIC JesterCore Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
 if(MSVC)

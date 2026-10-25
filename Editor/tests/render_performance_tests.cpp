@@ -56,6 +56,10 @@ class RenderPerformanceTests : public QObject {
         QFETCH(QString,kind);
         Window window;window.resize(1280,720);window.show();
         auto fixture=render_fixture::scene(kind);
+        const auto post=qEnvironmentVariable("JESTER_BENCHMARK_POST","default");QString visualError;
+        if(post=="bypass")QVERIFY(fixture.visuals.setValue("post.enabled",false,visualError));
+        else if(post=="bloom")QVERIFY(fixture.visuals.setValue("post.bloom.enabled",true,visualError));
+        else if(post=="grading")QVERIFY(fixture.visuals.patch({{"post",QJsonObject{{"saturation",.8},{"contrast",1.1}}}},visualError));
         QString error;QVERIFY2(fixture.validate(&error),qPrintable(error));
         size_t vertices=0;for(const auto &mesh:fixture.meshes)vertices+=mesh.vertices.size();
         window.document().replace(fixture);window.viewport->showBones=false;
@@ -77,6 +81,8 @@ class RenderPerformanceTests : public QObject {
             ~RestoreCallback() {renderer->onFrame=callback;}
         } restore{renderer,original};
         renderer->onFrame=[&] {callbacks.push_back(clock.nsecsElapsed()/1e6);if(original)original();};
+        if(qEnvironmentVariableIsSet("JESTER_GPU_TIMING"))
+            QTRY_VERIFY_WITH_TIMEOUT(window.viewport->renderingStats()["gpuPassTimings"].toObject()["passes"].toObject()["forward"].toObject()["ready"].toBool(),5000);
         const auto initial=window.viewport->renderingStats();
         const auto initialMemory=memory();
         const auto cpuStart=processCpuMs();
@@ -110,7 +116,7 @@ class RenderPerformanceTests : public QObject {
             if(i==0)QVERIFY(image.save(output+"/"+kind+".png"));
         }
         QJsonObject report{{"case",kind},{"vertices",qint64(vertices)},{"meshes",int(fixture.meshes.size())},
-            {"morphTargets",kind=="heavy-morph"?2:0},{"windowWidth",1280},{"windowHeight",720},
+            {"sceneVisuals",fixture.visuals.toJson()},{"morphTargets",kind=="heavy-morph"?2:0},{"windowWidth",1280},{"windowHeight",720},
             {"scope","CPU and RPI preparation callbacks; no GPU timer or physical presentation measurement"},
             {"seekSynchronousCpuMs",distribution(seekCpu)},{"seekToPreparationCallbackMs",distribution(seekCallback)},
             {"preparationCallbackIntervalMs",distribution(intervals)},
