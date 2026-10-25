@@ -1,3 +1,4 @@
+#include "io/project/project_format.h"
 #include "io/catalog/scene_catalog.h"
 #include <QCoreApplication>
 #include <QDir>
@@ -27,7 +28,7 @@ std::vector<SceneChoice> sceneChoices() {
                                      {},
                                      "Four key poses with pinned feet and hand IK."}};
     for (QString kind : {"walk", "jump", "hand"}) {
-        QString file = kind + "-correction.trickster";
+        QString file = kind + "-correction.jst";
         for (auto root :
              {QCoreApplication::applicationDirPath() + "/examples",
               QCoreApplication::applicationDirPath() + "/../examples", QDir::currentPath() + "/examples"}) {
@@ -44,7 +45,7 @@ std::vector<SceneChoice> sceneChoices() {
         for (QString root : {QCoreApplication::applicationDirPath()+"/examples/motion-tools",
                              QCoreApplication::applicationDirPath()+"/../examples/motion-tools",
                              QDir::currentPath()+"/examples/motion-tools"}) {
-            QString path=QDir(root).filePath(name+".trickster");
+            QString path=QDir(root).filePath(name+".jst");
             if (!QFileInfo::exists(path)) continue;
             result.push_back({SceneChoice::File, name, "Motion tools", path,
                               "Original MIT synthetic motion-tools example. Context, curves, analysis or retargeting."});
@@ -125,8 +126,7 @@ std::vector<SceneChoice> sceneChoices() {
         choice.path = QFileInfo(choice.path).canonicalFilePath();
         if (choice.path.isEmpty() || resourceOnly(choice.path) || seen.contains(choice.path))
             return;
-        const auto ext = QFileInfo(choice.path).suffix().toLower();
-        if (ext != "glb" && ext != "gltf" && ext != "fbx" && ext != "trickster")
+        if (!isSupportedSceneFile(choice.path))
             return;
         seen.insert(choice.path);
         result.push_back(std::move(choice));
@@ -134,7 +134,7 @@ std::vector<SceneChoice> sceneChoices() {
     for (auto &choice : library)
         append(std::move(choice));
     if (!extra.isEmpty()) {
-        QDirIterator it(extra, {"*.glb", "*.gltf", "*.fbx", "*.trickster"}, QDir::Files,
+        QDirIterator it(extra, {"*.glb", "*.gltf", "*.fbx", "*.jst"}, QDir::Files,
                         QDirIterator::Subdirectories);
         while (it.hasNext()) {
             QString path = it.next();

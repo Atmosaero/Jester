@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "core/scene/core.h"
 #include "core/scene/document.h"
 #include <QFile>
@@ -67,9 +68,9 @@ class CoreTests : public QObject {
         d.demo();
         QTemporaryDir dir;
         QString error;
-        QVERIFY(saveProject(dir.path() + "/demo.trickster", d.scene, error));
+        QVERIFY(saveProject(dir.path() + "/demo.jst", d.scene, error));
         Scene reopened;
-        QVERIFY2(loadProject(dir.path() + "/demo.trickster", reopened, error), qPrintable(error));
+        QVERIFY2(loadProject(dir.path() + "/demo.jst", reopened, error), qPrintable(error));
         QCOMPARE(reopened.keys.size(), 4);
         for (const QString ext : {"glb", "gltf"}) {
             QString path = dir.path() + "/animation." + ext;
@@ -323,7 +324,7 @@ class CoreTests : public QObject {
         Scene untouched = Scene::mannequin();
         QVERIFY(!loadGltf(truncated.fileName(), untouched, error));
         QCOMPARE(untouched.nodes.size(), size_t(21));
-        QVERIFY(!saveProject(dir.path() + "/absent/project.trickster", untouched, error));
+        QVERIFY(!saveProject(dir.path() + "/absent/project.jst", untouched, error));
     }
 
     void softPinStability() {
@@ -358,9 +359,9 @@ class CoreTests : public QObject {
         QVERIFY(!d.playing);
         QTemporaryDir dir;
         QString error;
-        QVERIFY(saveProject(dir.path() + "/empty.trickster", d.scene, error));
+        QVERIFY(saveProject(dir.path() + "/empty.jst", d.scene, error));
         Scene opened;
-        QVERIFY(loadProject(dir.path() + "/empty.trickster", opened, error));
+        QVERIFY(loadProject(dir.path() + "/empty.jst", opened, error));
         QVERIFY(opened.nodes.empty());
         QVERIFY(!exportGltf(dir.path() + "/empty.glb", opened, error));
         d.replace(Scene::mannequin());

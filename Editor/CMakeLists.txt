@@ -35,6 +35,7 @@ set_target_properties(JesterUfbx PROPERTIES AUTOMOC OFF)
 
 set(JESTER_CORE_SOURCES
     src/core/scene/visual_settings.cpp
+    src/io/project/project_io.cpp src/io/project/project_format.cpp src/io/export/gltf_export.cpp
     src/core/annotations/notes_navigation.cpp src/core/analysis/motion_expectations.cpp src/core/animation/curve_bake.cpp
     src/core/analysis/motion_validation.cpp src/core/analysis/analysis_jobs.cpp src/core/analysis/motion_compare.cpp
     src/core/animation/retarget.cpp src/core/analysis/motion_analysis.cpp src/core/animation/animation_curves.cpp

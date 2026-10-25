@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "core/scene/core.h"
 #include "core/scene/document.h"
 #include <QBuffer>
@@ -70,12 +71,12 @@ class MediaTests : public QObject {
         QString error;
         QVERIFY2(s.validate(&error), qPrintable(error));
         QTemporaryDir dir;
-        for (QString ext : {"trickster", "glb", "gltf"}) {
+        for (QString ext : {"jst", "glb", "gltf"}) {
             auto path = dir.path() + "/media." + ext;
-            QVERIFY2(ext == "trickster" ? saveProject(path, s, error) : exportGltf(path, s, error),
+            QVERIFY2(ext == "jst" ? saveProject(path, s, error) : exportGltf(path, s, error),
                      qPrintable(error));
             Scene loaded;
-            QVERIFY2(ext == "trickster" ? loadProject(path, loaded, error) : loadGltf(path, loaded, error),
+            QVERIFY2(ext == "jst" ? loadProject(path, loaded, error) : loadGltf(path, loaded, error),
                      qPrintable(error));
             QCOMPARE(loaded.meshes.size(), size_t(1));
             const auto &m = loaded.meshes[0];
@@ -197,7 +198,7 @@ class MediaTests : public QObject {
         s.meshes[0].unlit = true;
         QString error;
         QTemporaryDir dir;
-        for (QString ext : {"trickster", "glb"}) {
+        for (QString ext : {"jst", "glb"}) {
             auto path = dir.path() + "/transform." + ext;
             QVERIFY(ext == "glb" ? exportGltf(path, s, error) : saveProject(path, s, error));
             Scene read;

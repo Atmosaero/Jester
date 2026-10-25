@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "core/scene/edit_service.h"
 #include "physics/physics_demos.h"
 #include "physics/physics_provenance.h"
@@ -386,7 +387,7 @@ class ReliabilityTests : public QObject {
                   {{"calculated", ok}, {"error", e}, {"report", dynamics.json()}});
         if (ok) {
             QDir().mkpath("artifacts/reliability/HumanM");
-            QVERIFY2(saveProject("artifacts/reliability/HumanM/result.trickster", out, e), qPrintable(e));
+            QVERIFY2(saveProject("artifacts/reliability/HumanM/result.jst", out, e), qPrintable(e));
             QVERIFY2(exportAnimation("artifacts/reliability/HumanM/result.glb", out, e), qPrintable(e));
             QVERIFY2(exportFbx("artifacts/reliability/HumanM/result.fbx", out, e), qPrintable(e));
             QVERIFY2(writeExportReference("artifacts/reliability/HumanM", out, e), qPrintable(e));
@@ -583,7 +584,7 @@ class ReliabilityTests : public QObject {
                     settings.endAtRest = true;
                     Scene out;
                     PhysicsReport report;
-                    QVERIFY2(saveProject(folder + "/source.trickster", imported, e), qPrintable(e));
+                    QVERIFY2(saveProject(folder + "/source.jst", imported, e), qPrintable(e));
                     bool ok = optimizeDynamics(imported, 0, 30, settings, out, report, e);
                     QJsonObject record{{"id", id},
                                        {"authoringVersion", 3},
@@ -598,9 +599,9 @@ class ReliabilityTests : public QObject {
                             << report.details["nativeForwardVerified"] << "goal m" << report.maxTargetPosition
                             << e;
                     if (ok) {
-                        QVERIFY2(saveProject(folder + "/result.trickster", out, e), qPrintable(e));
+                        QVERIFY2(saveProject(folder + "/result.jst", out, e), qPrintable(e));
                         Scene reopened;
-                        QVERIFY2(loadProject(folder + "/result.trickster", reopened, e), qPrintable(e));
+                        QVERIFY2(loadProject(folder + "/result.jst", reopened, e), qPrintable(e));
                         QCOMPARE(reopened.physicsResult, out.physicsResult);
                         QVERIFY2(exportAnimation(folder + "/result.glb", reopened, e), qPrintable(e));
                         QVERIFY2(exportFbx(folder + "/result.fbx", reopened, e), qPrintable(e));
@@ -671,7 +672,7 @@ class ReliabilityTests : public QObject {
         QString e;
         QString folder = "artifacts/reliability/fullbody/jump";
         QDir().mkpath(folder);
-        QVERIFY2(saveProject(folder + "/source.trickster", s, e), qPrintable(e));
+        QVERIFY2(saveProject(folder + "/source.jst", s, e), qPrintable(e));
         DynamicsSettings settings;
         settings.iterations = 24;
         settings.seconds = 30;
@@ -684,7 +685,7 @@ class ReliabilityTests : public QObject {
         writeJson(folder + "/report.json", {{"calculated", ok}, {"error", e}, {"report", report.json()}});
         qInfo() << "Full jump" << ok << report.summary() << e;
         if (ok) {
-            QVERIFY(saveProject(folder + "/result.trickster", out, e));
+            QVERIFY(saveProject(folder + "/result.jst", out, e));
             QVERIFY(exportAnimation(folder + "/result.glb", out, e));
             QVERIFY(exportFbx(folder + "/result.fbx", out, e));
             QVERIFY(writeExportReference(folder, out, e));
@@ -705,12 +706,12 @@ class ReliabilityTests : public QObject {
             auto data = QJsonDocument::fromJson(f.readAll()).object();
             Scene source, result;
             QString e;
-            QVERIFY2(loadProject(refined ? "artifacts/reliability/refined/" + kind + "-2/source.trickster"
-                                         : "examples/physics/" + kind + "-source.trickster",
+            QVERIFY2(loadProject(refined ? "artifacts/reliability/refined/" + kind + "-2/source.jst"
+                                         : "examples/physics/" + kind + "-source.jst",
                                  source, e),
                      qPrintable(e));
-            QVERIFY2(loadProject(refined ? "artifacts/reliability/refined/" + kind + "-2/result.trickster"
-                                         : "artifacts/reliability/" + kind + "-adaptive/result.trickster",
+            QVERIFY2(loadProject(refined ? "artifacts/reliability/refined/" + kind + "-2/result.jst"
+                                         : "artifacts/reliability/" + kind + "-adaptive/result.jst",
                                  result, e),
                      qPrintable(e));
             mj::Backend b;
@@ -779,8 +780,8 @@ class ReliabilityTests : public QObject {
         for (QString kind : {"squat", "landing"}) {
             Scene source, historical;
             QString e;
-            QVERIFY2(loadProject("examples/physics/" + kind + "-source.trickster", source, e), qPrintable(e));
-            QVERIFY2(loadProject("examples/physics/" + kind + "-result.trickster", historical, e),
+            QVERIFY2(loadProject("examples/physics/" + kind + "-source.jst", source, e), qPrintable(e));
+            QVERIFY2(loadProject("examples/physics/" + kind + "-result.jst", historical, e),
                      qPrintable(e));
             mj::Backend b;
             QVERIFY2(b.compile(source, e), qPrintable(e));
@@ -857,8 +858,8 @@ class ReliabilityTests : public QObject {
                 baked.physicsResult = snapshot.json();
                 QString folder = QString("artifacts/reliability/refined/%1-%2").arg(kind).arg(factor);
                 QDir().mkpath(folder);
-                QVERIFY2(saveProject(folder + "/source.trickster", refinedSource, e), qPrintable(e));
-                QVERIFY2(saveProject(folder + "/result.trickster", baked, e), qPrintable(e));
+                QVERIFY2(saveProject(folder + "/source.jst", refinedSource, e), qPrintable(e));
+                QVERIFY2(saveProject(folder + "/result.jst", baked, e), qPrintable(e));
                 QVERIFY2(exportAnimation(folder + "/result.glb", baked, e), qPrintable(e));
                 QVERIFY2(exportFbx(folder + "/result.fbx", baked, e), qPrintable(e));
                 QVERIFY2(writeExportReference(folder, baked, e), qPrintable(e));
@@ -886,9 +887,9 @@ class ReliabilityTests : public QObject {
         for (auto kind : {"squat", "landing"}) {
             QString e;
             Scene source, historical;
-            QVERIFY2(loadProject(QString("examples/physics/%1-source.trickster").arg(kind), source, e),
+            QVERIFY2(loadProject(QString("examples/physics/%1-source.jst").arg(kind), source, e),
                      qPrintable(e));
-            QVERIFY2(loadProject(QString("examples/physics/%1-result.trickster").arg(kind), historical, e),
+            QVERIFY2(loadProject(QString("examples/physics/%1-result.jst").arg(kind), historical, e),
                      qPrintable(e));
             mj::Backend b;
             QVERIFY2(b.compile(source, e), qPrintable(e));
@@ -976,7 +977,7 @@ class ReliabilityTests : public QObject {
                 cubic.physicsResult = historical.physicsResult;
                 cubic.physicsResult["trajectoryRepresentation"] = info;
                 cubic.physicsResult["validationStale"] = true;
-                QVERIFY2(saveProject(folder + "/result.trickster", cubic, e), qPrintable(e));
+                QVERIFY2(saveProject(folder + "/result.jst", cubic, e), qPrintable(e));
                 QVERIFY2(exportAnimation(folder + "/result.glb", cubic, e), qPrintable(e));
                 QVERIFY2(exportFbx(folder + "/result.fbx", cubic, e), qPrintable(e));
                 QVERIFY2(writeExportReference(folder, cubic, e), qPrintable(e));

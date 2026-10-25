@@ -1,5 +1,7 @@
 # Jester
 
+Native projects use **[.jst](docs/PROJECTS.md)**.
+
 A character animation editor powered by **O3DE Atom (DX12 / Vulkan)** and Qt. First public alpha: **0.1.0-alpha.1**.
 
 ![Jester animation editor](docs/images/editor.png)

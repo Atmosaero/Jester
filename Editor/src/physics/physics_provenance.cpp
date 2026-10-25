@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "physics/physics_provenance.h"
 #include "core/scene/core.h"
 #include <QCryptographicHash>

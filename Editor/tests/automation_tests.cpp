@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "automation/editor_api.h"
 #include "automation/mcp_server.h"
@@ -309,7 +310,7 @@ class AutomationTests : public QObject {
         QCOMPARE(w.viewport->tool, Viewport::Rotate);
         QVERIFY(w.viewport->local && w.viewport->showGhost && w.viewport->showBalance);
         QTemporaryDir temp;
-        auto project = temp.path() + "/wave.trickster";
+        auto project = temp.path() + "/wave.jst";
         tool(w, "scene", {{"operation", "rename"}, {"name", "MCP wave"}});
         tool(w, "scene", {{"operation", "save"}, {"path", project}});
         QVERIFY(QFile::exists(project));
@@ -415,7 +416,7 @@ class AutomationTests : public QObject {
              {{"directory", temp.path() + "/frames"}, {"first", 0}, {"last", 5}, {"step", 2}}, true);
         Scene morph;
         QString error;
-        QVERIFY(loadProject("examples/welcome.trickster", morph, error));
+        QVERIFY(loadProject("examples/welcome.jst", morph, error));
         // Add a real morph target to the current mesh fixture to exercise keyed weights and Qt controls.
         auto &mesh = morph.meshes[0];
         mesh.node = 0;
@@ -512,12 +513,12 @@ class AutomationTests : public QObject {
             tool(w, "ui_click", {{"id", ui["modal"]}, {"operation", "reject"}});
         });
         QTemporaryDir temp;
-        auto saved = temp.path() + "/ui.trickster";
+        auto saved = temp.path() + "/ui.jst";
         showDialog(w, "saveAction", [&](QDialog *dialog) {
             auto file = qobject_cast<QFileDialog *>(dialog);
             QVERIFY(file);
             file->setDirectory(temp.path());
-            tool(w, "ui_set", {{"id", "fileNameEdit"}, {"value", "ui.trickster"}});
+            tool(w, "ui_set", {{"id", "fileNameEdit"}, {"value", "ui.jst"}});
             QMetaObject::invokeMethod(file, "accept", Qt::DirectConnection);
         });
         QVERIFY(QFile::exists(saved));

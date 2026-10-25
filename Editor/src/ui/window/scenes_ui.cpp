@@ -1,3 +1,5 @@
+#include "io/project/project_format.h"
+#include "io/project/project_io.h"
 #include "ui/window/window.h"
 #include <QAbstractSpinBox>
 #include <QApplication>
@@ -88,7 +90,7 @@ class ScenePicker : public QDialog {
         auto bottom = new QHBoxLayout;
         auto folder = new QPushButton("Add library folder…", this);
         folder->setObjectName("addLibraryFolderButton");
-        folder->setToolTip("Choose a folder containing GLB, glTF or Trickster projects.");
+        folder->setToolTip("Choose a folder containing GLB, glTF or Jester projects.");
         auto file = new QPushButton("Open file…", this);
         file->setObjectName("pickerOpenFileButton");
         bottom->addWidget(folder);
@@ -188,7 +190,7 @@ class ScenePicker : public QDialog {
             scene = std::move(temporary.scene);
         } else if (chosen.kind == SceneChoice::File) {
             QApplication::setOverrideCursor(Qt::WaitCursor);
-            ok = QFileInfo(chosen.path).suffix().compare("trickster", Qt::CaseInsensitive) == 0
+            ok = isNativeProjectFile(chosen.path)
                      ? loadProject(chosen.path, scene, error)
                      : loadCharacter(chosen.path, scene, error);
             QApplication::restoreOverrideCursor();
@@ -411,7 +413,7 @@ void Window::buildRecovery() {
 void Window::recoverAutosave() {
     commitPendingEditor();
     auto path = QFileDialog::getOpenFileName(this, "Recover autosave", recovery.directory(),
-                                             "Recovery snapshots (*.recovery.json)");
+                                             "Jester recovery projects (*.recovery.jst)");
     if (path.isEmpty())
         return;
     QString error;

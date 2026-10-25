@@ -1,3 +1,4 @@
+#include "io/project/project_format.h"
 #include "core/scene/runtime_error.h"
 #include "core/scene/core.h"
 #include "ufbx.h"
@@ -343,12 +344,18 @@ bool loadFbx(const QString &path, Scene &scene, QString &error) {
     }
 }
 bool loadCharacter(const QString &path, Scene &s, QString &error) {
-    return QFileInfo(path).suffix().compare("fbx", Qt::CaseInsensitive) == 0 ? loadFbx(path, s, error)
-                                                                             : loadGltf(path, s, error);
+    switch(classifySceneFile(path)) {
+    case SceneFileKind::Fbx:return loadFbx(path,s,error);
+    case SceneFileKind::Glb:case SceneFileKind::Gltf:return loadGltf(path,s,error);
+    default:error="Unsupported character file. Use FBX, GLB or glTF; Jester projects use .jst.";return false;
+    }
 }
 bool exportAnimation(const QString &path, const Scene &original, QString &error) {
     Scene s=original;s.compareOriginal=false;
-    return QFileInfo(path).suffix().compare("fbx", Qt::CaseInsensitive) == 0 ? exportFbx(path, s, error)
-                                                                             : exportGltf(path, s, error);
+    switch(classifySceneFile(path)) {
+    case SceneFileKind::Fbx:return exportFbx(path,s,error);
+    case SceneFileKind::Glb:case SceneFileKind::Gltf:return exportGltf(path,s,error);
+    default:error="Unsupported animation export format. Use FBX, GLB or glTF.";return false;
+    }
 }
 } // namespace trickster

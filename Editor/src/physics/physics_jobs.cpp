@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "physics/physics_jobs.h"
 #include "physics/physics_tools.h"
 #include <QCryptographicHash>

@@ -241,14 +241,10 @@ void completeGeometryBasis(Mesh &mesh);
 std::vector<double> animationExportTimes(const Scene &scene);
 QSet<QString> steppedExportChannels(const Scene &scene);
 Transform interpolate(const Transform &a, const Transform &b, float t);
-QJsonObject sceneToJson(const Scene &scene);
-bool sceneFromJson(const QJsonObject &object, Scene &scene, QString &error);
 bool loadFbx(const QString &path, Scene &scene, QString &error);
 bool exportFbx(const QString &path, const Scene &scene, QString &error);
 bool loadCharacter(const QString &path, Scene &scene, QString &error);
 bool exportAnimation(const QString &path, const Scene &scene, QString &error);
 bool loadGltf(const QString &path, Scene &scene, QString &error);
 bool exportGltf(const QString &path, const Scene &scene, QString &error);
-bool saveProject(const QString &path, const Scene &scene, QString &error);
-bool loadProject(const QString &path, Scene &scene, QString &error);
 } // namespace trickster

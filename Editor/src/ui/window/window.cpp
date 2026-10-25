@@ -1,3 +1,5 @@
+#include "io/project/project_format.h"
+#include "io/project/project_io.h"
 #include "ui/window/window.h"
 #include "ui/notes/notes_ui.h"
 #include <QToolButton>
@@ -510,7 +512,7 @@ void Window::buildActions() {
             "feet. Drag the pelvis down.\n2. Drag a hand or foot for IK. Use the purple pole for bend "
             "direction.\n3. Choose a new frame and pose again. Every completed edit creates a full pose "
             "key.\n4. Space plays the clip. I inserts a key without changing the pose.\n5. Ctrl+S saves a "
-            "self-contained .trickster project.\n6. Ctrl+Shift+E exports a baked .glb or .gltf "
+            "self-contained .jst project.\n6. Ctrl+Shift+E exports a baked .glb or .gltf "
             "animation.\n\nW / E: move / rotate · Q: world / local axes\nRMB orbit · MMB pan · wheel zoom · "
             "F frame character\nTimeline: drag diamonds to move; Ctrl+drag to copy; Delete removes a "
             "selected key.\nCtrl+Z / Ctrl+Shift+Z: undo / redo. Escape cancels a viewport drag.\n\nIK is "
@@ -774,13 +776,16 @@ bool Window::save(bool as) {
     commitPendingEditor();
     QString path = document().path;
     if (path.isEmpty() || as) {
-        path = QFileDialog::getSaveFileName(this, "Save Trickster project",
-                                            lastDirectory + "/" + document().scene.name + ".trickster",
-                                            "Trickster project (*.trickster)");
-        if (path.isEmpty())
-            return false;
-        if (!path.endsWith(".trickster", Qt::CaseInsensitive))
-            path += ".trickster";
+        QFileDialog dialog(this,tr("Save Jester project"),
+                           QDir(lastDirectory).filePath(suggestedProjectFileName(document().scene.name)),
+                           tr("Jester project (*.jst)"));
+        dialog.setAcceptMode(QFileDialog::AcceptSave);
+        dialog.setFileMode(QFileDialog::AnyFile);
+        dialog.setDefaultSuffix("jst");
+        if(dialog.exec()!=QDialog::Accepted)return false;
+        QString error;
+        path=normalizedProjectSavePath(dialog.selectedFiles().value(0),error);
+        if(path.isEmpty()) {report(error,true);return false;}
     }
     for (int i = 0; i < int(workspace.documents.size()); ++i)
         if (i != workspace.activeIndex && !workspace.documents[i]->path.isEmpty() &&
@@ -803,7 +808,11 @@ bool Window::save(bool as) {
     return true;
 }
 bool Window::open(const QString &path) {
-    if (QFileInfo(path).suffix().compare("trickster", Qt::CaseInsensitive) == 0) {
+    if(!isSupportedSceneFile(path)) {
+        report(tr("Unsupported scene file. Open a Jester project (.jst), FBX, GLB or glTF."),true);
+        return false;
+    }
+    if (isNativeProjectFile(path)) {
         QString canonical = QFileInfo(path).canonicalFilePath();
         for (int i = 0; i < int(workspace.documents.size()); ++i) {
             QString existing = i == workspace.activeIndex ? document().path : workspace.documents[i]->path;
@@ -819,7 +828,7 @@ bool Window::open(const QString &path) {
     Scene s;
     QString error;
     QApplication::setOverrideCursor(Qt::WaitCursor);
-    bool ok = QFileInfo(path).suffix().compare("trickster", Qt::CaseInsensitive) == 0
+    bool ok = isNativeProjectFile(path)
                   ? loadProject(path, s, error)
                   : loadCharacter(path, s, error);
     QApplication::restoreOverrideCursor();
@@ -827,7 +836,7 @@ bool Window::open(const QString &path) {
         report("Cannot open character/project: " + error, true);
         return false;
     }
-    bool project = QFileInfo(path).suffix().compare("trickster", Qt::CaseInsensitive) == 0;
+    bool project = isNativeProjectFile(path);
     lastDirectory = QFileInfo(path).absolutePath();
     auto warnings = s.warnings;
     appendScene(std::move(s), project ? path : QString());
@@ -848,8 +857,8 @@ void Window::chooseOpen() {
     document().play(false);
     auto path =
         QFileDialog::getOpenFileName(this, "Open character or project", lastDirectory,
-                                     "Characters and projects (*.glb *.gltf *.fbx *.trickster);;glTF "
-                                     "character (*.glb *.gltf *.fbx);;Trickster project (*.trickster)");
+                                     "Characters and projects (*.glb *.gltf *.fbx *.jst);;glTF "
+                                     "character (*.glb *.gltf *.fbx);;Jester project (*.jst)");
     if (!path.isEmpty())
         open(path);
 }
@@ -908,7 +917,7 @@ void Window::saveDemo(const QString &directory) {
     QDir().mkpath(directory);
     document().demo();
     QString error;
-    saveProject(directory + "/welcome.trickster", document().scene, error);
+    saveProject(directory + "/welcome.jst", document().scene, error);
     exportAnimation(directory + "/welcome.glb", document().scene, error);
     if (!error.isEmpty())
         qWarning("%s", qPrintable(error));
@@ -935,8 +944,7 @@ void Window::closeEvent(QCloseEvent *e) {
 }
 void Window::dragEnterEvent(QDragEnterEvent *e) {
     if (e->mimeData()->hasUrls()) {
-        QString ext = QFileInfo(e->mimeData()->urls().first().toLocalFile()).suffix().toLower();
-        if (ext == "glb" || ext == "gltf" || ext == "fbx" || ext == "trickster")
+        if (isSupportedSceneFile(e->mimeData()->urls().first().toLocalFile()))
             e->acceptProposedAction();
     }
 }

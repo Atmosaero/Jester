@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Use `.jst` as the sole native project extension across GUI, CLI, MCP, examples, catalogs and recovery; share classification and reject repeated/unsupported extensions.
+- Separate native project serialization and glTF import/export; preserve existing authored data and schema migrations.
+
 - Organize editor sources by responsibility while preserving Core/Atom/UI boundaries.
 - Keep partially retargeted contact annotations valid, retaining source provenance and explicit warnings.
 - Select validation problem peaks from measured errors in their actual units; retain missing/uncertain peaks as null instead of zero.
@@ -22,7 +25,7 @@ First public Jester alpha, derived from Trickster 0.5.0.
 
 - Native O3DE Atom/DX12 viewport with imported PBR materials and CPU skinning.
 - Qt editing tools: FK/IK, timeline, curves, correction layers, notes and retargeting.
-- FBX/glTF import and export; compatible `.trickster` project files.
+- FBX/glTF import and export; compatible `.jst` project files.
 - Experimental native MuJoCo physics and local MCP automation.
 - Synthetic MIT-licensed examples and native regression suites.
 

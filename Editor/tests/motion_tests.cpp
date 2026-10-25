@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "core/scene/core.h"
 #include "core/scene/document.h"
@@ -186,9 +187,9 @@ class MotionTests : public QObject {
         s.rotate(7, {0, 0, 1}, 20, false);
         QVERIFY(s.captureCorrection(old, s.morphs, error));
         QTemporaryDir dir;
-        QVERIFY(saveProject(dir.filePath("edit.trickster"), s, error));
+        QVERIFY(saveProject(dir.filePath("edit.jst"), s, error));
         Scene project;
-        QVERIFY2(loadProject(dir.filePath("edit.trickster"), project, error), qPrintable(error));
+        QVERIFY2(loadProject(dir.filePath("edit.jst"), project, error), qPrintable(error));
         QVERIFY(project.correction().present);
         auto baked = s.bakedCopy();
         QVERIFY(!baked.correction().present);
@@ -628,7 +629,7 @@ class MotionTests : public QObject {
         auto p = s.positions(s.pose);
         QVERIFY(s.solveIK(8, p[8] + QVector3D(-.12f, .08f, .1f), s.defaultPole(8)));
         QVERIFY(s.captureCorrection(old, s.morphs, error));
-        QVERIFY(saveProject("examples/motion-correction.trickster", s, error));
+        QVERIFY(saveProject("examples/motion-correction.jst", s, error));
         QVERIFY(exportGltf("examples/motion-correction.glb", s, error));
         Window w;
         w.show();
@@ -741,7 +742,7 @@ class MotionTests : public QObject {
         QVERIFY(w.document().playing);
         w.document().play(false);
         QDir().mkpath("artifacts/motion-demo");
-        QVERIFY(saveProject("artifacts/motion-demo/HumanM-correction.trickster", w.document().scene, error));
+        QVERIFY(saveProject("artifacts/motion-demo/HumanM-correction.jst", w.document().scene, error));
         QVERIFY2(exportGltf("artifacts/motion-demo/HumanM-correction.glb", w.document().scene, error),
                  qPrintable(error));
         QVERIFY2(exportFbx("artifacts/motion-demo/HumanM-correction.fbx", w.document().scene, error),

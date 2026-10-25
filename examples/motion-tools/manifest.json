@@ -591,23 +591,23 @@
     "scenes": [
         {
             "name": "annotated-jump",
-            "project": "annotated-jump.trickster"
+            "project": "annotated-jump.jst"
         },
         {
             "name": "curves-paths",
-            "project": "curves-paths.trickster"
+            "project": "curves-paths.jst"
         },
         {
             "name": "penetration-and-contact",
-            "project": "penetration-and-contact.trickster"
+            "project": "penetration-and-contact.jst"
         },
         {
             "name": "retarget-target",
-            "project": "retarget-target.trickster"
+            "project": "retarget-target.jst"
         },
         {
             "name": "retarget-result",
-            "project": "retarget-result.trickster"
+            "project": "retarget-result.jst"
         }
     ],
     "surfacePairExample": [

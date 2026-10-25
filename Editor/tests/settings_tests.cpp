@@ -1,3 +1,7 @@
+#include "io/project/project_io.h"
+#include "io/project/recovery.h"
+#include "io/catalog/demo_scenes.h"
+#include "core/annotations/motion_annotations.h"
 #include "core/scene/visual_settings.h"
 #include "settings/preferences.h"
 #include "ui/curves/curve_canvas.h"
@@ -12,6 +16,59 @@ using namespace trickster;
 class SettingsTests : public QObject {
     Q_OBJECT
   private slots:
+    void jstIsTheOnlyNativeExtension() {
+        QString error;
+        QVERIFY(isNativeProjectFile("scene.jst"));
+        QVERIFY(isNativeProjectFile("SCENE.JST"));
+        QVERIFY(!isNativeProjectFile("scene.jst.jst"));
+        QVERIFY(!isSupportedSceneFile("scene.trickster"));
+        QCOMPARE(normalizedProjectSavePath("scene",error),QString("scene.jst"));
+        QCOMPARE(normalizedProjectSavePath("SCENE.JST",error),QString("SCENE.JST"));
+        QVERIFY(normalizedProjectSavePath("scene.jst.jst",error).isEmpty());
+        QVERIFY(normalizedProjectSavePath("scene.glb",error).isEmpty());
+        QCOMPARE(suggestedProjectFileName("Character / retarget.jst"),QString("Character _ retarget.jst"));
+        QTemporaryDir directory;
+        auto scene=Scene::mannequin();
+        const auto oldPath=directory.filePath("unsupported.trickster");
+        QVERIFY(!saveProject(oldPath,scene,error));
+        QVERIFY(!QFile::exists(oldPath));
+        const auto before=sceneToJson(scene);
+        QVERIFY(!loadProject(oldPath,scene,error));
+        QVERIFY(!loadCharacter(oldPath,scene,error));
+        QCOMPARE(sceneToJson(scene),before);
+    }
+    void jstRoundTripRetainsAuthoredDataAndRecovery() {
+        QTemporaryDir directory;
+        const auto folder=directory.path()+QString::fromUtf8("/Проекты Jester с пробелами");
+        QVERIFY(QDir().mkpath(folder));
+        auto scene=mvpDemo("walk");
+        editAnnotations(scene,{{"operation","add"},{"annotation",QJsonObject{
+            {"name",QString::fromUtf8("Проверить контакт")},{"start",0.0},{"end",.5},
+            {"nodes",QJsonArray{0}},{"description",QString::fromUtf8("Заметка к анимации")}}}});
+        QString error;
+        const auto path=folder+QString::fromUtf8("/Анимация персонажа.JST");
+        const auto before=sceneToJson(scene);
+        QVERIFY2(saveProject(path,scene,error),qPrintable(error));
+        Scene reopened;
+        QVERIFY2(loadProject(path,reopened,error),qPrintable(error));
+        const auto after=sceneToJson(reopened);
+        for(const auto &field:{"keys","curves","layers","contacts","annotations","nodes","meshes"})
+            QCOMPARE(after[field],before[field]);
+        Workspace workspace;workspace.active().replace(reopened,path);
+        workspace.active().edit("Make recovery dirty",[](Scene &s){s.name+=" edited";},false);
+        RecoveryStore recovery(workspace,folder+"/recovery");
+        QVERIFY2(recovery.flush(error),qPrintable(error));
+        const auto snapshots=recovery.snapshots();QCOMPARE(snapshots.size(),1);
+        QVERIFY(isNativeProjectFile(snapshots[0]));
+        Scene snapshot;
+        QVERIFY2(loadProject(snapshots[0],snapshot,error),qPrintable(error));
+        QVERIFY2(recovery.recover(snapshots[0],error),qPrintable(error));
+        QVERIFY(workspace.active().path.isEmpty());
+        QVERIFY(workspace.active().dirty());
+        Scene original;
+        QVERIFY(loadProject(path,original,error));
+        QCOMPARE(sceneToJson(original)["keys"],before["keys"]);
+    }
     void visualSettingsAreValidatedAtomically() {
         SceneVisualSettings settings;
         QString error;

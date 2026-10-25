@@ -16,6 +16,7 @@ cd Jester
 ```powershell
 ./launch.ps1                         # Empty editor
 ./launch.ps1 -File ./examples/welcome.glb
+./launch.ps1 -File './examples/welcome.jst'
 ./launch.ps1 -Demo -Mcp -Port 18530  # Local authenticated automation
 ./launch.ps1 -Rhi vulkan -Demo       # Atom Vulkan (default: dx12)
 ./launch.ps1 -Smoke                  # Native viewport check, then exit
@@ -23,6 +24,6 @@ cd Jester
 
 Output: `build/bin/profile/Jester.exe`. `-Configuration release` is supported by both build and launch scripts. Cache, user settings, test output and imported libraries remain local and ignored by Git. The source version lives in `project.json`; CMake generates the application version and embeds the current Git SHA as the build identity.
 
-Open `.fbx`, `.glb`, `.gltf` or `.trickster` files from File → Open. Try Scene → Choose scene for included synthetic templates. Save As preserves the original examples.
+Open `.fbx`, `.glb`, `.gltf` or `.jst` files from File → Open. Try Scene → Choose scene for included synthetic templates. Save As preserves the original examples.
 
 SDK upgrades may require adapting native Atom APIs. To regenerate the vendored PBR extensions after an SDK upgrade, install Python 3.9+ and run `python tools/prepare_materials.py --engine-root D:/O3DE`, then review the diff and process assets again.

@@ -1,3 +1,5 @@
+#include "io/project/project_format.h"
+#include "io/project/project_io.h"
 #include "core/scene/runtime_error.h"
 #include "automation/editor_api.h"
 #include "core/scene/edit_service.h"
@@ -356,7 +358,7 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
             required(a, "path");
             QString path = QFileInfo(a["path"].toString()).absoluteFilePath(), error;
             Scene imported;
-            bool project = QFileInfo(path).suffix().compare("trickster", Qt::CaseInsensitive) == 0;
+            bool project = isNativeProjectFile(path);
             if (project)
                 for (int i = 0; i < int(w->workspace.documents.size()); ++i) {
                     auto existing = i == w->workspace.activeIndex ? d.path : w->workspace.documents[i]->path;
@@ -384,8 +386,8 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
             path = QFileInfo(path).absoluteFilePath();
             QString error;
             if (op == "save") {
-                require(QFileInfo(path).suffix().compare("trickster", Qt::CaseInsensitive) == 0,
-                        "Project path must end in .trickster");
+                path=normalizedProjectSavePath(path,error);
+                require(!path.isEmpty(),error);
                 for (int i = 0; i < int(w->workspace.documents.size()); ++i)
                     if (i != w->workspace.activeIndex && !w->workspace.documents[i]->path.isEmpty())
                         require(QFileInfo(w->workspace.documents[i]->path)

@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "io/catalog/demo_scenes.h"
 #include "core/annotations/motion_annotations.h"
 #include "core/analysis/motion_analysis.h"
@@ -164,13 +165,13 @@ class MVPTests : public QObject {
     void attachedContextTimePolicies() {
         Document d;d.replace(Scene::mannequin());d.scene.keys[0]={d.scene.pose,{},d.scene.morphs};d.scene.keys[30]=d.scene.keys[0];auto id=EditService::execute(d,"motion_annotations",{{"operation","add"},{"annotation",QJsonObject{{"name","Key intent"},{"start",1},{"end",1.2}}}})["annotation"].toObject()["id"].toString();EditService::execute(d,"motion_annotations",{{"operation","attach"},{"id",id},{"frame",30}});auto keyId=d.scene.keys[30].id;QVERIFY(!keyId.isEmpty());EditService::execute(d,"timeline",{{"operation","move"},{"from",30},{"frame",45}});QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),1.5);d.undo.undo();QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),1.);
         EditService::execute(d,"timeline",{{"operation","range"},{"first",0},{"last",90},{"fps",60}});QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),1.);EditService::execute(d,"timeline",{{"operation","move"},{"from",30},{"frame",60}});QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),1.5);
-        QTemporaryDir temp;QString error;QVERIFY(saveProject(temp.path()+"/attached.trickster",d.scene,error));Scene reopened;QVERIFY(loadProject(temp.path()+"/attached.trickster",reopened,error));QCOMPARE(reopened.keys[60].id,keyId);QCOMPARE(reopened.annotations,d.scene.annotations);
+        QTemporaryDir temp;QString error;QVERIFY(saveProject(temp.path()+"/attached.jst",d.scene,error));Scene reopened;QVERIFY(loadProject(temp.path()+"/attached.jst",reopened,error));QCOMPARE(reopened.keys[60].id,keyId);QCOMPARE(reopened.annotations,d.scene.annotations);
         EditService::execute(d,"timeline",{{"operation","delete"},{"frame",60}});QCOMPARE(d.scene.annotations[0].toObject()["attachment"].toObject()["status"].toString(),QString("orphaned-retained"));EditService::execute(d,"motion_annotations",{{"operation","retime"},{"id",id},{"scale",2},{"pivot",1}});QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),2.);EditService::execute(d,"motion_annotations",{{"operation","trim"},{"start",0},{"end",.5}});QCOMPARE(d.scene.annotations.size(),1);QCOMPARE(d.scene.annotations[0].toObject()["trimStatus"].toString(),QString("outside-retained"));
         auto profileRevision=d.profileRevision;EditService::execute(d,"character_profile",{{"operation","suggest"}});QVERIFY(d.profileRevision>profileRevision);auto limitRevision=d.limitsRevision;EditService::execute(d,"pose_limits",{{"node",7},{"enabled",true},{"kind","hinge"},{"axis",QJsonArray{0,0,1}},{"minimum",-5},{"maximum",90}});QVERIFY(d.limitsRevision>limitRevision);
     }
     void layerAndControllerCurves() {
         Document d;d.replace(Scene::mannequin());QString error;QVERIFY(d.scene.beginCorrection(0,60,0,0,false,error));auto layer=d.scene.correction().id;ScalarCurve curve;curve.id="layer-x";curve.layer=layer;curve.node=0;curve.path="position";curve.keys={{0,0},{1,.2}};curve.keys[0].interpolation="Linear";EditService::execute(d,"animation_curves",{{"operation","set"},{"id",curve.id},{"curve",curvesJson({curve})[0]}});d.scene.evaluate(15);QVERIFY(std::abs(d.scene.pose[0].t.x()-.1)<1e-5);d.scene.correction().enabled=false;d.scene.evaluate(15);QVERIFY(std::abs(d.scene.pose[0].t.x())<1e-6);d.scene.correction().enabled=true;
-        QTemporaryDir temp;QVERIFY(saveProject(temp.path()+"/layer.trickster",d.scene,error));Scene reopened;QVERIFY(loadProject(temp.path()+"/layer.trickster",reopened,error));QCOMPARE(reopened.curves[0].layer,layer);reopened.evaluate(15);QVERIFY(std::abs(reopened.pose[0].t.x()-.1)<1e-5);
+        QTemporaryDir temp;QVERIFY(saveProject(temp.path()+"/layer.jst",d.scene,error));Scene reopened;QVERIFY(loadProject(temp.path()+"/layer.jst",reopened,error));QCOMPARE(reopened.curves[0].layer,layer);reopened.evaluate(15);QVERIFY(std::abs(reopened.pose[0].t.x()-.1)<1e-5);
         Document controller;controller.replace(Scene::mannequin());auto target=controller.scene.positions(controller.scene.pose)[8];ScalarCurve hand;hand.id="target-y";hand.node=8;hand.path="ikTarget";hand.component=1;hand.keys={{0,target.y()},{1,target.y()+.1}};hand.keys[0].interpolation="Linear";EditService::execute(controller,"animation_curves",{{"operation","set"},{"id",hand.id},{"curve",curvesJson({hand})[0]}});controller.scene.evaluate(15);QVERIFY(controller.scene.pins.contains(8));QVERIFY(std::abs(controller.scene.pins[8].target.y()-target.y()-.05)<1e-5);EditService::execute(controller,"animation_curves",{{"operation","remove"},{"id",hand.id}});QVERIFY(controller.scene.pins.empty());
     }
     void authoredExpectations() {
@@ -230,7 +231,7 @@ class MVPTests : public QObject {
         c.keys[0].interpolation="Back";QVERIFY(sampleCurve(c,1.5)>4.);QCOMPARE(sampleCurve(c,0.),0.);QCOMPARE(sampleCurve(c,2.),4.);
         Document d;d.replace(Scene::mannequin());auto result=EditService::execute(d,"animation_curves",{{"operation","set"},{"curve",curvesJson({c})[0]}});QVERIFY(!result["id"].toString().isEmpty());
         d.scene.evaluate(30);QVERIFY(d.scene.pose[0].t.x()>4.);d.undo.undo();QVERIFY(d.scene.curves.empty());d.undo.redo();QCOMPARE(d.scene.curves.size(),size_t(1));
-        QTemporaryDir tmp;QString error;QVERIFY(saveProject(tmp.path()+"/curve.trickster",d.scene,error));Scene loaded;QVERIFY(loadProject(tmp.path()+"/curve.trickster",loaded,error));QCOMPARE(curvesJson(loaded.curves),curvesJson(d.scene.curves));
+        QTemporaryDir tmp;QString error;QVERIFY(saveProject(tmp.path()+"/curve.jst",d.scene,error));Scene loaded;QVERIFY(loadProject(tmp.path()+"/curve.jst",loaded,error));QCOMPARE(curvesJson(loaded.curves),curvesJson(d.scene.curves));
         auto baked=d.scene.resampledCopy(60);QVERIFY(baked.curves.empty());for(int f=0;f<=90;++f){d.scene.evaluate(float(f));baked.evaluate(float(f)*2);QVERIFY((d.scene.pose[0].t-baked.pose[0].t).length()<1e-5);}
         EditService::execute(d,"animation_curves",{{"operation","remove"},{"id",result["id"]}});QCOMPARE(d.scene.pose[0].t,d.scene.curveBasePose[0].t);
         EditService::execute(d,"pose_transform",{{"node",0},{"position",QJsonArray{3,1,0}},{"key",false}});d.scene.evaluate(30);QCOMPARE(d.scene.pose[0].t.x(),3.f);
@@ -246,7 +247,7 @@ class MVPTests : public QObject {
         QCOMPARE(d.frame,12);QCOMPARE(d.selected,3);QCOMPARE(d.scene.pose[0].t,pose[0].t);
         d.undo.undo();QVERIFY(d.scene.annotations.empty());d.undo.redo();QCOMPARE(d.scene.annotations.size(),1);
         EditService::execute(d,"timeline",{{"operation","range"},{"first",0},{"last",90},{"fps",60}});QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),.25);
-        QTemporaryDir dir;QString error;QVERIFY(saveProject(dir.path()+"/context.trickster",d.scene,error));Scene loaded;QVERIFY(loadProject(dir.path()+"/context.trickster",loaded,error));QCOMPARE(loaded.annotations,d.scene.annotations);
+        QTemporaryDir dir;QString error;QVERIFY(saveProject(dir.path()+"/context.jst",d.scene,error));Scene loaded;QVERIFY(loadProject(dir.path()+"/context.jst",loaded,error));QCOMPARE(loaded.annotations,d.scene.annotations);
         QVERIFY_EXCEPTION_THROWN(EditService::execute(d,"motion_annotations",{{"operation","set"},{"id",id},{"annotation",QJsonObject{{"end",-.5}}}}),std::exception);
         auto count=d.undo.count();queryAnnotations(d.scene,{});QCOMPARE(d.undo.count(),count);
     }
@@ -382,9 +383,9 @@ class MVPTests : public QObject {
         auto actual = d.scene;
         QString error;
         QTemporaryDir tmp;
-        QVERIFY2(saveProject(tmp.path() + "/layers.trickster", actual, error), qPrintable(error));
+        QVERIFY2(saveProject(tmp.path() + "/layers.jst", actual, error), qPrintable(error));
         Scene loaded;
-        QVERIFY2(loadProject(tmp.path() + "/layers.trickster", loaded, error), qPrintable(error));
+        QVERIFY2(loadProject(tmp.path() + "/layers.jst", loaded, error), qPrintable(error));
         QCOMPARE(loaded.layers.size(), size_t(2));
         for (float f : {0.f, 15.f, 29.5f, 30.f, 60.f}) {
             actual.evaluate(f);
@@ -469,14 +470,15 @@ class MVPTests : public QObject {
     }
     void portableDemonstrations() {
         QString error;
-        QDir().mkpath("examples");
+        QTemporaryDir examples;
+        QVERIFY(examples.isValid());
         for (QString kind : {"walk", "jump", "hand"}) {
             auto scene = mvpDemo(kind);
             QVERIFY2(scene.validate(&error), qPrintable(kind + ": " + error));
-            QString base = "examples/" + kind + "-correction";
-            QVERIFY(saveProject(base + ".trickster", scene, error));
+            QString base = examples.path()+"/"+kind+"-correction";
+            QVERIFY(saveProject(base + ".jst", scene, error));
             Scene opened;
-            QVERIFY(loadProject(base + ".trickster", opened, error));
+            QVERIFY(loadProject(base + ".jst", opened, error));
             QCOMPARE(opened.layers.size(), scene.layers.size());
             QCOMPARE(opened.contacts.size(), scene.contacts.size());
             auto output = opened.resampledCopy(48);
@@ -596,7 +598,7 @@ class MVPTests : public QObject {
     }
     void realCrashRecoveryKeepsOriginal() {
         QTemporaryDir dir;
-        QString error, path = dir.path() + "/original.trickster", folder = dir.path() + "/recovery";
+        QString error, path = dir.path() + "/original.jst", folder = dir.path() + "/recovery";
         QVERIFY(saveProject(path, Scene::mannequin(), error));
         QFile original(path);
         QVERIFY(original.open(QIODevice::ReadOnly));
@@ -629,7 +631,7 @@ class MVPTests : public QObject {
         QVERIFY(original.open(QIODevice::ReadOnly));
         QCOMPARE(original.readAll(), bytes);
         original.close();
-        QVERIFY(saveProject(dir.path() + "/recovered.trickster", d.scene, error));
+        QVERIFY(saveProject(dir.path() + "/recovered.jst", d.scene, error));
         d.undo.setClean();
         QVERIFY(store.flush(error));
         QVERIFY(store.snapshots().empty());

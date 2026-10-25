@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "ui/window/window.h"
 #include "ui/notes/notes_ui.h"
@@ -119,7 +120,7 @@ class NotesTests:public QObject {
         QCOMPARE(edited["description"].toString().size(),1019); // Includes the complete second line.
         d.seek(47);auto pose=d.scene.pose;d.undo.undo();QCOMPARE(d.frame,47);QCOMPARE(d.scene.annotations[0].toObject(),original);QCOMPARE(d.motionRevision,motion);QCOMPARE(d.scene.pose[0].t,pose[0].t);
         d.undo.redo();QCOMPARE(d.frame,47);QCOMPARE(d.scene.annotations[0].toObject(),edited);
-        QTemporaryDir tmp;QString error;QVERIFY2(saveProject(tmp.path()+"/notes.trickster",d.scene,error),qPrintable(error));Scene loaded;QVERIFY2(loadProject(tmp.path()+"/notes.trickster",loaded,error),qPrintable(error));QCOMPARE(loaded.annotations,d.scene.annotations);
+        QTemporaryDir tmp;QString error;QVERIFY2(saveProject(tmp.path()+"/notes.jst",d.scene,error),qPrintable(error));Scene loaded;QVERIFY2(loadProject(tmp.path()+"/notes.jst",loaded,error),qPrintable(error));QCOMPARE(loaded.annotations,d.scene.annotations);
         finish(w);
     }
     void frameBinsFpsAndTargetRetime(){
@@ -144,7 +145,7 @@ class NotesTests:public QObject {
         auto inspected=tool(api,"ui_inspect",{{"id","noteText"}});QVERIFY(!inspected.isEmpty());
         auto input=card(w)->findChild<QTextEdit*>("noteText");QCOMPARE(input->toPlainText(),QString("Written through the note card MCP control"));
         QTest::keyClick(input,Qt::Key_Return,Qt::ControlModifier);QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);QCOMPARE(d.scene.annotations.size(),2);
-        QString error;QTemporaryDir tmp;QVERIFY(saveProject(tmp.path()+"/orphan.trickster",d.scene,error));Scene reopened;QVERIFY(loadProject(tmp.path()+"/orphan.trickster",reopened,error));QCOMPARE(reopened.annotations,d.scene.annotations);
+        QString error;QTemporaryDir tmp;QVERIFY(saveProject(tmp.path()+"/orphan.jst",d.scene,error));Scene reopened;QVERIFY(loadProject(tmp.path()+"/orphan.jst",reopened,error));QCOMPARE(reopened.annotations,d.scene.annotations);
         finish(w);
     }
     void panelFiltersAndNoPlaybackRebuild(){

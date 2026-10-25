@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "io/catalog/demo_scenes.h"
 #include "core/scene/edit_service.h"
 #include "physics/mujoco_backend.h"
@@ -128,7 +129,7 @@ class MuJoCoTests : public QObject {
             diagnostic.write(error.toUtf8());
             diagnostic.close();
             QVERIFY2(error.contains("scale") || error.contains("offset"), qPrintable(error));
-            QVERIFY(saveProject("artifacts/physics-user/converted-preserved.trickster", imported, error));
+            QVERIFY(saveProject("artifacts/physics-user/converted-preserved.jst", imported, error));
             QVERIFY(exportGltf("artifacts/physics-user/converted-preserved.glb", imported, error));
             const QString native = qEnvironmentVariable("TRICKSTER_TEST_FBX");
             QVERIFY2(QFile::exists(native),
@@ -146,7 +147,7 @@ class MuJoCoTests : public QObject {
                                  result, r, error),
                  qPrintable(error));
         QDir().mkpath("artifacts/physics-user");
-        QVERIFY(saveProject("artifacts/physics-user/HumanM.trickster", result, error));
+        QVERIFY(saveProject("artifacts/physics-user/HumanM.jst", result, error));
         QVERIFY(exportGltf("artifacts/physics-user/HumanM.glb", result, error));
         QVERIFY(exportFbx("artifacts/physics-user/HumanM.fbx", result, error));
         QVERIFY(writeExportReference("artifacts/physics-user", result, error));
@@ -347,7 +348,7 @@ class MuJoCoTests : public QObject {
         legacyPhysics["bodies"] = onlyOldBodies;
         old["physics"] = legacyPhysics;
         QDir().mkpath("artifacts/physics-demo/projects");
-        QFile f("examples/physics/legacy-v4.trickster");
+        QFile f("examples/physics/legacy-v4.jst");
         QVERIFY(f.open(QIODevice::WriteOnly));
         f.write(QJsonDocument(old).toJson());
         f.close();
@@ -359,9 +360,9 @@ class MuJoCoTests : public QObject {
         QCOMPARE(migrated.pins[15].target, s.pins[15].target);
         QCOMPARE(migrated.physics.restitution, s.physics.restitution);
         QTemporaryDir dir;
-        QVERIFY(saveProject(dir.path() + "/new.trickster", migrated, e));
+        QVERIFY(saveProject(dir.path() + "/new.jst", migrated, e));
         Scene reopened;
-        QVERIFY(loadProject(dir.path() + "/new.trickster", reopened, e));
+        QVERIFY(loadProject(dir.path() + "/new.jst", reopened, e));
         QCOMPARE(sceneToJson(reopened)["version"].toInt(), 8);
         QCOMPARE(reopened.physics.migrationWarnings, migrated.physics.migrationWarnings);
         Scene result;
@@ -416,7 +417,7 @@ class MuJoCoTests : public QObject {
             PhysicsReport r;
             QString error;
             QFile::remove("artifacts/physics-demo/" + kind + ".json");
-            QVERIFY2(saveProject("artifacts/physics-demo/projects/" + kind + "-source.trickster", source, error),
+            QVERIFY2(saveProject("artifacts/physics-demo/projects/" + kind + "-source.jst", source, error),
                      qPrintable(error));
             if (kind == "whole-body" || kind == "com") {
                 int frame = 0;
@@ -454,7 +455,7 @@ class MuJoCoTests : public QObject {
                     QVERIFY2(r.status == "solved", qPrintable(r.summary()));
                 reports.append(QJsonObject{{"demo", kind}, {"report", r.json()}});
             }
-            QVERIFY2(saveProject("artifacts/physics-demo/projects/" + kind + "-result.trickster", out, error),
+            QVERIFY2(saveProject("artifacts/physics-demo/projects/" + kind + "-result.jst", out, error),
                      qPrintable(error));
             const QString folder = "artifacts/physics-demo/" + kind;
             QDir().mkpath(folder);

@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "core/scene/edit_service.h"
 #include "automation/editor_api.h"
@@ -362,9 +363,9 @@ class ScopeTests : public QObject {
         QCOMPARE(d.scene.clips, native);
         QTemporaryDir tmp;
         QString error;
-        QVERIFY2(saveProject(tmp.path() + "/channels.trickster", d.scene, error), qPrintable(error));
+        QVERIFY2(saveProject(tmp.path() + "/channels.jst", d.scene, error), qPrintable(error));
         Scene loaded;
-        QVERIFY2(loadProject(tmp.path() + "/channels.trickster", loaded, error), qPrintable(error));
+        QVERIFY2(loadProject(tmp.path() + "/channels.jst", loaded, error), qPrintable(error));
         QCOMPARE(sceneToJson(loaded)["version"].toInt(), 8);
         for (float f : {0.f, 7.5f, 10.f, 15.f, 20.f, 30.f}) {
             auto a = d.scene, b = loaded;

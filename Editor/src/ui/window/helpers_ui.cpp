@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "ui/window/window.h"
 #include <QApplication>
 #include <QDialog>
@@ -384,12 +385,12 @@ void Window::bakedCopyDialog(bool arc) {
     }
     QString path =
         QFileDialog::getSaveFileName(this, arc ? "Save experimental arc copy" : "Save baked project copy",
-                                     lastDirectory + (arc ? "/root-arc.trickster" : "/baked.trickster"),
-                                     "Trickster project (*.trickster)");
+                                     lastDirectory + (arc ? "/root-arc.jst" : "/baked.jst"),
+                                     "Jester project (*.jst)");
     if (path.isEmpty())
         return;
-    if (!path.endsWith(".trickster", Qt::CaseInsensitive))
-        path += ".trickster";
+    if (!path.endsWith(".jst", Qt::CaseInsensitive))
+        path += ".jst";
     if (!document().path.isEmpty() &&
         QFileInfo(path).absoluteFilePath() == QFileInfo(document().path).absoluteFilePath()) {
         report("Choose a different filename for the copy.", true);

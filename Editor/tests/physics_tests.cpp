@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "core/scene/core.h"
 #include <QTemporaryDir>
 #include <QtTest>
@@ -88,9 +89,9 @@ class PhysicsTests : public QObject {
         QVERIFY2(simulatePhysics(s, 0, 30, result, report, error), qPrintable(error));
         QVERIFY2(report.maxJointError < .01f, qPrintable(report.summary()));
         QTemporaryDir dir;
-        QVERIFY(saveProject(dir.path() + "/physics.trickster", result, error));
+        QVERIFY(saveProject(dir.path() + "/physics.jst", result, error));
         Scene loaded;
-        QVERIFY(loadProject(dir.path() + "/physics.trickster", loaded, error));
+        QVERIFY(loadProject(dir.path() + "/physics.jst", loaded, error));
         QCOMPARE(loaded.bodies.size(), result.bodies.size());
         QCOMPARE(loaded.physics.substeps, 16);
         QVERIFY(std::abs(physicalMass(loaded) - 70) < .001f);
@@ -142,9 +143,9 @@ class PhysicsTests : public QObject {
         result.evaluate(30);
         QVERIFY((result.pose[0].t - result.pose[1].t).length() > .198f);
         QTemporaryDir dir;
-        QVERIFY(saveProject(dir.path() + "/self.trickster", result, error));
+        QVERIFY(saveProject(dir.path() + "/self.jst", result, error));
         Scene read;
-        QVERIFY(loadProject(dir.path() + "/self.trickster", read, error));
+        QVERIFY(loadProject(dir.path() + "/self.jst", read, error));
         QVERIFY(read.physics.selfCollision);
     }
     void rejectsInvalidPhysics() {

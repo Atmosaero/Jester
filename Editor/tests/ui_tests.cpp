@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "ui/window/window.h"
 #include <QApplication>
@@ -116,7 +117,7 @@ class UITests : public QObject {
         QVERIFY(focusViewport(w));
         QTest::keyClick(w.viewport, Qt::Key_Space);
         QVERIFY(!w.document().playing);
-        QString project = temp.path() + "/user.trickster";
+        QString project = temp.path() + "/user.jst";
         acceptFile(project);
         w.findChild<QAction *>("saveAction")->trigger();
         QVERIFY2(QFileInfo::exists(project),
@@ -238,7 +239,7 @@ class UITests : public QObject {
         QVERIFY(QTest::qWaitForWindowExposed(&w));
         w.document().demo();
         auto originalKeys = w.document().scene.keys.size();
-        QString baked = temp.path() + "/baked.trickster";
+        QString baked = temp.path() + "/baked.jst";
         acceptFile(baked);
         auto bakeAction = w.findChild<QAction *>("bakeCopyAction");
         QVERIFY(bakeAction);
@@ -250,7 +251,7 @@ class UITests : public QObject {
         QCOMPARE(b.keys.size(), 91);
         QVERIFY(b.pins.isEmpty());
         QCOMPARE(w.document().scene.keys.size(), originalKeys);
-        QString arc = temp.path() + "/arc.trickster";
+        QString arc = temp.path() + "/arc.jst";
         bool dialogSeen = false;
         QTimer::singleShot(150, [&] {
             auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
@@ -327,11 +328,11 @@ class UITests : public QObject {
         QDir root(temp.path());
         QVERIFY(root.mkpath("resources/nested"));
         QString error;
-        const auto hidden = root.filePath("resources/character.trickster");
-        const auto nested = root.filePath("resources/nested/animation.trickster");
-        const auto visible = root.filePath("visible.trickster");
+        const auto hidden = root.filePath("resources/character.jst");
+        const auto nested = root.filePath("resources/nested/animation.jst");
+        const auto visible = root.filePath("visible.jst");
         QTemporaryDir unmounted;
-        const auto recentResource = unmounted.filePath("recent.trickster");
+        const auto recentResource = unmounted.filePath("recent.jst");
         QFile externalCatalog(unmounted.filePath("catalog.json"));
         QVERIFY(externalCatalog.open(QIODevice::WriteOnly));
         externalCatalog.write(R"({"resourceOnly":true})");
@@ -340,7 +341,7 @@ class UITests : public QObject {
             QVERIFY2(saveProject(path, Scene::mannequin(), error), qPrintable(error));
         QFile catalog(root.filePath("resources/catalog.json"));
         QVERIFY(catalog.open(QIODevice::WriteOnly));
-        catalog.write(R"({"resourceOnly":true,"entries":[{"file":"character.trickster"}]})");
+        catalog.write(R"({"resourceOnly":true,"entries":[{"file":"character.jst"}]})");
         catalog.close();
         QSettings settings;
         auto folder = settings.value("sceneLibraryFolder"), recent = settings.value("recentScenes");
@@ -506,7 +507,7 @@ class UITests : public QObject {
         QVERIFY(std::abs(w.document().scene.pose[0].t.x() - .41f) < .0001f);
         QVERIFY(w.document().dirty());
         QTemporaryDir temp;
-        QString file = temp.path() + "/pending.trickster";
+        QString file = temp.path() + "/pending.jst";
         QString error;
         QVERIFY(saveProject(file, w.document().scene, error));
         w.document().path = file;

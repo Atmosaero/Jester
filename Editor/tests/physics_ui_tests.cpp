@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "automation/editor_api.h"
 #include "physics/physics_demos.h"
@@ -293,9 +294,9 @@ class PhysicsUI : public QObject {
         for (QString kind : {"whole-body", "com", "jump", "tuck", "squat", "landing"}) {
             QString error;
             Scene source, result;
-            QVERIFY2(loadProject("examples/physics/" + kind + "-source.trickster", source, error),
+            QVERIFY2(loadProject("examples/physics/" + kind + "-source.jst", source, error),
                      qPrintable(error));
-            QVERIFY2(loadProject("examples/physics/" + kind + "-result.trickster", result, error),
+            QVERIFY2(loadProject("examples/physics/" + kind + "-result.jst", result, error),
                      qPrintable(error));
             w.document().replace(source);
             w.document().seek((source.first + source.last) / 2);

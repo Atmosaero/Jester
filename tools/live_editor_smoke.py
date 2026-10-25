@@ -129,7 +129,7 @@ subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File
 keys([(0x11, 0, 0), (0x0D, 0, 0), (0x0D, 0, 2), (0x11, 0, 2)])
 annotations = invoke('motion_annotations', {'operation': 'list', 'detail': 'full'})['annotations']
 assert any(note_text in json.dumps(note, ensure_ascii=False) for note in annotations), 'Ctrl+Enter did not save the native note'
-project = root/'artifacts/live-smoke.trickster'
+project = root/'artifacts/live-smoke.jst'
 invoke('scene', {'operation': 'save', 'path': str(project)})
 assert project.is_file()
 invoke('screenshot', {'target': 'window', 'path': str(root/'artifacts/live-smoke.png')})
@@ -147,7 +147,7 @@ invoke('scene', {'operation': 'open', 'path': str((root/args.import_file).resolv
 helmet = invoke('editor_state', {'nodes': False})
 assert helmet['nodeCount'] > 0
 invoke('screenshot', {'target': 'viewport', 'path': str(root/'artifacts/live-textured-import.png')})
-invoke('scene', {'operation': 'save', 'path': str(root/'artifacts/helmet-smoke.trickster')})
+invoke('scene', {'operation': 'save', 'path': str(root/'artifacts/helmet-smoke.jst')})
 invoke('scene', {'operation': 'open', 'path': str(project)})
 report = {'nativeOrbit': True, 'nativePan': True, 'nativeZoom': True, 'nativePoseDrag': True,
     'nativeNoteMouse': True, 'nativeNoteKeyboard': True, 'nativeNoteSave': True,

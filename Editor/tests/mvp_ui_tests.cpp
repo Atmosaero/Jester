@@ -1,3 +1,4 @@
+#include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "io/catalog/demo_scenes.h"
 #include "core/scene/edit_service.h"
@@ -134,7 +135,7 @@ class MVPUI : public QObject {
         timer.start(100);w.showMotionAnalysis();timer.stop();QCOMPARE(stage,2);QVERIFY(w.viewport->motionPaths.contains(4));auto expected=w.document().scene.positions(w.document().scene.restPose())[4];QVERIFY((w.viewport->motionPaths[4].front().second-expected).length()<1e-5);QVERIFY(w.viewport->motionPathReferenceLabel.startsWith("root anchored"));w.document().undo.setClean();w.close();
     }
     void motionProblemNavigation() {
-        Window w;Scene scene;QString error;QVERIFY2(loadProject("examples/motion-tools/penetration-and-contact.trickster",scene,error),qPrintable(error));w.document().replace(scene);w.resize(qRound(1920/w.devicePixelRatioF()),qRound(1080/w.devicePixelRatioF()));w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));int stage=0;QTimer timer;QElapsedTimer elapsed;elapsed.start();
+        Window w;Scene scene;QString error;QVERIFY2(loadProject("examples/motion-tools/penetration-and-contact.jst",scene,error),qPrintable(error));w.document().replace(scene);w.resize(qRound(1920/w.devicePixelRatioF()),qRound(1080/w.devicePixelRatioF()));w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));int stage=0;QTimer timer;QElapsedTimer elapsed;elapsed.start();
         connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;if(elapsed.elapsed()>15000){dialog->reject();return;}
             if(stage==0){dialog->findChild<QComboBox*>("motionAnalysisMode")->setCurrentIndex(2);dialog->findChild<QCheckBox*>("motionSurfaceCheck")->setChecked(true);
                 for(auto button:dialog->findChildren<QPushButton*>())if(button->text()=="Calculate / update paths"){stage=1;button->click();return;}}
@@ -178,7 +179,7 @@ class MVPUI : public QObject {
         Window w;w.document().replace(Scene::mannequin());w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));bool seen=false;
         QTimer::singleShot(100,[&]{auto d=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(d){seen=true;for(auto b:d->findChildren<QPushButton*>())if(b->text()=="Create / select channel")b->click();d->grab().save("artifacts/motion-graph.png");d->reject();}});
         w.showGraphEditor();QVERIFY(seen);QCOMPARE(w.document().scene.curves.size(),size_t(1));
-        Scene demo;QString error;QVERIFY2(loadProject("examples/motion-tools/curves-paths.trickster",demo,error),qPrintable(error));w.document().replace(demo);auto before=curvesJson(w.document().scene.curves);
+        Scene demo;QString error;QVERIFY2(loadProject("examples/motion-tools/curves-paths.jst",demo,error),qPrintable(error));w.document().replace(demo);auto before=curvesJson(w.document().scene.curves);
         QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(dialog){dialog->grab().save(QString("artifacts/motion-demo-graph-%1.png").arg(w.devicePixelRatioF()));dialog->reject();}});
         w.showGraphEditor();QCOMPARE(curvesJson(w.document().scene.curves),before);w.document().undo.setClean();w.close();
     }
@@ -204,7 +205,7 @@ class MVPUI : public QObject {
         w.resize(1280, 720);
         w.show();
         QVERIFY(QTest::qWaitForWindowExposed(&w));
-        QString source = QFileInfo("examples/" + kind + "-correction.trickster").absoluteFilePath();
+        QString source = QFileInfo("examples/" + kind + "-correction.jst").absoluteFilePath();
         QFile original(source);
         QVERIFY(original.open(QIODevice::ReadOnly));
         auto sourceBytes = original.readAll();
@@ -290,7 +291,7 @@ class MVPUI : public QObject {
             QVERIFY(checked);
         }
         auto corrected = w.document().scene;
-        QString saved = temp.path() + "/edited.trickster";
+        QString saved = temp.path() + "/edited.jst";
         QAction *saveAs = nullptr;
         for (auto action : w.findChildren<QAction *>())
             if (action->text().startsWith("Save project as"))
@@ -416,7 +417,7 @@ class MVPUI : public QObject {
         Workspace source;
         source.append(Scene::mannequin());
         source.active().seek(24);
-        QString originalPath = temp.path() + "/original.trickster", error;
+        QString originalPath = temp.path() + "/original.jst", error;
         QVERIFY(saveProject(originalPath, source.active().scene, error));
         QFile original(originalPath);
         QVERIFY(original.open(QIODevice::ReadOnly));
@@ -435,7 +436,7 @@ class MVPUI : public QObject {
         QVERIFY(w.document().dirty());
         QCOMPARE(w.document().frame, 24);
         QVERIFY(std::abs(w.document().scene.pose[0].t.x() - .37f) < 1e-5f);
-        QString recovered = temp.path() + "/recovered.trickster";
+        QString recovered = temp.path() + "/recovered.jst";
         fileChoice(recovered);
         for (auto action : w.findChildren<QAction *>())
             if (action->text().startsWith("Save project as")) {

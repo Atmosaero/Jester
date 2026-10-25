@@ -17,6 +17,7 @@
 #include <QImage>
 #include "render/atom/AtomViewport.h"
 #include "ui/window/window.h"
+#include "io/project/project_format.h"
 #include "settings/appearance.h"
 #include "trickster_version.h"
 #include "automation/mcp_server.h"
@@ -94,8 +95,10 @@ public:
                         || argument=="--project-path" || argument=="--engine-path" || argument=="--rhi" || argument=="--regset") { ++index;continue; }
                     if(argument.startsWith('-')) continue;
                 }
-                if(argument.endsWith(".fbx",Qt::CaseInsensitive) || argument.endsWith(".glb",Qt::CaseInsensitive) || argument.endsWith(".gltf",Qt::CaseInsensitive) || argument.endsWith(".trickster",Qt::CaseInsensitive))
-                    editor->open(argument);
+                if(!trickster::isSupportedSceneFile(argument) || !editor->open(argument)) {
+                    qCritical("Cannot open scene: use a Jester project (.jst), FBX, GLB or glTF file.");
+                    m_result=2;QTimer::singleShot(0,this,&QApplication::quit);return;
+                }
             }
             if(!option("--generate-demo").isEmpty()) editor->saveDemo(option("--generate-demo"));
             if(arguments().contains("--mcp"))
@@ -255,7 +258,7 @@ int main(int argc, char** argv)
     for(int i=1;i<argc;++i) {
         if(!std::strcmp(argv[i],"--help") || !std::strcmp(argv[i],"-h")) {
             std::printf("Jester %s - Atom character animation editor\n"
-                "Usage: Jester.exe --project-path=<project> [options] [file.fbx|file.glb|file.gltf|file.trickster]\n"
+                "Usage: Jester.exe --project-path=<project> [options] [file.fbx|file.glb|file.gltf|file.jst]\n"
                 "  --demo                    Open the built-in animated rig\n"
                 "  --generate-demo <folder>  Write demo project and GLB\n"
                 "  --screenshot <path>       Capture editor and viewport, then exit\n"
