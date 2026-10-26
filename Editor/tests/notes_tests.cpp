@@ -83,6 +83,8 @@ class NotesTests:public QObject {
     }
     void viewportContextMenu(){
         Window w;expose(w);auto &d=w.document();d.select(-1);d.seek(22);
+        w.raise();w.activateWindow();w.viewport->setFocus();
+        QTRY_VERIFY_WITH_TIMEOUT(w.isActiveWindow() && w.viewport->hasFocus(),2000);
         auto anchor=w.viewport->project(d.scene.positions(d.scene.pose)[15]).toPoint();
         QTest::mouseClick(w.viewport,Qt::RightButton,Qt::NoModifier,anchor);
         bool clicked=false;
@@ -189,7 +191,9 @@ class NotesTests:public QObject {
         QTest::mouseClick(w.timeline,Qt::LeftButton,Qt::NoModifier,QPoint(70,y));QVERIFY(card(w));QCOMPARE(d.activeAnnotation,id);dismiss(w);
         captureEditorWidget(&w).save("artifacts/notes/panel-"+scale+".png");
         // Behind the camera or outside the viewport: hide the bone marker, keep the panel row.
-        d.scene.pose[0].t+=QVector3D(1000,0,0);emit d.changed();QTest::qWait(70);QVERIFY(!w.viewport->property("annotationMarkers").toMap().contains(id));
+        d.scene.pose[0].t+=QVector3D(1000,0,0);emit d.changed();
+        QVERIFY(!w.viewport->projectVisible(d.scene.positions(d.scene.pose)[15]).has_value());
+        QTRY_VERIFY_WITH_TIMEOUT(!w.viewport->property("annotationMarkers").toMap().contains(id),2000);
         QCOMPARE(w.findChild<QListWidget*>("notesList")->count(),3);
         finish(w);
     }
