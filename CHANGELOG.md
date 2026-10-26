@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix compact 150% dock/timeline/native-capture alignment, viewport text contrast and Russian Scene group search.
+- Preserve transparent Unlit surfaces with a native pre-transparency background; derive missing legacy mesh normals in the rendering cache and enable the supported main shadow caster.
+
 - Add native Atom GPU skinning with eight influences, morphs, shear-correct normal transforms, precise tagged TBN deltas and CPU fallback; verify native output against CPU on DX12/Vulkan.
 - Add authored Lit/Unlit/mesh Wireframe, Scene controls, studio IBL, separate visual floor, presets and pipeline exposure/tonemapping/grading/Bloom.
 - Add shared preference persistence, searchable preview/apply/cancel UI, stable action bindings/layouts, scene presets, and live English/Russian Qt localization with packaged application/standard-dialog catalogs.

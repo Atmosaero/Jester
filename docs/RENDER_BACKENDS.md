@@ -15,6 +15,16 @@ Each backend runs native smoke at 100%/150% plus all eight GUI suites at both sc
 
 The matrix covers real rendering, input/shortcuts, import/export, edits/history, multiple documents, MCP transport and SDK bridge, modal controls, physics jobs, notes, resize, minimize/restore and shutdown. Visual checks compare real framebuffer output for modes, lighting, IBL, shadows and post effects, along with still/sequence parity and unchanged authored motion. Translation/appearance cases preserve note/numeric drafts and user names, including a custom name/type equal to an English UI word.
 
+## Final product follow-up
+
+Product code **3d49509** adds readable viewport text backplates and search by translated Scene group titles. It was freshly configured and rebuilt with all regression and benchmark targets. Final application SHA-256: `6d16672210d2a2487108ed1791b7f39efbe30944158c362256a759543ecfeb7f`.
+
+The final consolidated native checks pass all **20 cases**: four main-app smoke cases, Visual on both APIs/scales/languages (14 checks per case), and Notes on all eight combinations (15 checks per case). That is 232 QtTest passes, no skips, and zero native Trace errors/asserts. Evidence: `artifacts/final-functional.json`, including each executed binary SHA and links to the original reports.
+
+The first follow-up exposed two harness timing prerequisites: Notes checked a queued overlay repaint after a fixed 70 ms, and opened a context menu without confirming active-window/viewport focus. Test-only commit `88e8771` adds exact offscreen-projection validation, a bounded wait for marker removal and an explicit focus prerequisite. The rebuilt complete Notes suites pass all eight cases. Both initial failed runs remain preserved.
+
+One Vulkan/Russian/150% Visual run saw an unexpected inserted `5` in its note draft. Its cause was not established. The complete Visual suite passed on the **unchanged executable** in an isolated rerun; draft-equality assertions were retained. Both reports remain available under `verified-3d49509-ru` and `verified-visual-ru-repeat`. No product fix is claimed for that observation.
+
 ## Russian UI matrix
 
 The localization-aware Visual and Notes suites also passed all eight cases: both APIs, both scales, Russian preferences. Each API records 56 QtTest passes, zero failures and zero skips, with no native Trace errors/asserts. Together with English, Notes completed four full suite runs per API, exercising repeated native scene/window teardown. Evidence: `artifacts/verified-9496429-ru/results.json`.

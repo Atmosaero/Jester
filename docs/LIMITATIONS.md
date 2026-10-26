@@ -8,3 +8,5 @@
 - Optional tests need user-supplied character fixtures. Those assets and local credentials are excluded from the repository.
 - The tested SDK can print JSON Serialization context warnings during shutdown; native Trace errors/asserts are treated as failures by the GUI/smoke runners.
 - DPI verification uses Qt scale factors 1 and 1.5 on the development desktop, including physical 1280×720 windows. A separate Windows display-setting change and a clean Windows VM have not been exercised; portable verification uses relocation, clean PATH and loaded-module inspection.
+
+- Current host measurements show a slower heavy CPU fallback and worse DX12 multi-mesh seek p95 than baseline despite native GPU offload. See the complete [performance table](PERFORMANCE.md); no blanket FPS improvement is claimed.

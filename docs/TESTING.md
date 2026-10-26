@@ -48,4 +48,6 @@ python tools/update_translations.py --check
 
 Workflow screenshots composite actual Atom framebuffer readback with Qt overlays. Plain `QWidget::grab()` images whose names end in `-widgets.png` are UI layout diagnostics and do not include the native renderer. Local MCP connection files contain tokens: keep the output directory ignored and publish only reviewed screenshots/reports.
 
-Measured results and the initial failed runs are described in [the backend report](RENDER_BACKENDS.md).
+Measured results and the initial failed runs are described in [the backend report](RENDER_BACKENDS.md) and [final verification](VALIDATION.md).
+
+Unshipped native test executables use an ANSI bootstrap. When staging them beside a portable runtime for asset-closure instrumentation, use an ASCII copy path. This does not apply to the shipped Jester executable, whose UTF-8 manifest/locale startup is verified from Cyrillic paths. Test EXEs and Qt Test DLLs are excluded from distribution.
