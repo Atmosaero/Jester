@@ -1,6 +1,6 @@
 # Notes for animators and AI
 
-Jester **0.1.0-alpha.1**. Existing schema-8 annotations and schemas 1-8 remain readable. Notes are authored metadata; free text never creates a physical constraint or a successful measurement.
+Jester **0.2.0-alpha.1**. Existing schema-8 annotations and schemas 1-8 remain readable. Notes are authored metadata; free text never creates a physical constraint or a successful measurement.
 
 ## Write one thought and continue
 
@@ -49,6 +49,6 @@ The first arguments go to `motion_annotations`, the second to `motion_context`. 
 
 ## Interface examples
 
-Actual Qt captures of the built-in mannequin: [card at 100%](notes/card-1.png), [panel at 100%](notes/panel-1.png), [card at 150%](notes/card-1.5.png), [panel at 150%](notes/panel-1.5.png). At 1280 x 720 and 150%, advanced fields scroll while text and Save/Cancel remain available.
+Current Blue Jay captures with Oddie, recorded at 1440 × 900: [card at 100%](notes/card-1.png), [panel at 100%](notes/panel-1.png), [card at 150%](notes/card-1.5.png), [panel at 150%](notes/panel-1.5.png). These combine the actual Atom viewport with Qt overlays and include the Unreleased note-card contrast fix. The card scrolls when necessary; Save/Cancel remain visible.
 
-See [Testing](TESTING.md) for repeatable UI checks. These editor checks do not certify physics. The screenshots above document the inherited Qt tools from Trickster.
+The [Oddie animation plan](ODDIE_WAVE.md) describes the three phase notes and finger timing. See [Testing](TESTING.md) for repeatable UI checks; these documentation captures do not constitute a new regression-test matrix or certify physics.

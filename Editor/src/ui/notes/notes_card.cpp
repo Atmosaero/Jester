@@ -29,7 +29,14 @@ NotesCard::NotesCard(Window *w, NotesController *c, Document *d, QJsonObject val
     setObjectName("noteCard");
     setFrameShape(QFrame::StyledPanel);
     setAutoFillBackground(true);
-    auto appearance=[this] {setStyleSheet("#noteCard { border: 1px solid "+PreferencesService::instance().current().value("overlays.notes").toString()+"; border-radius: 6px; background: palette(window); }");};
+    auto appearance=[this] {
+        const auto palette=QApplication::palette();
+        setStyleSheet("#noteCard { border: 1px solid "+PreferencesService::instance().current().value("overlays.notes").toString()+"; border-radius: 6px; background: palette(window); }"
+            "#noteCard QTextEdit#noteText { background-color: "+palette.color(QPalette::Base).name()+
+            "; color: "+palette.color(QPalette::Text).name()+
+            "; selection-background-color: "+palette.color(QPalette::Highlight).name()+
+            "; selection-color: "+palette.color(QPalette::HighlightedText).name()+"; }");
+    };
     connect(&PreferencesService::instance(),&PreferencesService::changed,this,appearance);appearance();
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(10, 8, 10, 8);

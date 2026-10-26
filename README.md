@@ -2,9 +2,9 @@
 
 A character animation editor powered by **O3DE Atom (DX12 / Vulkan)**, Qt Widgets and MuJoCo. **0.2.0-alpha.1** — [Windows portable download](https://github.com/Atmosaero/Jester/releases/tag/v0.2.0-alpha.1) · [Changelog](CHANGELOG.md).
 
-![Jester running on Atom](docs/images/editor.png)
+![Oddie waving in Jester's native Atom viewport](docs/images/oddie-wave.gif)
 
-Preview from the previous red-accent iteration; the current Blue Jay interface uses blue accents.
+Oddie greeting animation in the Blue Jay interface. [Screenshots and animation notes](docs/GALLERY.md).
 
 FBX/glTF import, FK/IK, keys and curves, correction layers, retargeting, notes and experimental physics. Native **.jst** projects also save scene lighting, studio IBL and post effects. Lit, Unlit and mesh Wireframe, native GPU skinning, editor themes and live English/Russian UI are included.
 

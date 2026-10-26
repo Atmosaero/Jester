@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Refresh documentation captures for the blue Blue Jay interface and add an Oddie greeting GIF. Keep note-card text readable in the active theme.
+
 ## 0.2.0-alpha.1 — 2026-10-26
 
 Windows portable alpha with native GPU deformation, scene personalization and the O3DE Blue Jay interface. The latest UI changes are awaiting manual validation; no new runtime test matrix was run for this release.
