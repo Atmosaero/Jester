@@ -10,7 +10,7 @@ Build the app, assets and regression targets:
 ./tools/run_gui_tests.ps1 -Suites Ui,Mvp,Notes,UxScope -Scale 1.5
 ```
 
-Run from an interactive Windows desktop with a DX12-capable GPU. GUI suites use the actual Atom renderer. The viewport smoke checks rendering, resize, minimize/restore, framebuffer readback and shutdown at 100% and 150% scaling. Logs, images and JSON summaries are generated under ignored `artifacts/`. GUI/smoke runners fail on native Trace errors/asserts as well as process failures. Core reliability cases can take several minutes; the runner allows 20 minutes per test function.
+Run from an interactive Windows desktop with a DX12-capable GPU. GUI suites use the actual Atom renderer. The viewport smoke checks rendering, resize, minimize/restore, framebuffer readback and shutdown at 100% and 150% scaling. Logs, images and JSON summaries are generated under ignored `artifacts/`. GUI/smoke runners fail on native Trace errors/asserts as well as process failures. For headless core execution with this SDK, set `$env:QT_QPA_PLATFORM="minimal"` before the core runner and remove it before native GUI tests; the SDK offscreen platform plugin is unavailable. Core reliability cases can take several minutes; the runner allows 20 minutes per test function.
 
 There are 15 unique regression executables: Core, Physics, MvpCore, MuJoCo, Media, Reliability, Settings, Ui, Mvp, Visual, Automation, Notes, PhysicsUi, Motion and UxScope. Media is also included in the PowerShell GUI runner; do not count it twice.
 

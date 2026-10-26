@@ -294,6 +294,20 @@ class VisualTests:public QObject {
         QStringList after;for(auto *action:ActionRegistry(window).actions())after<<ActionRegistry::id(action);after.sort();before.sort();QCOMPARE(after,before);
         window.document().undo.setClean();window.close();
     }
+    void sceneSearchMatchesTranslatedGroupNames() {
+        auto &service=PreferencesService::instance();const auto baseline=service.current();
+        QString error;auto preferences=baseline;QVERIFY(preferences.patch({{"language","ru"}},error));QVERIFY(service.preview(preferences,error));
+        Window window;window.document().replace(Scene::mannequin());window.resize(1280,720);window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *dock=window.findChild<QDockWidget*>("sceneSettingsDock");QVERIFY(dock);dock->show();dock->raise();
+        auto *search=window.findChild<QLineEdit*>("sceneSettingsSearch");QVERIFY(search);
+        auto *main=window.findChild<QWidget*>("sceneSetting_lighting.main.enabled");QVERIFY(main);
+        auto *post=window.findChild<QWidget*>("sceneSetting_post.exposureEV");QVERIFY(post);
+        search->setText(QCoreApplication::translate("SceneSettings","Main light"));QVERIFY(main->isVisible());QVERIFY(!post->isVisible());
+        search->setText(QCoreApplication::translate("SceneSettings","Post-processing"));QVERIFY(post->isVisible());QVERIFY(!main->isVisible());
+        search->clear();QVERIFY(main->isVisible());QVERIFY(post->isVisible());
+        QVERIFY(service.preview(baseline,error));window.document().undo.setClean();window.close();
+    }
     void liveLanguageThemesKeepNamesDraftsAndEnums() {
         auto &service=PreferencesService::instance();const auto baseline=service.current();
         QString error;auto startup=baseline;QVERIFY(startup.patch({{"language","ru"}},error));QVERIFY(service.preview(startup,error));

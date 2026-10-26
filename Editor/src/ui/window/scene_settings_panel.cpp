@@ -114,7 +114,8 @@ SceneSettingsPanel::SceneSettingsPanel(Workspace &source,std::function<void()> f
             bool any=false;
             for(int row=0;row<form->rowCount();++row)if(auto *item=form->itemAt(row,QFormLayout::FieldRole))if(auto *widget=item->widget()) {
                 auto *label=qobject_cast<QLabel*>(form->itemAt(row,QFormLayout::LabelRole)->widget());
-                bool match=text.isEmpty() || (widget->property("searchSource").toString()+" "+label->text()).contains(text,Qt::CaseInsensitive);
+                const auto *box=qobject_cast<QGroupBox*>(form->parentWidget());
+                bool match=text.isEmpty() || (widget->property("searchSource").toString()+" "+label->text()+" "+box->title()).contains(text,Qt::CaseInsensitive);
                 form->setRowVisible(row,match);any|=match;
             }
             form->parentWidget()->setVisible(any);

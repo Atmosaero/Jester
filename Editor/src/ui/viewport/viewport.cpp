@@ -285,6 +285,11 @@ void Viewport::viewPreset(int n) {
 }
 void Viewport::drawOverlay(QPainter &painter) {
     painter.setRenderHint(QPainter::Antialiasing);
+    painter.save();
+    // Keep viewport labels legible against bright floors, Unlit textures and
+    // user-selected backgrounds. This Qt layer remains outside scene post FX.
+    painter.setBackground(QColor(19, 23, 29, 205));
+    painter.setBackgroundMode(Qt::OpaqueMode);
     auto &s = doc->scene;
     auto positions = s.positions(s.pose);
     auto drawSkeleton = [&](const Pose &pose, QColor color, bool ghost) {
@@ -673,6 +678,7 @@ void Viewport::drawOverlay(QPainter &painter) {
         painter.drawText(12, height() - 32,
                          QFontMetrics(painter.font()).elidedText(info, Qt::ElideRight, width() - 24));
     }
+    painter.restore();
     emit annotationsPaint(&painter);
 }
 std::optional<QPointF> Viewport::projectVisible(QVector3D p) const {

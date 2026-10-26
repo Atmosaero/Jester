@@ -10,7 +10,7 @@ Build and process assets first. Python 3.9+ is used only for packaging:
 
 ```powershell
 ./build.ps1 -EngineRoot D:/O3DE -Assets
-python tools/package_editor.py --output dist/Jester-0.1.0-alpha.1-windows-x64 --crt-root "C:/path/to/Microsoft.VC145.CRT" --archive
+python tools/package_editor.py --output dist/Jester-0.1.0-alpha.1-windows-x64-<git-sha> --crt-root "C:/path/to/Microsoft.VC145.CRT" --archive
 ```
 
 `--project-root` can point at another existing compiled project. `--engine-root` selects the SDK. The CRT directory comes from the Visual Studio x64 redistributable runtime. Output must be empty. The packager computes normal and delay-load PE dependencies, bundles application-local VC runtime files, and derives the asset dependency closure with Asset Bundler. It creates an empty metadata schema instead of distributing the developer asset database.

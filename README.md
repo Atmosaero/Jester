@@ -1,20 +1,18 @@
 # Jester
 
-Native projects use **[.jst](docs/PROJECTS.md)**.
+A character animation editor powered by **O3DE Atom (DX12 / Vulkan)**, Qt Widgets and MuJoCo. **0.1.0-alpha.1**; current development changes are listed in [CHANGELOG](CHANGELOG.md).
 
-A character animation editor powered by **O3DE Atom (DX12 / Vulkan)** and Qt. First public alpha: **0.1.0-alpha.1**.
+![Jester running on Atom](docs/images/editor.png)
 
-![Jester animation editor](docs/images/editor.png)
+FBX/glTF import, FK/IK, keys and curves, correction layers, retargeting, notes and experimental physics. Native **.jst** projects also save scene lighting, studio IBL and post effects. Lit, Unlit and mesh Wireframe, native GPU skinning, editor themes and live English/Russian UI are included.
 
-FBX/glTF import, FK/IK posing, keyframes, curves, correction layers, retargeting, notes, and experimental MuJoCo physics. Evolved from [Trickster](https://github.com/Atmosaero/Trickster).
-
-Windows x64 · O3DE SDK 26.10 · Visual Studio 2026 (C++) · SDK-provided Qt 6.10.2.
+Windows x64. Building requires O3DE SDK 26.10, Visual Studio 2026 and the SDK's Qt 6.10.2; the portable package includes its runtime dependencies.
 
 ```powershell
 ./build.ps1 -EngineRoot D:/O3DE -Assets
 ./launch.ps1 -Demo
 ```
 
-Development includes native GPU skinning, [scene modes and post effects](docs/SCENE_SETTINGS.md), and [preferences](docs/PERSONALIZATION.md). See [building](docs/BUILD.md), [portable packaging](docs/PACKAGING.md), [testing](docs/TESTING.md), and [limits](docs/LIMITATIONS.md).
+[Build](docs/BUILD.md) | [Portable package](docs/PACKAGING.md) | [Screenshots](docs/GALLERY.md) | [Tests](docs/TESTING.md) | [Performance](docs/PERFORMANCE.md) | [Limits](docs/LIMITATIONS.md)
 
-MIT · [Third-party notices](THIRD_PARTY.md). Character libraries are not included.
+MIT. [Third-party notices](THIRD_PARTY.md). Private character libraries are not included. Evolved from [Trickster](https://github.com/Atmosaero/Trickster).

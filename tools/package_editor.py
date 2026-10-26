@@ -200,7 +200,7 @@ def main():
     runtime_settings(project,args.engine_root,output)
     shutil.copytree(source/'examples',output/'examples')
     shutil.copytree(source/'licenses',output/'licenses')
-    for name in ['LICENSE','THIRD_PARTY.md']:
+    for name in ['LICENSE','THIRD_PARTY.md','README.md','CHANGELOG.md']:
         shutil.copy2(source/name,output/name)
     shutil.copytree(source/'docs',output/'docs',ignore=shutil.ignore_patterns('IMPLEMENTATION_WORKLOG.md'))
     qt = qt_package_root(project)

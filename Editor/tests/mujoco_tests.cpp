@@ -347,14 +347,16 @@ class MuJoCoTests : public QObject {
         }
         legacyPhysics["bodies"] = onlyOldBodies;
         old["physics"] = legacyPhysics;
+        old.remove("visuals"); // Scene visuals were introduced with schema 9.
         QDir().mkpath("artifacts/physics-demo/projects");
-        QFile f("examples/physics/legacy-v4.jst");
+        QFile f("artifacts/physics-demo/projects/legacy-v4.jst");
         QVERIFY(f.open(QIODevice::WriteOnly));
         f.write(QJsonDocument(old).toJson());
         f.close();
         QString e;
         Scene migrated;
-        QVERIFY2(sceneFromJson(old, migrated, e), qPrintable(e));
+        QVERIFY2(loadProject(f.fileName(), migrated, e), qPrintable(e));
+        QCOMPARE(migrated.visuals.toJson(), SceneVisualSettings().toJson());
         QVERIFY(!migrated.physics.migrationWarnings.isEmpty());
         QCOMPARE(migrated.keys.size(), s.keys.size());
         QCOMPARE(migrated.pins[15].target, s.pins[15].target);
@@ -363,7 +365,7 @@ class MuJoCoTests : public QObject {
         QVERIFY(saveProject(dir.path() + "/new.jst", migrated, e));
         Scene reopened;
         QVERIFY(loadProject(dir.path() + "/new.jst", reopened, e));
-        QCOMPARE(sceneToJson(reopened)["version"].toInt(), 8);
+        QCOMPARE(sceneToJson(reopened)["version"].toInt(), 9);
         QCOMPARE(reopened.physics.migrationWarnings, migrated.physics.migrationWarnings);
         Scene result;
         PhysicsReport r;
