@@ -7,6 +7,7 @@
 #include <QPainterPath>
 #include <QPolygonF>
 namespace trickster {
+QIcon editorLogo() {return QIcon(QStringLiteral(":/jester/branding/jester.svg"));}
 namespace {QMap<qint64,Glyph> generatedIcons;}
 QIcon icon(Glyph glyph) {
     static QMap<Glyph,QIcon> cache;static qint64 paletteKey=0;
@@ -31,6 +32,23 @@ QIcon icon(Glyph glyph) {
             p.setBrush(Qt::NoBrush);
         };
         switch (glyph) {
+        case Glyph::Lit:
+            p.drawEllipse(QRectF(8,8,8,8));
+            for(int i=0;i<8;++i) {
+                p.save();p.translate(12,12);p.rotate(i*45);line(0,-7,0,-10);p.restore();
+            }
+            break;
+        case Glyph::Unlit:
+            poly({{4,7},{12,3},{20,7},{20,17},{12,21},{4,17}},true);
+            p.setCompositionMode(QPainter::CompositionMode_DestinationOut);
+            line(4,7,12,12);line(20,7,12,12);line(12,12,12,21);
+            p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+            break;
+        case Glyph::Wireframe:
+            poly({{4,7},{12,3},{20,7},{20,17},{12,21},{4,17}});
+            line(4,7,12,12);line(20,7,12,12);line(12,12,12,21);
+            line(4,7,20,7);line(12,12,4,17);line(12,12,20,17);
+            break;
         case Glyph::Note:
             poly({{3,4},{21,4},{21,17},{11,17},{6,21},{6,17},{3,17}});
             line(7,8,17,8);line(7,12,15,12);

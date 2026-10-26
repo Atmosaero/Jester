@@ -75,6 +75,8 @@ QWidget *vectorRow(std::array<QDoubleSpinBox *, 3> &fields, QWidget *parent, con
 } // namespace
 Window::Window() {
     setObjectName("JesterWindow");
+    setWindowIcon(editorLogo());
+    menuBar()->setNativeMenuBar(false);
     bindUiText(this,"windowTitle","Jester");
     auto available = QGuiApplication::primaryScreen()->availableGeometry();
     resize(std::min(1440, available.width()), std::min(940, available.height()));
@@ -320,8 +322,11 @@ void Window::buildTimeline() {
         document().seek(it == nav.cend() ? document().scene.last : *it);
     });
     controls->addWidget(next);
-    auto loop = translatedWidget<QCheckBox>("Loop", body);
+    auto loop = translatedWidget<QCheckBox>("", body);
     loop->setObjectName("loopCheck");
+    loop->setIcon(icon(Glyph::Loop));
+    loop->setProperty("jesterTransportButton",true);
+    bindUiText(loop,"toolTip","Loop");bindUiText(loop,"accessibleName","Loop");
     loop->setChecked(true);
     connect(loop, &QCheckBox::toggled, this, [this](bool on) { document().loop = on; });
     controls->addWidget(loop);
@@ -459,7 +464,7 @@ void Window::buildActions() {
     add(file, "New mannequin", {}, [this] { newCharacter(); });
     add(file, "Open animated demo", {}, [this] { newCharacter(true); });
     file->addSeparator();
-    add(file, "Quit", QKeySequence::Quit, [this] { close(); });
+    add(file, "Quit", QKeySequence::Quit, [this] {editorWindowFrame(this)->close();});
 
     auto undo = workspace.history.createUndoAction(this, "Undo");
     undo->setObjectName("undo");undo->setProperty("jesterSourceText","Undo");
@@ -973,7 +978,8 @@ void Window::closeEvent(QCloseEvent *e) {
     for (const auto &d : workspace.documents)
         recovery.discard(d->id);
     QSettings s;
-    s.setValue("geometry", saveGeometry());
+    auto *frame=editorWindowFrame(this);
+    s.setValue(frame==this?"geometry":"blueJayGeometry",frame->saveGeometry());
     s.setValue("layoutV3", saveState());
     s.setValue("lastDirectory", lastDirectory);
     cancelPhysicsTask();

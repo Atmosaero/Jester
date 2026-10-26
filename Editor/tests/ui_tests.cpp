@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "ui/window/window.h"
@@ -199,7 +200,7 @@ class UITests : public QObject {
         QTimer contactDriver;
         contactDriver.setInterval(25);
         connect(&contactDriver,&QTimer::timeout,&w,[&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             if (!dialog || dialog->objectName()!="contactDialog" || !dialog->isVisible())
                 return;
             contactDriver.stop();
@@ -254,7 +255,7 @@ class UITests : public QObject {
         QString arc = temp.path() + "/arc.jst";
         bool dialogSeen = false;
         QTimer::singleShot(150, [&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             if (!dialog)
                 return;
             dialogSeen = dialog->windowTitle().contains("Experimental COM arc");
@@ -380,7 +381,7 @@ class UITests : public QObject {
             QVERIFY(QTest::qWaitForWindowExposed(&w));
             bool selected = false, unanimated = false;
             QTimer::singleShot(200, [&] {
-                auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
                 if (!dialog)
                     return;
                 auto search = dialog->findChild<QLineEdit *>("sceneSearch");
@@ -452,7 +453,7 @@ class UITests : public QObject {
         auto tabs = w.findChild<QTabBar *>("sceneTabs");
         QCOMPARE(tabs->count(), 2);
         QTimer::singleShot(150, [] {
-            auto box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            auto box = qobject_cast<QMessageBox *>(activeEditorModalWidget());
             if (box)
                 QTest::mouseClick(box->button(QMessageBox::Cancel), Qt::LeftButton);
         });
@@ -463,7 +464,7 @@ class UITests : public QObject {
         QVERIFY(w.document().dirty());
         QVERIFY(std::abs(w.document().scene.pose[0].t.x() - .2f) < .0001f);
         QTimer::singleShot(150, [] {
-            auto box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            auto box = qobject_cast<QMessageBox *>(activeEditorModalWidget());
             if (box)
                 QTest::mouseClick(box->button(QMessageBox::Discard), Qt::LeftButton);
         });
@@ -498,7 +499,7 @@ class UITests : public QObject {
         QTest::keyClick(box, Qt::Key_A, Qt::ControlModifier);
         QTest::keyClicks(box, QLocale().toString(.41, 'f', 3));
         QTimer::singleShot(150, [] {
-            auto message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            auto message = qobject_cast<QMessageBox *>(activeEditorModalWidget());
             if (message)
                 QTest::mouseClick(message->button(QMessageBox::Cancel), Qt::LeftButton);
         });

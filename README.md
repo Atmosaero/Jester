@@ -1,8 +1,10 @@
 # Jester
 
-A character animation editor powered by **O3DE Atom (DX12 / Vulkan)**, Qt Widgets and MuJoCo. **0.1.0-alpha.1**; current development changes are listed in [CHANGELOG](CHANGELOG.md).
+A character animation editor powered by **O3DE Atom (DX12 / Vulkan)**, Qt Widgets and MuJoCo. **0.2.0-alpha.1** — [Windows portable download](https://github.com/Atmosaero/Jester/releases/tag/v0.2.0-alpha.1) · [Changelog](CHANGELOG.md).
 
 ![Jester running on Atom](docs/images/editor.png)
+
+Preview from the previous red-accent iteration; the current Blue Jay interface uses blue accents.
 
 FBX/glTF import, FK/IK, keys and curves, correction layers, retargeting, notes and experimental physics. Native **.jst** projects also save scene lighting, studio IBL and post effects. Lit, Unlit and mesh Wireframe, native GPU skinning, editor themes and live English/Russian UI are included.
 
@@ -13,6 +15,6 @@ Windows x64. Building requires O3DE SDK 26.10, Visual Studio 2026 and the SDK's 
 ./launch.ps1 -Demo
 ```
 
-[Build](docs/BUILD.md) | [Portable package](docs/PACKAGING.md) | [Screenshots](docs/GALLERY.md) | [Tests](docs/TESTING.md) | [Performance](docs/PERFORMANCE.md) | [Limits](docs/LIMITATIONS.md)
+[Build](docs/BUILD.md) | [Portable package](docs/PACKAGING.md) | [Screenshots](docs/GALLERY.md) | [Blue Jay UI](docs/BLUE_JAY.md) | [Tests](docs/TESTING.md) | [Performance](docs/PERFORMANCE.md) | [Limits](docs/LIMITATIONS.md)
 
 MIT. [Third-party notices](THIRD_PARTY.md). Private character libraries are not included. Evolved from [Trickster](https://github.com/Atmosaero/Trickster).

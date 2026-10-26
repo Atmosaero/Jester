@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "core/scene/edit_service.h"
@@ -595,7 +596,10 @@ class ScopeTests : public QObject {
         QTest::mouseRelease(w.viewport, Qt::LeftButton, Qt::NoModifier, point + QPoint(-8, -8));
         QCOMPARE(w.document().undo.count(), 1);
         QVERIFY(captureEditorWidget(&w).save("artifacts/ux-scope/symmetry-" + QString::number(scale) + ".png"));
+        w.raise();w.activateWindow();w.viewport->setFocus();
+        QTRY_VERIFY_WITH_TIMEOUT(w.isActiveWindow() && w.viewport->hasFocus(),3000);
         QTest::keyClick(w.viewport, Qt::Key_Z, Qt::ControlModifier);
+        QTRY_COMPARE(w.document().undo.index(),0);
         QCOMPARE(sceneToJson(w.document().scene), before);
         clean(w);
     }
@@ -606,6 +610,10 @@ class ScopeTests : public QObject {
         w.resize(qRound(1280 / scale), qRound(720 / scale));
         w.show();
         QVERIFY(QTest::qWaitForWindowExposed(&w));
+        // SDK decoration attaches on Show. Set the requested content size
+        // after attachment, then verify it survives the dialog workflow.
+        w.resize(qRound(1280 / scale), qRound(720 / scale));
+        QTest::qWait(40);
         w.document().select(15);
         auto label = w.findChild<QLabel *>("mirrorPartnerLabel");
         QVERIFY(label);
@@ -636,7 +644,7 @@ class ScopeTests : public QObject {
         auto beforeDialog = sceneToJson(w.document().scene);
         bool visited = false;
         QTimer::singleShot(80, &w, [&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             if (!dialog)
                 return;
             QTimer::singleShot(2000, dialog, &QDialog::reject);
@@ -654,6 +662,7 @@ class ScopeTests : public QObject {
         w.findChild<QPushButton *>("configureMirrorPairsButton")->click();
         QVERIFY(visited);
         QCOMPARE(sceneToJson(w.document().scene), beforeDialog);
+        qInfo()<<"Workspace constraints"<<w.size()<<w.minimumSize()<<w.minimumSizeHint()<<w.layout()->sizeConstraint();
         QVERIFY2(w.width() * scale <= 1282,
                  qPrintable(QString("Window width %1 at scale %2").arg(w.width()).arg(scale)));
         QVERIFY2(w.height() * scale <= 722,

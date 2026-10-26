@@ -99,7 +99,7 @@ void CurveCanvas::paintEvent(QPaintEvent *)  {
             else
                 path.moveTo(q);
         }
-        p.setPen(QPen(palette().color(QPalette::Link), 2));
+        p.setPen(QPen(palette().color(QPalette::Highlight), 2));
         p.drawPath(path);
         int keyIndex = 0;
         for (auto &k : c->keys) {
@@ -117,11 +117,11 @@ void CurveCanvas::paintEvent(QPaintEvent *)  {
             p.drawEllipse(a, 4, 4);
         }
         if (boxing) {
-            p.setPen(QColor(100, 180, 240));
-            p.setBrush(QColor(100, 180, 240, 40));
+            p.setPen(palette().color(QPalette::Highlight));
+            auto selection=palette().color(QPalette::Highlight);selection.setAlpha(40);p.setBrush(selection);
             p.drawRect(box.normalized());
         }
-        p.setPen(QColor(230, 100, 90));
+        p.setPen(palette().color(QPalette::Highlight));
         p.drawLine(point(double(doc->frame) / doc->scene.fps, low),
                    point(double(doc->frame) / doc->scene.fps, high));
     }

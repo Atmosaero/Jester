@@ -483,8 +483,8 @@ void Timeline::paintEvent(QPaintEvent *) {
                             : QRect(0,bodyTop(),width()-14, height()-bodyTop()-footerHeight()));
         bool selected = i == selectedRow || doc->selection().contains(r.node);
         if (selected)
-            p.fillRect(QRect(0,y-rowHeight()/2,width()-14,rowHeight()-1), QColor(69, 85, 103, 95));
-        p.setPen(palette().color(editable(r)?QPalette::Link:QPalette::PlaceholderText));
+            {auto selection=palette().color(QPalette::Highlight);selection.setAlpha(55);p.fillRect(QRect(0,y-rowHeight()/2,width()-14,rowHeight()-1),selection);}
+        p.setPen(palette().color(editable(r)?QPalette::Highlight:QPalette::PlaceholderText));
         QString label = r.label;
         if (i == 0 && doc->scene.sourceClip >= 0 && doc->scene.clips)
             label += uiText(" [read-only]");
@@ -517,7 +517,7 @@ void Timeline::paintEvent(QPaintEvent *) {
                 float a = x(float(issue["firstSeconds"].toDouble() * doc->scene.fps)),
                       b = x(float(issue["lastSeconds"].toDouble() * doc->scene.fps));
                 p.fillRect(QRectF(a, y - 6, std::max(4.f, b - a), 12),
-                           issue["status"] == "allowed" ? QColor(100, 170, 130, 160) : QColor(245, 95, 95, 160));
+                           issue["status"] == "allowed" ? QColor(88, 188, 97, 160) : QColor(250, 39, 39, 160));
             }
         if (r.kind == CurveTrack)
             for (auto &curve : doc->scene.curves)
@@ -525,7 +525,7 @@ void Timeline::paintEvent(QPaintEvent *) {
                     for (size_t k = 0; k + 1 < curve.keys.size(); ++k) {
                         float a = x(float(curve.keys[k].time * doc->scene.fps)),
                               b = x(float(curve.keys[k + 1].time * doc->scene.fps));
-                        p.setPen(QColor(150, 190, 225));
+                        p.setPen(QColor("#1e70eb"));
                         p.drawLine(QPointF(a, y), QPointF(b, y));
                         if (b - a > 55)
                             p.drawText(QPointF(a + 8, y - 3),
@@ -535,7 +535,7 @@ void Timeline::paintEvent(QPaintEvent *) {
             for (const auto &c : doc->scene.contacts)
                 if (c.node == r.node) {
                     p.fillRect(QRectF(x(c.first), y - 5, std::max(2.f, x(c.last) - x(c.first)), 10),
-                               QColor(78, 222, 164, 140));
+                               QColor(88, 188, 97, 140));
                 } else {
                 } // Contact bands never participate in key hit-testing.
         if (r.kind != ContactTrack && r.kind != ContextTrack)
@@ -545,25 +545,25 @@ void Timeline::paintEvent(QPaintEvent *) {
                     continue;
                 if (editable(r)) {
                     p.setPen(Qt::NoPen);
-                    p.setBrush(marked(r, qRound(frame)) ? overlayColor("selection") : QColor(80, 205, 160));
+                    p.setBrush(marked(r, qRound(frame)) ? overlayColor("selection") : QColor("#58bc61"));
                     p.drawPolygon(QPolygonF{
                         {px, float(y - 6)}, {px + 6, float(y)}, {px, float(y + 6)}, {px - 6, float(y)}});
                 } else {
-                    p.setPen(QColor(100, 168, 190));
+                    p.setPen(QColor("#1e70eb"));
                     p.drawLine(QPointF(px, y - 4), QPointF(px, y + 4));
                 }
             }
         p.restore();
     }
     if (selectingKeys) {
-        p.setPen(QColor(80, 180, 240));
-        p.setBrush(QColor(60, 150, 220, 40));
+        p.setPen(palette().color(QPalette::Highlight));
+        auto selection=palette().color(QPalette::Highlight);selection.setAlpha(40);p.setBrush(selection);
         p.drawRect(keyRect.normalized());
     }
     if (doc->timeSelection) {
         auto a = doc->timeSelection->first * doc->scene.fps, b = doc->timeSelection->second * doc->scene.fps;
         p.fillRect(QRectF(x(float(a)), 0, x(float(b)) - x(float(a)), height()-footerHeight()),
-                   QColor(80, 145, 220, 40));
+                   [this]{auto color=palette().color(QPalette::Highlight);color.setAlpha(40);return color;}());
     }
     p.setPen(QPen(palette().color(QPalette::Highlight), 2));
     p.drawLine(QPointF(x(doc->frame), headerHeight()-1), QPointF(x(doc->frame), height()-footerHeight()-1));

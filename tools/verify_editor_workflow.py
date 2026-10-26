@@ -85,6 +85,7 @@ class Session:
         user.GetWindow.argtypes = [wintypes.HWND,wintypes.UINT]
         user.GetWindow.restype = wintypes.HWND
         user.MoveWindow.argtypes = [wintypes.HWND,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,wintypes.BOOL]
+        user.GetWindowRect.argtypes = [wintypes.HWND,ctypes.POINTER(wintypes.RECT)]
         windows = []
         callback = ctypes.WINFUNCTYPE(wintypes.BOOL,wintypes.HWND,wintypes.LPARAM)
         @callback
@@ -97,6 +98,10 @@ class Session:
         user.EnumWindows(inspect,0)
         assert windows, 'Main editor window is missing'
         assert user.MoveWindow(windows[0],40,40,1280,720,True)
+        bounds=wintypes.RECT()
+        assert user.GetWindowRect(windows[0],ctypes.byref(bounds))
+        actual=[bounds.right-bounds.left,bounds.bottom-bounds.top]
+        assert actual==[1280,720], ('Editor constraints changed the requested physical window size',actual)
 
     def capture(self, name, target='window'):
         path = self.folder/(name+'.png')

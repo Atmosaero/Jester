@@ -36,7 +36,7 @@ The default matrix runs native viewport smoke at 100%/150% and all eight GUI sui
 
 Shortcut tests explicitly activate the editor window and focus the viewport before sending synthetic Qt keys. A visible native rendering surface alone does not establish the active-window prerequisite for window-scoped actions. Real Windows input remains a separate check.
 
-The matrix accepts `--language ru` for localization-aware suites. Older suites assert English text; use English for their full regression run. Preferences and capture destinations are isolated per case. Visual and Notes cover a physical 1280×720 window at both scale factors; scaling uses Qt's scale-factor override on the same Windows desktop, rather than changing the machine's display setting.
+The matrix accepts `--language ru` for localization-aware suites. Older suites assert English text; use English for their full regression run. Preferences and capture destinations are isolated per case. Compact Visual and Notes checks request a 1280×720 content area at both scale factors; Blue Jay adds its title/frame around that area. The restart workflow sets the entire outer window to 1280×720. Scaling uses Qt's scale-factor override on the same Windows desktop, rather than changing the machine's display setting.
 
 The restart workflow opens the included character, edits a pose key, saves a Unicode uppercase `.JST` path, captures all three modes, configures lighting/IBL/post, persists appearance/language, records a three-frame sequence, and restarts the process to verify saved data:
 

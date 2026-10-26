@@ -25,9 +25,16 @@
 #include <QTableWidget>
 #include <QScreen>
 #include <QToolBar>
+#include <QToolButton>
 #include <QMenuBar>
 #include <QKeySequenceEdit>
 #include "ui/widgets/localized_ui.h"
+#include "ui/widgets/icons.h"
+#include "settings/blue_jay_style.h"
+#include <AzQtComponents/Components/WindowDecorationWrapper.h>
+#include <AzQtComponents/Components/Titlebar.h>
+#include <QCheckBox>
+#include <QLabel>
 #include <QtTest>
 
 using namespace trickster;
@@ -63,6 +70,45 @@ Scene eightInfluenceFixture() {
 class VisualTests:public QObject {
     Q_OBJECT
   private slots:
+    void blueJayWindowBrandingAndMenu() {
+        QVERIFY(qApp->property("jesterNativeBlueJay").toBool());
+        QVERIFY(qApp->property("jesterBlueJayConfigCount").toInt()>=15);
+        QVERIFY(qApp->property("jesterBlueJayRecoloredIcons").toInt()>=5);
+        Window window;window.document().replace(Scene::mannequin());window.resize(1280,720);window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const auto scene=sceneToJson(window.document().scene);
+        QVERIFY(!window.windowIcon().isNull());
+        auto *wrapper=qobject_cast<AzQtComponents::WindowDecorationWrapper*>(window.parentWidget());QVERIFY(wrapper);
+        auto *logo=wrapper->titleBar()->findChild<QLabel*>("icon");QVERIFY(logo);QTRY_VERIFY(logo->isVisible());
+        auto count=[](const QImage &image,bool blue) {int found=0;for(int y=0;y<image.height();++y)for(int x=0;x<image.width();++x){auto c=image.pixelColor(x,y);if(blue?c.blue()>c.red()*1.4 && c.blue()>c.green()*1.2:c.red()>c.blue()*1.4 && c.red()>c.green()*1.4)++found;}return found;};
+        const auto image=logo->grab().toImage();QVERIFY(count(image,true)>5);QVERIFY(count(image,false)>5);
+        auto *menu=window.menuBar();QVERIFY(menu->isVisible());QVERIFY(!menu->isNativeMenuBar());QVERIFY(!menu->actions().isEmpty());
+        auto *first=menu->actions().first();QVERIFY(first->isVisible());QVERIFY(!menu->actionGeometry(first).isEmpty());
+        const auto item=menu->grab(menu->actionGeometry(first)).toImage();int textPixels=0;
+        for(int y=0;y<item.height();++y)for(int x=0;x<item.width();++x)if(item.pixelColor(x,y).lightnessF()>.6)++textPixels;
+        QVERIFY2(textPixels>8,"The visible File menu must actually render its label");
+        QTest::mouseClick(menu,Qt::LeftButton,Qt::NoModifier,menu->actionGeometry(first).center());
+        QTRY_VERIFY(first->menu()->isVisible());QTest::keyClick(first->menu(),Qt::Key_Escape);
+        auto *loop=window.findChild<QCheckBox*>("loopCheck");QVERIFY(loop);QVERIFY(loop->isChecked());
+        QVERIFY2(count(loop->grab().toImage(),true)>5,"Checked controls must use the Blue Jay interaction accent");
+        QCOMPARE(sceneToJson(window.document().scene),scene);
+        // Native decoration must forward a close once, preserving Cancel and
+        // allowing Discard without a second unsaved-changes prompt.
+        EditorApi api(&window);api.call("pose_transform",{{"node",0},{"position",QJsonArray{0,.1,0}},{"key",true}});
+        QVERIFY(window.document().dirty());
+        for(auto answer:{QMessageBox::Cancel,QMessageBox::Discard}) {
+            int prompts=0;QTimer responder;
+            connect(&responder,&QTimer::timeout,&window,[&] {
+                if(auto *dialog=qobject_cast<QMessageBox*>(activeEditorModalWidget())) {
+                    ++prompts;dialog->done(answer);
+                }
+            });
+            responder.start(20);const bool closed=wrapper->close();responder.stop();
+            QCOMPARE(prompts,1);QCOMPARE(closed,answer==QMessageBox::Discard);
+            QCOMPARE(wrapper->isVisible(),answer==QMessageBox::Cancel);
+        }
+        window.document().undo.setClean();QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
+    }
     void gpuMatchesCpuEightWeightsAndMorphs() {
         Document document;document.replace(eightInfluenceFixture());Viewport view(&document);view.showBones=false;
         view.resize(720,640);view.show();QVERIFY(QTest::qWaitForWindowExposed(&view));view.fit();
@@ -230,10 +276,10 @@ class VisualTests:public QObject {
         QVERIFY(preferences.patch({{"language","en"}},error));QVERIFY(service.preview(preferences,error));
         QVERIFY(edit->text().contains("0.123"));number->interpretText();QVERIFY(std::abs(number->value()-.123)<.00001);
         bool translated=false;
-        QTimer::singleShot(8000,&window,[] {if(auto *box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget()))box->reject();});
+        QTimer::singleShot(8000,&window,[] {if(auto *box=qobject_cast<QMessageBox*>(activeEditorModalWidget()))box->reject();});
         QTimer::singleShot(30,&window,[&] {
             QVERIFY(preferences.patch({{"language","ru"}},error));QVERIFY(service.preview(preferences,error));
-            auto *box=qobject_cast<QMessageBox*>(QApplication::activeModalWidget());QVERIFY(box);
+            auto *box=qobject_cast<QMessageBox*>(activeEditorModalWidget());QVERIFY(box);
             translated=box->windowTitle()==uiText("Joint limit") && box->text()==uiText("Select a joint first.");box->done(QMessageBox::Ok);
         });
         showUiMessage(QMessageBox::Information,&window,[]{return uiText("Joint limit");},[]{return uiText("Select a joint first.");});QVERIFY(translated);
@@ -270,6 +316,14 @@ class VisualTests:public QObject {
     }
     void preferencePreviewCancelPreservesDraftAndActionIds() {
         Window window;window.document().replace(Scene::mannequin());window.show();QVERIFY(QTest::qWaitForWindowExposed(&window));
+        // Match the application's on-screen startup clamp. Qt deliberately
+        // moves off-screen saved geometry back onto the monitor on restore.
+        auto *windowFrame=editorWindowFrame(&window);
+        const auto scale=window.devicePixelRatioF();
+        windowFrame->resize(qRound(1280/scale),qRound(720/scale));
+        windowFrame->move(windowFrame->screen()->availableGeometry().topLeft()+QPoint(20,20));
+        QTest::qWait(40);
+        const auto originalFrameGeometry=editorWindowFrame(&window)->geometry();
         auto *draft=window.findChild<QDoubleSpinBox*>("positionY");QVERIFY(draft);
         const auto document=sceneToJson(window.document().scene),preferences=PreferencesService::instance().current().toJson();
         const auto undo=window.document().undo.count(),frame=window.document().frame;
@@ -278,6 +332,10 @@ class VisualTests:public QObject {
         int stage=0;QTimer timer;QObject::connect(&timer,&QTimer::timeout,&window,[&] {
             auto *dialog=window.findChild<QDialog*>("preferencesDialog");if(!dialog)return;
             if(stage==0) {
+                const auto available=dialog->screen()->availableGeometry().size();
+                if(dialog->width()<std::min(700,available.width()-64) || dialog->height()<std::min(500,available.height()-96))return;
+                auto *buttons=dialog->findChild<QDialogButtonBox*>();QVERIFY(buttons);
+                for(auto *button:buttons->buttons())QVERIFY(button->width()>=40);
                 auto *actions=dialog->findChild<QTreeWidget*>("preferencesActions");QVERIFY(actions);actions->setCurrentItem(actions->topLevelItem(0));
                 dialog->findChild<QKeySequenceEdit*>("preferencesShortcutEdit")->setKeySequence(QKeySequence("Ctrl+Alt+9"));
                 auto *language=dialog->findChild<QComboBox*>("preference_language");language->setCurrentIndex(language->findData("ru"));
@@ -291,6 +349,7 @@ class VisualTests:public QObject {
         });timer.start(30);showPreferences(window);timer.stop();QCOMPARE(stage,2);
         QCOMPARE(PreferencesService::instance().current().toJson(),preferences);QCOMPARE(sceneToJson(window.document().scene),document);
         QCOMPARE(window.document().undo.count(),undo);QCOMPARE(window.document().frame,frame);
+        QTRY_COMPARE(editorWindowFrame(&window)->geometry(),originalFrameGeometry);
         QStringList after;for(auto *action:ActionRegistry(window).actions())after<<ActionRegistry::id(action);after.sort();before.sort();QCOMPARE(after,before);
         window.document().undo.setClean();window.close();
     }
@@ -346,6 +405,21 @@ class VisualTests:public QObject {
             QCOMPARE(uiText("%n action(s)",2),QString::fromUtf8("2 действия"));
             QCOMPARE(uiText("%n action(s)",5),QString::fromUtf8("5 действий"));
             QTest::qWait(100);window.grab().save(output+"/ru-"+theme+"-widgets.png");
+            if(theme=="light") {
+                // Verify the rendered numeric input as well as preference
+                // values: SDK paint configuration can override the palette.
+                auto *input=window.findChild<QSpinBox*>("currentFrame")->findChild<QLineEdit*>();QVERIFY(input);
+                const auto pixels=input->grab().toImage();int light=0,dark=0;
+                for(int y=0;y<pixels.height();++y)for(int x=0;x<pixels.width();++x) {
+                    const auto value=pixels.pixelColor(x,y).lightnessF();light+=value>.8;dark+=value<.35;
+                }
+                QVERIFY2(light>pixels.width()*pixels.height()/2 && dark>5,"Light-theme input must have a light surface and visible dark text");
+                auto *label=window.findChild<QLabel*>("timelineRecordingContext");QVERIFY(label);
+                QVERIFY2(label->palette().color(QPalette::WindowText).lightnessF()<.4,"Light-theme labels must use dark text");
+                auto *search=window.findChild<QLineEdit*>("sceneSettingsSearch");QVERIFY(search);QVERIFY(search->hasAcceptableInput());
+                if(auto *indicator=search->findChild<QToolButton*>("ErrorToolButton"))
+                    QVERIFY2(!indicator->isVisibleTo(search),"A valid search field must not display an error indicator after restyling");
+            }
         }
         auto preferences=baseline;QVERIFY(preferences.patch({{"language","en"}},error));QVERIFY(service.preview(preferences,error));
         QCOMPARE(window.findChild<QDockWidget*>("skeletonDock")->windowTitle(),QString("Outliner"));

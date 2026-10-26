@@ -6,6 +6,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QWidget>
+#include <QLineEdit>
 namespace trickster {
 namespace {
 QList<QKeySequence> effective(QAction *action,const EditorPreferences &preferences) {
@@ -28,7 +29,9 @@ ActionRegistry::ActionRegistry(QWidget &root) {
     }
     QSet<QString> used;
     for(auto *action:root.findChildren<QAction*>()) {
-        if(action->isSeparator() || action->menu())continue;
+        // SDK search/error/clear icons are implementation actions of a text
+        // field. They are created lazily during polish, not editor commands.
+        if(action->isSeparator() || action->menu() || qobject_cast<QLineEdit*>(action->parent()))continue;
         auto key=id(action);
         if(key.isEmpty()) {
             key=action->objectName();

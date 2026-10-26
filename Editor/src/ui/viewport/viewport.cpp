@@ -503,9 +503,20 @@ void Viewport::drawOverlay(QPainter &painter) {
             painter.setPen(QPen(colors[a], axis == a ? 4 : 2.5));
             if (tool == Move) {
                 auto end = project(origin + axisVector(a) * len);
-                painter.drawLine(o, end);
-                painter.setBrush(colors[a]);
-                painter.drawEllipse(end, 4, 4);
+                const auto delta=end-o;
+                const auto length=std::hypot(delta.x(),delta.y());
+                if(length>1.) {
+                    const auto direction=delta/length;
+                    const QPointF normal(-direction.y(),direction.x());
+                    const auto headLength=std::min(axis==a?13.:11.,length*.35);
+                    const auto base=end-direction*headLength;
+                    painter.setPen(QPen(colors[a],axis==a?4.:2.5,Qt::SolidLine,Qt::FlatCap,Qt::MiterJoin));
+                    painter.drawLine(o,base);
+                    painter.setPen(Qt::NoPen);painter.setBrush(colors[a]);
+                    painter.drawPolygon(QPolygonF{end,base+normal*(headLength*.48),base-normal*(headLength*.48)});
+                    painter.setBrush(Qt::NoBrush);
+                }
+                painter.setPen(colors[a]);
                 painter.drawText(end + QPointF(6, -4), QString(uiText("XYZ"))[a]);
             } else {
                 QVector3D u = axisVector((a + 1) % 3), v = axisVector((a + 2) % 3);
@@ -651,8 +662,9 @@ void Viewport::drawOverlay(QPainter &painter) {
                                   stale ? uiText("stale") : uiText("sampled geometric diagnostic")));
     }
     if (selectingNodes) {
-        painter.setPen(QPen(QColor(80, 180, 240), 1));
-        painter.setBrush(QColor(60, 150, 220, 35));
+        auto accent=palette().color(QPalette::Highlight);
+        painter.setPen(QPen(accent, 1));
+        accent.setAlpha(35);painter.setBrush(accent);
         painter.drawRect(selectionRect.normalized());
     }
     painter.setPen(QColor(178, 185, 195));
@@ -1074,6 +1086,7 @@ QImage trickster::captureEditorWidget(QWidget* widget,bool overlays) {
         return frame;
     };
     if(auto* view=qobject_cast<Viewport*>(widget)) return composeViewport(view);
+    widget=editorWindowFrame(widget);
     auto image=widget->grab().toImage();
     QPainter painter(&image);
     for(auto* view:widget->findChildren<Viewport*>())

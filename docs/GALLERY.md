@@ -1,6 +1,6 @@
 # Running editor
 
-Real captures of Jester 0.1.0-alpha.1, product build **3d49509**. The three mode images use the same synthetic character, pose, camera and authored materials. These images composite the native Atom framebuffer and Qt UI; no rendered mockups are used. The English text entered in Russian search boxes is a user query, not an untranslated UI label.
+Real captures of the preceding **red-accent Blue Jay iteration**, version **0.1.0-alpha.1**. The current Unreleased interface uses Blue Jay blue, icon-only modes/Loop, green MCP status and pointed translation arrows; these images have not been refreshed for that revision. The three mode images use the same synthetic character, pose, camera and authored materials. These images composite the native Atom framebuffer and Qt UI, including the SDK title bar and Jester logo; no rendered mockups are used. The English text entered in Russian search boxes is a user query, not an untranslated UI label. See [design sources](BLUE_JAY.md).
 
 ## Three viewport modes
 
@@ -44,6 +44,6 @@ About reads the active RHI and compiled source identity. Runtime evidence also i
 
 ![Atom DX12](images/atom-dx12.png)
 
-The relocated portable build reports Vulkan through the same runtime query.
+The current development build reports Vulkan through the same runtime query. Validation of the earlier portable release remains documented separately in [packaging](PACKAGING.md).
 
-![Atom Vulkan portable build](images/atom-vulkan.png)
+![Atom Vulkan](images/atom-vulkan.png)

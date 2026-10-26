@@ -3,6 +3,7 @@
 #include "automation/editor_api.h"
 #include "core/scene/json_helpers.h"
 #include "ui/window/window.h"
+#include "ui/widgets/localized_ui.h"
 #include <QAbstractButton>
 #include <QAbstractItemView>
 #include <QActionGroup>
@@ -96,7 +97,7 @@ QJsonArray EditorApi::controls() const {
                            qobject_cast<QMenu *>(widget) || widget == w->viewport || widget == w->timeline;
         if (!interactive && widget->objectName().isEmpty())
             continue;
-        auto pos = w->mapFromGlobal(widget->mapToGlobal(QPoint()));
+        auto pos = editorWindowFrame(w)->mapFromGlobal(widget->mapToGlobal(QPoint()));
         QJsonObject o{{"id", uiId(widget)},
                       {"objectName", widget->objectName()},
                       {"class", widget->metaObject()->className()},
@@ -109,7 +110,7 @@ QJsonArray EditorApi::controls() const {
                       {"height", widget->height()},
                       {"tooltip", widget->toolTip()},
                       {"accessibleName", widget->accessibleName()}};
-        if (widget->isWindow())
+        if (widget->isWindow() || widget==w || qobject_cast<QDialog*>(widget))
             o["title"] = widget->windowTitle();
         if (auto text = qobject_cast<QPlainTextEdit *>(widget))
             o["text"] = text->toPlainText();
@@ -220,7 +221,7 @@ QJsonObject EditorApi::uiCall(const QString &name, const QJsonObject &a) {
                     items.append(v);
         return {{"controls", items},
                 {"modal",
-                 QApplication::activeModalWidget() ? uiId(QApplication::activeModalWidget()) : QString()}};
+                 activeEditorModalWidget() ? uiId(activeEditorModalWidget()) : QString()}};
     }
     if (name == "editor_action") {
         QAction *action = nullptr;

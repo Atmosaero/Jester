@@ -1,10 +1,13 @@
 #include "settings/editor_appearance.h"
 #include "settings/preferences_service.h"
+#include "settings/blue_jay_style.h"
+#include "ui/widgets/localized_ui.h"
 #include "ui/widgets/icons.h"
 #include <QAbstractButton>
 #include <QAbstractSpinBox>
 #include <QApplication>
 #include <QComboBox>
+#include <QDialog>
 #include <QEvent>
 #include <QFont>
 #include <QKeyEvent>
@@ -12,42 +15,75 @@
 #include <QLineEdit>
 #include <QPalette>
 #include <QPlainTextEdit>
-#include <QProxyStyle>
-#include <QStyleFactory>
+#include <QLayout>
+#include <QScreen>
 #include <QTextEdit>
 #include <QToolBar>
+#include <QToolButton>
 #include <QWidget>
+#include <QLabel>
+#include <QTimer>
+#include <AzQtComponents/Components/Titlebar.h>
+#include <AzQtComponents/Components/WindowDecorationWrapper.h>
+#include <AzQtComponents/Components/Widgets/LineEdit.h>
 #include <cmath>
 
 namespace trickster {
 namespace {
-class EditorStyle final:public QProxyStyle {
-    double scale;
-    int iconSize;
-    bool compact;
-  public:
-    explicit EditorStyle(const EditorPreferences &preferences):QProxyStyle(QStyleFactory::create("Fusion")),
-        scale(preferences.value("appearance.uiScale").toDouble()),
-        iconSize(preferences.value("appearance.iconSize").toInt()),
-        compact(preferences.value("appearance.density")=="compact") {}
-    int pixelMetric(PixelMetric metric,const QStyleOption *option=nullptr,const QWidget *widget=nullptr) const override {
-        switch(metric) {
-        case PM_SmallIconSize:case PM_ToolBarIconSize:case PM_ButtonIconSize:return int(std::lround(iconSize*scale));
-        case PM_ToolBarItemMargin:return int(std::lround((compact?2:5)*scale));
-        case PM_ToolBarItemSpacing:return int(std::lround((compact?3:6)*scale));
-        case PM_LayoutHorizontalSpacing:case PM_LayoutVerticalSpacing:return int(std::lround((compact?5:9)*scale));
-        case PM_ButtonMargin:return int(std::lround((compact?5:9)*scale));
-        default:return QProxyStyle::pixelMetric(metric,option,widget);
-        }
-    }
-};
 class EditorInputAndWindowPolicy final:public QObject {
   public:
     explicit EditorInputAndWindowPolicy(QApplication &app):QObject(&app) {app.installEventFilter(this);}
     bool eventFilter(QObject *object,QEvent *event) override {
         if(event->type()==QEvent::Show)
-            if(auto *widget=qobject_cast<QWidget*>(object);widget && widget->isWindow())
-                widget->setProperty("HasNoWindowDecorations",true);
+            if(auto *dialog=qobject_cast<QDialog*>(object);dialog && dialog->testAttribute(Qt::WA_Resized) &&
+               !qobject_cast<AzQtComponents::WindowDecorationWrapper*>(dialog->parentWidget()) &&
+               !dialog->property("jesterRestoreRequestedSize").toBool()) {
+                const auto requested=dialog->size();dialog->setProperty("jesterRestoreRequestedSize",true);
+                QTimer::singleShot(0,dialog,[dialog,requested] {
+                    auto *frame=qobject_cast<AzQtComponents::WindowDecorationWrapper*>(dialog->parentWidget());
+                    if(!frame)return;
+                    // Auto-decoration reparents QDialog and Qt can replace an
+                    // explicit size with its minimum hint. Restore the intent
+                    // after attachment, including the new frame in the bounds.
+                    const auto available=frame->screen()->availableGeometry().adjusted(8,8,-8,-8);
+                    const auto chrome=frame->size()-dialog->size();
+                    dialog->resize(requested.boundedTo(available.size()-chrome));
+                    auto anchor=available;
+                    if(auto *owner=frame->parentWidget())anchor=owner->window()->frameGeometry();
+                    auto position=anchor.center()-QPoint(frame->width()/2,frame->height()/2);
+                    position.setX(std::clamp(position.x(),available.left(),std::max(available.left(),available.right()-frame->width()+1)));
+                    position.setY(std::clamp(position.y(),available.top(),std::max(available.top(),available.bottom()-frame->height()+1)));
+                    frame->move(position);
+                });
+            }
+        if(event->type()==QEvent::Show)
+            if(auto *button=qobject_cast<QToolButton*>(object);button && button->objectName()==AzQtComponents::ErrorToolButton)
+                if(auto *edit=qobject_cast<QLineEdit*>(button->parentWidget()))
+                    QTimer::singleShot(0,button,[button,edit] {
+                        // Qt's side action can show its tool button again
+                        // after a repolish. Keep the SDK validation state.
+                        const bool error=!edit->hasAcceptableInput() || edit->property(AzQtComponents::HasExternalError).toBool();
+                        button->setVisible(AzQtComponents::LineEdit::errorIconEnabled(edit) && error);
+                    });
+        if(event->type()==QEvent::ParentChange || event->type()==QEvent::Show)
+            if(auto *window=qobject_cast<QWidget*>(object);window && window->objectName()=="JesterWindow" &&
+               qobject_cast<AzQtComponents::WindowDecorationWrapper*>(window->parentWidget())) {
+                // The SDK changes guest layouts to SetMinimumSize. The dock
+                // workspace already handles compact layouts; preserve its
+                // explicit minimum instead of forcing every dock's size hint.
+                if(window->layout())window->layout()->setSizeConstraint(QLayout::SetDefaultConstraint);
+                window->setMinimumSize(760,420);
+            }
+        // Let the SDK provide Blue Jay title bars for normal windows/dialogs.
+        // Frameless viewport overlays/popups are excluded by the SDK itself.
+        if(event->type()==QEvent::Show || event->type()==QEvent::StyleChange)
+            if(auto *title=qobject_cast<AzQtComponents::TitleBar*>(object);title && !title->drawSimple())
+                QTimer::singleShot(0,title,[title] {
+                    if(auto *label=title->findChild<QLabel*>("icon")) {
+                        label->setPixmap(editorLogo().pixmap(QSize(24,24),title->devicePixelRatioF()));
+                        label->show();
+                    }
+                });
         if(event->type()==QEvent::ShortcutOverride) {
             auto *focus=QApplication::focusWidget();
             bool editing=false;
@@ -72,6 +108,7 @@ class EditorInputAndWindowPolicy final:public QObject {
 }
 void applyEditorAppearance(QApplication &app,const EditorPreferences &preferences) {
     app.setAttribute(Qt::AA_DontUseNativeDialogs,true);
+    app.setAttribute(Qt::AA_DontUseNativeMenuBar,true);
     if(!app.property("jesterInputAndWindowPolicy").toBool()) {
         new EditorInputAndWindowPolicy(app);app.setProperty("jesterInputAndWindowPolicy",true);
     }
@@ -86,39 +123,38 @@ void applyEditorAppearance(QApplication &app,const EditorPreferences &preference
     const auto previous=app.property("jesterAppliedAppearance").toJsonObject();
     const auto scale=appearance["uiScale"].toDouble();
     if(previous!=appearance) {
-    app.setStyle(new EditorStyle(preferences));
+    QList<std::function<void()>> drafts;
+    for(auto *window:app.topLevelWidgets())drafts<<preserveUiDrafts(*window);
+    applyBlueJayStyle(app,preferences);
     const bool light=theme=="light",contrast=theme=="high-contrast";
     const QColor accent(appearance["accent"].toString());
-    const QColor window=contrast?QColor("#000000"):light?QColor("#f2f1ed"):QColor("#292d35");
-    const QColor base=contrast?QColor("#000000"):light?QColor("#ffffff"):QColor("#1f232a");
-    const QColor text=contrast?QColor("#ffffff"):light?QColor("#24272e"):QColor("#e6e7eb");
-    const QColor button=contrast?QColor("#141414"):light?QColor("#e2e4e8"):QColor("#363b46");
+    const QColor window=contrast?QColor("#000000"):light?QColor("#f2f2f2"):QColor("#444444");
+    const QColor base=contrast?QColor("#000000"):light?QColor("#ffffff"):QColor("#222222");
+    const QColor text=contrast?QColor("#ffffff"):light?QColor("#222222"):QColor("#cccccc");
+    const QColor button=contrast?QColor("#141414"):light?QColor("#e2e2e2"):QColor("#666666");
     QPalette palette;
     palette.setColor(QPalette::Window,window);palette.setColor(QPalette::WindowText,text);
     palette.setColor(QPalette::Base,base);palette.setColor(QPalette::Text,text);
-    palette.setColor(QPalette::AlternateBase,light?QColor("#eceef1"):QColor("#30343d"));
+    palette.setColor(QPalette::AlternateBase,light?QColor("#eeeeee"):QColor("#2b2b2b"));
     palette.setColor(QPalette::Button,button);palette.setColor(QPalette::ButtonText,text);
     palette.setColor(QPalette::Highlight,accent);
-    palette.setColor(QPalette::HighlightedText,accent.lightnessF()>.5?QColor(Qt::black):QColor(Qt::white));
+    auto linear=[](double c){return c<=.04045?c/12.92:std::pow((c+.055)/1.055,2.4);};
+    const auto luminance=.2126*linear(accent.redF())+.7152*linear(accent.greenF())+.0722*linear(accent.blueF());
+    palette.setColor(QPalette::HighlightedText,luminance>.179?QColor(Qt::black):QColor(Qt::white));
     palette.setColor(QPalette::ToolTipBase,base);palette.setColor(QPalette::ToolTipText,text);
-    palette.setColor(QPalette::PlaceholderText,light?QColor("#696f79"):QColor("#9ea6b2"));
-    palette.setColor(QPalette::Link,light?accent.darker(150):accent.lighter(120));
-    palette.setColor(QPalette::Mid,contrast?QColor(Qt::white):light?QColor("#b9bec8"):QColor("#4b515d"));
+    palette.setColor(QPalette::PlaceholderText,light?QColor("#666666"):QColor("#999999"));
+    palette.setColor(QPalette::Link,QColor(BlueJay::Blue));
+    palette.setColor(QPalette::Mid,contrast?QColor(Qt::white):light?QColor("#bbbbbb"):QColor("#555555"));
     palette.setColor(QPalette::Dark,contrast?QColor(Qt::white):button.darker(140));
     palette.setColor(QPalette::Light,contrast?QColor(Qt::white):button.lighter(130));
-    palette.setColor(QPalette::Disabled,QPalette::Text,light?QColor("#777c85"):QColor("#8b939f"));
+    palette.setColor(QPalette::Disabled,QPalette::Text,QColor("#999999"));
     palette.setColor(QPalette::Disabled,QPalette::ButtonText,palette.color(QPalette::Disabled,QPalette::Text));
     app.setPalette(palette);
     QFont font(appearance["fontFamily"].toString());
     // Font sizes and style metrics remain device-independent; Qt applies the
     // screen DPI once. This scale is not a second devicePixelRatio factor.
     font.setPointSizeF(appearance["fontSize"].toDouble()*scale);app.setFont(font);
-    app.setStyleSheet("QToolBar { border: 0; } QToolButton { border-radius: 3px; } "
-        "QToolButton:hover { background: palette(mid); } QToolButton:checked { background: palette(highlight); color: palette(highlighted-text); } "
-        "QDockWidget::title { padding: 4px 6px; background: palette(button); } "
-        "QGroupBox { border: 1px solid palette(mid); border-radius: 3px; margin-top: 10px; padding-top: 7px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 7px; padding: 0 3px; } "
-        "QToolTip { border: 1px solid palette(mid); padding: 3px; }");
+    for(const auto &restore:drafts)restore();
     refreshEditorIcons();
     app.setProperty("jesterAppliedAppearance",appearance);
     }

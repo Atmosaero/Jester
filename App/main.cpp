@@ -19,6 +19,8 @@
 #include "ui/window/window.h"
 #include "io/project/project_format.h"
 #include "settings/appearance.h"
+#include "ui/widgets/icons.h"
+#include "ui/widgets/localized_ui.h"
 #include "trickster_version.h"
 #include "automation/mcp_server.h"
 #include <QSaveFile>
@@ -96,8 +98,10 @@ public:
         setApplicationName("Jester");
         setOrganizationName("Jester");
         setApplicationVersion(TRICKSTER_VERSION);
+        setWindowIcon(trickster::editorLogo());
         if(!arguments().contains("--poc") && !arguments().contains("--smoke"))
         {
+            setQuitOnLastWindowClosed(true);
             trickster::applyAppearance(*this);
             auto* editor=new trickster::Window;
             m_window=editor;
@@ -128,13 +132,16 @@ public:
                 }
             }
             editor->show();
-            const auto available=editor->screen()->availableGeometry();
-            if(!available.contains(editor->frameGeometry()))
+            auto *frame=trickster::editorWindowFrame(editor);
+            QSettings windowSettings;
+            if(windowSettings.contains("blueJayGeometry"))frame->restoreGeometry(windowSettings.value("blueJayGeometry").toByteArray());
+            const auto available=frame->screen()->availableGeometry();
+            if(!available.contains(frame->frameGeometry()))
             {
-                auto extra=editor->frameGeometry().size()-editor->size();
-                editor->resize(std::min(editor->width(),available.width()-std::max(0,extra.width())),
-                    std::min(editor->height(),available.height()-std::max(0,extra.height())));
-                editor->move(available.topLeft());
+                auto extra=frame->frameGeometry().size()-frame->size();
+                frame->resize(std::min(frame->width(),available.width()-std::max(0,extra.width())),
+                    std::min(frame->height(),available.height()-std::max(0,extra.height())));
+                frame->move(available.topLeft());
             }
             auto screenshot=option("--screenshot");
             if(!screenshot.isEmpty()) QTimer::singleShot(2500,this,[this,editor,screenshot] {

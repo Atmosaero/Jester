@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "automation/editor_api.h"
@@ -106,8 +107,10 @@ class AutomationTests : public QObject {
     }
     void showDialog(Window &w, QString action, const std::function<void(QDialog *)> &check) {
         bool seen = false;
-        QTimer::singleShot(100, &w, [&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        QTimer poll;
+        connect(&poll,&QTimer::timeout,&w,[&] {
+            if(seen)return;
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             if (dialog) {
                 seen = true;
                 check(dialog);
@@ -115,8 +118,11 @@ class AutomationTests : public QObject {
                     dialog->reject();
             }
         });
+        poll.start(20);
         tool(w, "editor_action", {{"id", action}});
-        QTest::qWait(120);
+        QElapsedTimer elapsed;elapsed.start();
+        while(!seen && elapsed.elapsed()<5000)QTest::qWait(20);
+        poll.stop();
         QVERIFY2(seen, qPrintable("No dialog: " + action));
     }
   private slots:
@@ -532,7 +538,7 @@ class AutomationTests : public QObject {
         QVERIFY(QTest::qWaitForWindowExposed(&w));
         QVERIFY(!w.mcpServer()->isRunning());
         QTimer::singleShot(100, &w, [&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             QVERIFY(dialog);
             QCOMPARE(dialog->objectName(), QString("mcpConnectionDialog"));
             auto port = dialog->findChild<QSpinBox *>("mcpPort");
@@ -566,7 +572,7 @@ class AutomationTests : public QObject {
         QSettings().setValue("automation/port", 18530);
         bool seen = false;
         QTimer::singleShot(100, &w, [&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             QVERIFY(dialog);
             seen = true;
             QCOMPARE(dialog->findChild<QSpinBox *>("mcpPort")->value(), int(w.mcpServer()->port()));
@@ -582,7 +588,7 @@ class AutomationTests : public QObject {
         QVERIFY(QTest::qWaitForWindowExposed(&w));
         bool pickerSeen = false;
         QTimer::singleShot(100, &w, [&] {
-            auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
             QVERIFY(dialog);
             pickerSeen = true;
             auto list = dialog->findChild<QListWidget *>("sceneChoiceList");
@@ -598,7 +604,7 @@ class AutomationTests : public QObject {
             QTest::mouseClick(preview, Qt::LeftButton);
             bool folderSeen = false;
             QTimer::singleShot(100, dialog, [&] {
-                auto file = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+                auto file = qobject_cast<QFileDialog *>(activeEditorModalWidget());
                 if (file) {
                     folderSeen = true;
                     file->reject();
@@ -613,10 +619,10 @@ class AutomationTests : public QObject {
         QCOMPARE(w.document().scene.keys.size(), 4);
         bool pickerFileSeen = false;
         QTimer::singleShot(100, &w, [&] {
-            auto picker = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            auto picker = qobject_cast<QDialog *>(activeEditorModalWidget());
             QVERIFY(picker);
             QTimer::singleShot(100, &w, [&] {
-                if (auto file = qobject_cast<QFileDialog *>(QApplication::activeModalWidget())) {
+                if (auto file = qobject_cast<QFileDialog *>(activeEditorModalWidget())) {
                     pickerFileSeen = true;
                     file->reject();
                 }
@@ -628,7 +634,7 @@ class AutomationTests : public QObject {
         w.newEmptyScene();
         bool openSeen = false;
         QTimer::singleShot(100, &w, [&] {
-            if (auto file = qobject_cast<QFileDialog *>(QApplication::activeModalWidget())) {
+            if (auto file = qobject_cast<QFileDialog *>(activeEditorModalWidget())) {
                 openSeen = true;
                 file->reject();
             }
@@ -744,7 +750,7 @@ class AutomationTests : public QObject {
             QTimer dismiss;
             dismiss.setInterval(10);
             connect(&dismiss, &QTimer::timeout, &w, [] {
-                if (auto modal = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
+                if (auto modal = qobject_cast<QDialog *>(activeEditorModalWidget()))
                     modal->reject();
                 if (auto popup = qobject_cast<QMenu *>(QApplication::activePopupWidget()))
                     popup->close();

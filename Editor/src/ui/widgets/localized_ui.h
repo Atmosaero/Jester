@@ -25,6 +25,9 @@ class QTabWidget;
 class QIcon;
 class QDialogButtonBox;
 namespace trickster {
+// Resolve native Blue Jay decorations without exposing SDK wrapper types to callers.
+QWidget *editorWindowFrame(QWidget *);
+QWidget *activeEditorModalWidget();
 void bindUiText(QObject *,const char *property,const QString &source,const char *context="Jester");
 void bindUiTextFactory(QObject *,const char *property,std::function<QString()>);
 QString roleSourceName(const QString &id);

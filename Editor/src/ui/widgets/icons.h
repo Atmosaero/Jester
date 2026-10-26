@@ -1,6 +1,7 @@
 #pragma once
 #include <QIcon>
 namespace trickster {
+QIcon editorLogo();
 enum class Glyph {
     New,
     Open,
@@ -37,7 +38,10 @@ enum class Glyph {
     Bake,
     Expand,
     Collapse,
-    Note
+    Note,
+    Lit,
+    Unlit,
+    Wireframe
 };
 QIcon icon(Glyph glyph);
 void refreshEditorIcons();

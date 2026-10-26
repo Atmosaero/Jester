@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "io/project/project_io.h"
 #include "settings/appearance.h"
 #include "io/catalog/demo_scenes.h"
@@ -77,9 +78,9 @@ class MVPUI : public QObject {
   private slots:
     void motionToolsWorkflow() {
         Window w;Scene source=Scene::mannequin();source.keys[0]={source.pose,{},source.morphs};source.pose[6].r=QQuaternion::fromEulerAngles(0,0,35);source.keys[30]={source.pose,{},source.morphs};source.last=30;w.document().replace(source);auto original=sceneToJson(w.document().scene);w.workspace.append(Scene::mannequin(),{},false);w.resize(qRound(1920/w.devicePixelRatioF()),qRound(1080/w.devicePixelRatioF()));w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));
-        int stage=0;QTimer timer;QElapsedTimer elapsed;elapsed.start();connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;if(auto error=qobject_cast<QMessageBox*>(dialog)){qWarning()<<error->text();error->reject();return;}if(elapsed.elapsed()>15000){dialog->reject();return;}for(auto button:dialog->findChildren<QPushButton*>()){if(stage==0&&button->text()=="Calculate preview"){stage=1;button->click();return;}if(stage==1&&button->text()=="Create result"&&button->isEnabled()){stage=2;dialog->grab().save(QString("artifacts/motion-retarget-%1.png").arg(w.devicePixelRatioF()));button->click();return;}}});timer.start(100);w.showRetarget();timer.stop();QCOMPARE(stage,2);QCOMPARE(w.workspace.documents.size(),size_t(3));QCOMPARE(sceneToJson(w.workspace.documents[0]->scene),original);
+        int stage=0;QTimer timer;QElapsedTimer elapsed;elapsed.start();connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;if(auto error=qobject_cast<QMessageBox*>(dialog)){qWarning()<<error->text();error->reject();return;}if(elapsed.elapsed()>15000){dialog->reject();return;}for(auto button:dialog->findChildren<QPushButton*>()){if(stage==0&&button->text()=="Calculate preview"){stage=1;button->click();return;}if(stage==1&&button->text()=="Create result"&&button->isEnabled()){stage=2;dialog->grab().save(QString("artifacts/motion-retarget-%1.png").arg(w.devicePixelRatioF()));button->click();return;}}});timer.start(100);w.showRetarget();timer.stop();QCOMPARE(stage,2);QCOMPARE(w.workspace.documents.size(),size_t(3));QCOMPARE(sceneToJson(w.workspace.documents[0]->scene),original);
         w.document().select(8);
-        stage=0;elapsed.restart();connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;if(elapsed.elapsed()>10000){dialog->reject();return;}for(auto button:dialog->findChildren<QPushButton*>())if(stage==0&&button->text()=="Calculate / update paths"){stage=1;button->click();return;}if(stage==1&&!w.viewport->motionPaths.isEmpty()){stage=2;dialog->grab().save(QString("artifacts/motion-analysis-%1.png").arg(w.devicePixelRatioF()));dialog->reject();}});timer.start(100);w.showMotionAnalysis();timer.stop();QCOMPARE(stage,2);w.document().seek(15);captureEditorWidget(w.viewport).save(QString("artifacts/motion-paths-%1.png").arg(w.devicePixelRatioF()));for(auto &d:w.workspace.documents)d->undo.setClean();w.close();
+        stage=0;elapsed.restart();connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;if(elapsed.elapsed()>10000){dialog->reject();return;}for(auto button:dialog->findChildren<QPushButton*>())if(stage==0&&button->text()=="Calculate / update paths"){stage=1;button->click();return;}if(stage==1&&!w.viewport->motionPaths.isEmpty()){stage=2;dialog->grab().save(QString("artifacts/motion-analysis-%1.png").arg(w.devicePixelRatioF()));dialog->reject();}});timer.start(100);w.showMotionAnalysis();timer.stop();QCOMPARE(stage,2);w.document().seek(15);captureEditorWidget(w.viewport).save(QString("artifacts/motion-paths-%1.png").arg(w.devicePixelRatioF()));for(auto &d:w.workspace.documents)d->undo.setClean();w.close();
     }
     void contextDragUndo() {
         Document d;d.replace(Scene::mannequin());auto result=EditService::execute(d,"motion_annotations",{{"operation","add"},{"annotation",QJsonObject{{"name","Support"},{"start",.5},{"end",1.5}}}});auto id=result["annotation"].toObject()["id"].toString();Timeline timeline(&d);timeline.resize(900,260);timeline.show();QVERIFY(QTest::qWaitForWindowExposed(&timeline));timeline.fit();QApplication::processEvents();int y=timeline.contextTrackCenter(id);QVERIFY(y>0);auto revision=d.motionRevision;int count=d.undo.count();QPoint from(qRound(timeline.framePosition(30)),y),to(qRound(timeline.framePosition(36)),y);QTest::mousePress(&timeline,Qt::LeftButton,Qt::NoModifier,from);QTest::mouseMove(&timeline,to);QTest::mouseRelease(&timeline,Qt::LeftButton,Qt::NoModifier,to);QCOMPARE(d.undo.count(),count+1);QCOMPARE(d.motionRevision,revision);QVERIFY(std::abs(d.scene.annotations[0].toObject()["start"].toDouble()-.7)<.02);d.undo.undo();QCOMPARE(d.scene.annotations[0].toObject()["start"].toDouble(),.5);
@@ -152,14 +153,14 @@ class MVPUI : public QObject {
     }
     void referencedPathDisplay() {
         Window w;auto scene=Scene::mannequin();scene.physics.metersPerUnit=.01f;w.document().replace(scene);w.document().select(4);w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));int stage=0;QTimer timer;QElapsedTimer elapsed;elapsed.start();
-        connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;if(elapsed.elapsed()>10000){dialog->reject();return;}
+        connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;if(elapsed.elapsed()>10000){dialog->reject();return;}
             if(stage==0){dialog->findChild<QComboBox*>("trajectorySpace")->setCurrentText("root");dialog->findChild<QComboBox*>("trajectoryUnits")->setCurrentText("metres");for(auto button:dialog->findChildren<QPushButton*>())if(button->text()=="Calculate / update paths"){stage=1;button->click();return;}}
             if(stage==1&&!w.viewport->motionPaths.empty()){stage=2;dialog->reject();}});
         timer.start(100);w.showMotionAnalysis();timer.stop();QCOMPARE(stage,2);QVERIFY(w.viewport->motionPaths.contains(4));auto expected=w.document().scene.positions(w.document().scene.restPose())[4];QVERIFY((w.viewport->motionPaths[4].front().second-expected).length()<1e-5);QVERIFY(w.viewport->motionPathReferenceLabel.startsWith("root anchored"));w.document().undo.setClean();w.close();
     }
     void motionProblemNavigation() {
         Window w;Scene scene;QString error;QVERIFY2(loadProject("examples/motion-tools/penetration-and-contact.jst",scene,error),qPrintable(error));w.document().replace(scene);w.resize(qRound(1920/w.devicePixelRatioF()),qRound(1080/w.devicePixelRatioF()));w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));int stage=0;QTimer timer;QElapsedTimer elapsed;elapsed.start();
-        connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;if(elapsed.elapsed()>15000){dialog->reject();return;}
+        connect(&timer,&QTimer::timeout,&w,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;if(elapsed.elapsed()>15000){dialog->reject();return;}
             if(stage==0){dialog->findChild<QComboBox*>("motionAnalysisMode")->setCurrentIndex(2);dialog->findChild<QCheckBox*>("motionSurfaceCheck")->setChecked(true);
                 for(auto button:dialog->findChildren<QPushButton*>())if(button->text()=="Calculate / update paths"){stage=1;button->click();return;}}
             auto list=dialog->findChild<QListWidget*>("motionProblems");if(stage==1&&list&&list->count()>0){stage=2;list->setCurrentRow(0);
@@ -172,7 +173,7 @@ class MVPUI : public QObject {
     void largeCurveTablePaging() {
         Window w;auto scene=Scene::mannequin();ScalarCurve curve;curve.id="dense-curve";curve.node=0;
         for(int i=0;i<4097;++i){CurveKey key;key.time=i/1000.;key.value=i/1000.;key.interpolation="Linear";curve.keys.push_back(key);}scene.curves={curve};scene.curveBasePose=scene.pose;w.document().replace(scene);w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));bool seen=false;
-        QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;seen=true;
+        QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;seen=true;
             auto table=dialog->findChild<QTableWidget*>("authoredCurveKeys");auto page=dialog->findChild<QSpinBox*>("curveKeyPage");QVERIFY(table);QVERIFY(page);QCOMPARE(table->rowCount(),512);page->setValue(9);QCOMPARE(table->rowCount(),1);QVERIFY(std::abs(table->item(0,0)->text().toDouble()-4.096)<1e-6);dialog->reject();});
         w.showGraphEditor();QVERIFY(seen);w.document().undo.setClean();w.close();
     }
@@ -180,7 +181,7 @@ class MVPUI : public QObject {
         Window w;w.document().replace(Scene::mannequin());w.workspace.append(Scene::mannequin(),{},false);
         w.resize(qRound(1280/w.devicePixelRatioF()),qRound(720/w.devicePixelRatioF()));w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));
         auto inspect=[&](QString name,const std::function<void()> &open){bool seen=false;
-            QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;seen=true;
+            QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;seen=true;
                 QVERIFY2(dialog->width()*w.devicePixelRatioF()<=1280,qPrintable(name));QVERIFY2(dialog->height()*w.devicePixelRatioF()<=720,qPrintable(name));
                 dialog->grab().save(QString("artifacts/motion-compact-%1-%2.png").arg(name).arg(w.devicePixelRatioF()));dialog->reject();});
             open();QVERIFY(seen);
@@ -192,7 +193,7 @@ class MVPUI : public QObject {
     void nativeGraphEditing() {
         Window w;auto scene=Scene::mannequin();AnimationChannel channel;channel.node=0;channel.path="translation";channel.times={0,1};channel.values={0,1.04f,0,1,1.04f,0};
         AnimationClip clip;clip.duration=1;clip.channels={channel};scene.clips=std::make_shared<const std::vector<AnimationClip>>(std::vector<AnimationClip>{clip});scene.sourceClip=0;w.document().replace(scene);w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));bool extracted=false;
-        QTimer::singleShot(100,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;
+        QTimer::singleShot(100,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(!dialog)return;
             for(auto tabs:dialog->findChildren<QTabWidget*>())for(int i=0;i<tabs->count();++i)if(tabs->tabText(i)=="Native source")tabs->setCurrentIndex(i);
             dialog->grab().save(QString("artifacts/motion-native-graph-%1.png").arg(w.devicePixelRatioF()));
             for(auto button:dialog->findChildren<QPushButton*>())if(button->text()=="Copy to authored override"){button->click();extracted=true;break;}dialog->reject();});
@@ -200,16 +201,16 @@ class MVPUI : public QObject {
     }
     void graphDialog() {
         Window w;w.document().replace(Scene::mannequin());w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));bool seen=false;
-        QTimer::singleShot(100,[&]{auto d=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(d){seen=true;for(auto b:d->findChildren<QPushButton*>())if(b->text()=="Create / select channel")b->click();d->grab().save("artifacts/motion-graph.png");d->reject();}});
+        QTimer::singleShot(100,[&]{auto d=qobject_cast<QDialog*>(activeEditorModalWidget());if(d){seen=true;for(auto b:d->findChildren<QPushButton*>())if(b->text()=="Create / select channel")b->click();d->grab().save("artifacts/motion-graph.png");d->reject();}});
         w.showGraphEditor();QVERIFY(seen);QCOMPARE(w.document().scene.curves.size(),size_t(1));
         Scene demo;QString error;QVERIFY2(loadProject("examples/motion-tools/curves-paths.jst",demo,error),qPrintable(error));w.document().replace(demo);auto before=curvesJson(w.document().scene.curves);
-        QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(dialog){dialog->grab().save(QString("artifacts/motion-demo-graph-%1.png").arg(w.devicePixelRatioF()));dialog->reject();}});
+        QTimer::singleShot(150,[&]{auto dialog=qobject_cast<QDialog*>(activeEditorModalWidget());if(dialog){dialog->grab().save(QString("artifacts/motion-demo-graph-%1.png").arg(w.devicePixelRatioF()));dialog->reject();}});
         w.showGraphEditor();QCOMPARE(curvesJson(w.document().scene.curves),before);w.document().undo.setClean();w.close();
     }
     void contextDialog() {
         Window w;w.show();QVERIFY(QTest::qWaitForWindowExposed(&w));
         w.timeline->editContext();QVERIFY(w.findChild<QDockWidget*>("notesDock")->isVisible());
-        QVERIFY(!QApplication::activeModalWidget());QVERIFY(w.findChild<QListWidget*>("notesList"));
+        QVERIFY(!activeEditorModalWidget());QVERIFY(w.findChild<QListWidget*>("notesList"));
         w.document().undo.setClean();w.close();
     }
     void initTestCase() {

@@ -63,7 +63,7 @@ if(MSVC)
     target_compile_options(JesterAtom PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()
 add_library(JesterUI STATIC
-    src/settings/action_registry.cpp src/settings/preferences_service.cpp src/settings/editor_appearance.cpp src/settings/localization.cpp
+    src/settings/action_registry.cpp src/settings/preferences_service.cpp src/settings/editor_appearance.cpp src/settings/blue_jay_style.cpp src/settings/localization.cpp
     src/ui/widgets/localized_ui.cpp src/ui/dialogs/preferences_dialog.cpp
     src/ui/window/scene_settings_panel.cpp src/ui/window/scene_settings_controller.cpp
     src/settings/preferences.cpp src/ui/curves/curve_canvas.cpp src/ui/curves/native_curve_plot.cpp
@@ -73,6 +73,8 @@ add_library(JesterUI STATIC
     src/ui/window/layout_ui.cpp src/ui/window/window.cpp src/ui/window/helpers_ui.cpp src/ui/window/scenes_ui.cpp src/ui/viewport/viewport.cpp
     src/ui/timeline/timeline.cpp src/automation/editor_api.cpp src/automation/editor_ui_api.cpp src/automation/mcp_server.cpp src/automation/automation_ui.cpp)
 qt_add_resources(JesterUI mcp_catalog PREFIX "/trickster" FILES src/automation/mcp_tools.json)
+qt_add_resources(JesterUI jester_branding PREFIX "/jester" BASE resources
+    FILES resources/branding/jester.svg resources/branding/jester.ico resources/branding/scene-close.svg resources/bluejay/overrides.qss)
 qt_add_lrelease(TS_FILES translations/jester_ru.ts translations/jester_en.ts
     QM_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/translations"
     QM_FILES_OUTPUT_VARIABLE JESTER_QM_FILES LRELEASE_TARGET JesterTranslations)
@@ -87,7 +89,7 @@ add_custom_command(TARGET JesterUI POST_BUILD
 
 target_include_directories(JesterUI PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(JesterUI PUBLIC JesterCore JesterAtom Qt6::Widgets Qt6::Network
-    PRIVATE Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
+    PRIVATE AZ::AzQtComponents Gem::AtomToolsFramework.Static Gem::Atom_RPI.Public Gem::Atom_Feature_Common.Public)
 if(MSVC)
     target_compile_options(JesterUI PRIVATE /W4 /WX- /utf-8 /EHsc /GR)
 endif()

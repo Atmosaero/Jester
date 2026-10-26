@@ -277,7 +277,7 @@ QJsonObject EditorApi::call(const QString &name, const QJsonObject &args) {
             if (target == w)
                 if (auto modal = QApplication::activeModalWidget()) {
                     QPainter painter(&image);
-                      painter.drawImage(w->mapFromGlobal(modal->mapToGlobal(QPoint(0, 0))), captureEditorWidget(modal));
+                    painter.drawImage(editorWindowFrame(w)->mapFromGlobal(modal->mapToGlobal(QPoint())), captureEditorWidget(modal));
                 }
             int width = args["maxWidth"].toInt(1440);
             if (image.width() > width)

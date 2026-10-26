@@ -1,0 +1,72 @@
+/* Jester overrides of the embedded O3DE Blue Jay style. */
+QMenuBar { background: #333333; color: #cccccc; padding: 0; }
+/* Blue Jay fixes the bar at 28px. Vertical item padding would make Qt put
+   every item in overflow because its rectangle exceeds the bar height. */
+QMenuBar::item { padding: 0 8px; background: #333333; color: #cccccc; }
+QMenuBar::item:selected, QMenuBar::item:pressed { background: #555555; }
+QMenu { background: #222222; border: 1px solid #111111; }
+QMenu::item:selected { background: @accent@; color: white; }
+QToolBar { background: #333333; border: 0; border-bottom: 1px solid #111111; }
+QToolButton { border-radius: 2px; }
+QToolButton:hover { background: #555555; }
+QToolButton:checked { background: @accent@; color: white; }
+QMainWindow::separator { background: #111111; width: 4px; height: 4px; }
+QMainWindow::separator:hover { background: @accent@; }
+QDockWidget::title { background: #333333; padding: 4px 6px; }
+QGroupBox { border: 1px solid #555555; border-radius: 2px; margin-top: 12px; padding-top: 8px; }
+QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 3px; }
+QTabBar { background: #222222; }
+QTabBar::tab { background: #333333; padding: 5px 9px; border: 0; border-bottom: 2px solid #222222; }
+QTabBar::tab:hover { background: #4b4b4b; }
+QTabBar::tab:selected { background: #444444; color: white; border-bottom-color: @accent@; }
+QTabBar#sceneTabs::close-button {
+    image: url(:/jester/branding/scene-close.svg);
+    width: 16px; height: 16px;
+}
+QCheckBox#loopCheck { padding: 4px; spacing: 0; border: none; border-radius: 2px; }
+QCheckBox#loopCheck::indicator { image: none; width: 0; height: 0; margin: 0; padding: 0; border: none; }
+QCheckBox#loopCheck:hover { background: #555555; }
+QCheckBox#loopCheck:checked { background: @accent@; }
+QCheckBox#loopCheck:focus { border: 1px solid @accent@; }
+QHeaderView::section { background: #333333; color: #cccccc; border: 0; border-right: 1px solid #222222; padding: 4px 6px; }
+QTreeView, QListView, QTableView { background: #222222; alternate-background-color: #2b2b2b; selection-background-color: @accent@; selection-color: white; }
+QTreeView::item:selected, QListView::item:selected, QTableView::item:selected { background: @accent@; color: white; }
+QComboBox QAbstractItemView::item:selected { background: @accent@; color: palette(highlighted-text); }
+QStatusBar { background: #333333; border-top: 1px solid #111111; }
+QStatusBar::item { border: none; }
+QToolTip { color: #ffffff; background: #222222; border: 1px solid #666666; padding: 5px; }
+AzQtComponents--TitleBar { background: #222222; }
+AzQtComponents--TitleBar QLabel#icon { image: url(:/jester/branding/jester.svg); min-width: 24px; max-width: 24px; min-height: 24px; margin-left: 8px; }
+AzQtComponents--TitleBar[drawSimple="true"] QLabel#icon { image: none; min-width: 0; max-width: 0; margin: 0; }
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox,
+QAbstractSpinBox QLineEdit, QComboBox QLineEdit {
+    background: #222222; color: #cccccc;
+    border: 1px solid #555555; border-radius: 2px;
+    selection-background-color: palette(highlight); selection-color: palette(highlighted-text);
+}
+QPushButton { background: #666666; color: #cccccc; border: 1px solid #555555; border-radius: 2px; }
+QPushButton:hover { background: #777777; }
+QPushButton:disabled { background: #333333; color: #999999; }
+QDialogButtonBox QPushButton { min-width: 56px; min-height: 18px; padding: 3px 8px; }
+QPushButton:default, QPushButton.Primary, QToolButton:checked, QMenu::item:selected,
+QTreeView::item:selected, QListView::item:selected, QTableView::item:selected { color: palette(highlighted-text); }
+/* The SDK paints some focus/primary colors from INI configuration instead of
+   the palette. Explicit Qt subcontrols keep Jester's interaction accent. */
+QPushButton:default, QPushButton.Primary {
+    background: @accent@; border: 1px solid @accent@; border-radius: 2px;
+}
+QPushButton:default:hover, QPushButton.Primary:hover { background: @accentHover@; }
+QPushButton:focus, QToolButton:focus { border: 1px solid @accent@; }
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus,
+QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus { border: 1px solid @accent@; }
+QProgressBar::chunk { background: @accent@; }
+QSlider::groove:horizontal { height: 4px; background: #222222; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: @accent@; border-radius: 2px; }
+QSlider::handle:horizontal { width: 12px; margin: -4px 0; background: #cccccc; border: 1px solid #222222; border-radius: 6px; }
+QSlider::handle:horizontal:hover, QSlider::handle:horizontal:pressed { background: @accent@; }
+QSlider::groove:vertical { width: 4px; background: #222222; border-radius: 2px; }
+QSlider::add-page:vertical { background: @accent@; border-radius: 2px; }
+QSlider::handle:vertical { height: 12px; margin: 0 -4px; background: #cccccc; border: 1px solid #222222; border-radius: 6px; }
+QSlider::handle:vertical:hover, QSlider::handle:vertical:pressed { background: @accent@; }
+QSlider::handle:disabled { background: #666666; }
+QPushButton:default:disabled, QPushButton.Primary:disabled { background: #333333; color: #999999; border-color: #555555; }

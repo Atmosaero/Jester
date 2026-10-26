@@ -1,5 +1,6 @@
 #include "settings/preferences_service.h"
 #include "settings/editor_appearance.h"
+#include "settings/blue_jay_style.h"
 #include "settings/localization.h"
 #include <QApplication>
 #include <QCoreApplication>
@@ -8,6 +9,7 @@
 #include <QPointer>
 #include <QStandardPaths>
 #include <QSettings>
+#include <QMap>
 
 namespace trickster {
 PreferencesService &PreferencesService::instance() {
@@ -28,6 +30,39 @@ PreferencesService::PreferencesService(QObject *parent):QObject(parent) {
         // preferences file rather than changing the normal Windows profile.
         QSettings::setDefaultFormat(QSettings::IniFormat);
         QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,QFileInfo(path).absolutePath()+"/qt-state");
+    }
+    // Migrate only the former factory colors, once per local profile. An
+    // explicit custom accent and later imports remain user choices.
+    QSettings settings;
+    if(!settings.value("appearance/blueJayFactoryColors",false).toBool()) {
+        QJsonObject appearance,overlays;
+        if(preferences.value("appearance.accent")=="#d7a64f")appearance["accent"]=BlueJay::Blue;
+        const QMap<QString,QString> factory{{"bones","#8ea9bc"},{"selection","#efbb62"},{"notes","#ecd58a"},
+            {"trajectory","#62bdb4"},{"manipulatorX","#df7168"},{"manipulatorY","#72c58a"},{"manipulatorZ","#7ba5e2"}};
+        const EditorPreferences defaults;
+        for(auto it=factory.begin();it!=factory.end();++it)
+            if(preferences.value("overlays."+it.key())==it.value())overlays[it.key()]=defaults.value("overlays."+it.key());
+        QJsonObject patch;if(!appearance.isEmpty())patch["appearance"]=appearance;if(!overlays.isEmpty())patch["overlays"]=overlays;
+        QString error;
+        if(!patch.isEmpty() && preferences.patch(patch,error) && QFileInfo::exists(path))
+            if(!preferences.save(path,error))warning=error;
+        settings.setValue("appearance/blueJayFactoryColors",true);
+    }
+    // Adopt the revised Blue Jay factory accent in existing red-theme profiles.
+    // Subsequent explicit color choices remain intact.
+    if(!settings.value("appearance/blueJayBlueAccent",false).toBool()) {
+        QJsonObject patch;
+        if(QColor(preferences.value("appearance.accent").toString())==QColor(BlueJay::Red))
+            patch["appearance"]=QJsonObject{{"accent",BlueJay::Blue}};
+        if(QColor(preferences.value("overlays.selection").toString())==QColor(BlueJay::Red))
+            patch["overlays"]=QJsonObject{{"selection",BlueJay::Blue}};
+        QString error;bool persisted=true;
+        if(!patch.isEmpty()) {
+            persisted=preferences.patch(patch,error);
+            if(persisted && QFileInfo::exists(path))persisted=preferences.save(path,error);
+            if(!persisted)warning=error;
+        }
+        if(persisted)settings.setValue("appearance/blueJayBlueAccent",true);
     }
 }
 bool PreferencesService::preview(const EditorPreferences &value,QString &error) {

@@ -29,7 +29,13 @@ Validation includes launches from an unrelated working directory with SDK/Qt/Pyt
 
 The validation host still has developer tools installed. A separate clean Windows VM is an additional test, not a claimed result of environment/path isolation. Release artifacts and validation logs remain local and ignored by Git.
 
-## Verified candidate
+## 0.2.0-alpha.1 release
+
+Download `Jester-0.2.0-alpha.1-windows-x64.zip` and its `.zip.sha256` from the [GitHub prerelease](https://github.com/Atmosaero/Jester/releases/tag/v0.2.0-alpha.1). Extract the complete folder and run `Jester.exe`. This optimized Profile package includes the Blue Jay interface and the changes listed in [CHANGELOG](../CHANGELOG.md).
+
+The release build uses the version in `project.json` and embeds its Git source identity. Packaging checks runtime dependency closure; `BUILD-INFO.json`, `FILE-MANIFEST.json` and the ZIP checksum identify the delivered files. Runtime/GUI tests for the latest UI changes are deferred to manual testing at the maintainer's request. The following results describe the earlier 0.1.0 candidate, not this release.
+
+## Historical verified candidate (0.1.0-alpha.1)
 
 Local product build **3d49509**, version **0.1.0-alpha.1**: `dist/Jester-0.1.0-alpha.1-windows-x64-3d49509`. The pristine payload is about 253.51 MiB with 12 runtime module groups and 50 runtime files. It includes the skinning/morph/SkyBox shader closure, studio IBL/mips, Jester EN/RU and standard Qt RU catalogs, synthetic `.jst` examples, runtime libraries and notices. `BUILD-INFO.json` and `FILE-MANIFEST.json` identify the actual binary and payload.
 

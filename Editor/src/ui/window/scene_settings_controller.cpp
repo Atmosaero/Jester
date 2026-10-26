@@ -26,11 +26,18 @@ void installSceneSettings(Window &window) {
     auto *row=new QHBoxLayout(header);row->setContentsMargins(5,2,5,2);row->setSpacing(3);
     auto *group=new QActionGroup(&window);group->setExclusive(true);
     const QStringList modes{"lit","unlit","wireframe"},labels{"Lit","Unlit","Wireframe"};
+    const Glyph glyphs[]{Glyph::Lit,Glyph::Unlit,Glyph::Wireframe};
     for(int i=0;i<modes.size();++i) {
         auto *action=addTranslatedAction(menu,labels[i]);action->setObjectName("viewportMode_"+modes[i]);
         action->setCheckable(true);action->setShortcut(QKeySequence("Alt+"+QString::number(i+1)));group->addAction(action);window.addAction(action);
         action->setProperty("visualMode",modes[i]);
-        auto *button=new QToolButton(header);button->setDefaultAction(action);button->setToolButtonStyle(Qt::ToolButtonTextOnly);row->addWidget(button);
+        action->setIcon(icon(glyphs[i]));
+        auto *button=new QToolButton(header);button->setDefaultAction(action);button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setObjectName("viewportModeButton_"+modes[i]);
+        button->setProperty("jesterTransportButton",true);
+        bindUiText(button,"accessibleName",labels[i]);
+        bindUiTextFactory(button,"toolTip",[action] {return action->text()+" ("+action->shortcut().toString(QKeySequence::NativeText)+")";});
+        row->addWidget(button);
         QObject::connect(action,&QAction::triggered,&window,[&window,mode=modes[i]] {
             auto settings=window.document().scene.visuals;QString error;
             if(settings.setValue("mode",mode,error))window.document().editVisual("Display mode",settings);

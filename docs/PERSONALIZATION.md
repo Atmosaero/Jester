@@ -2,7 +2,9 @@
 
 Open **Preferences** (`Ctrl+,`). Search filters appearance, overlay colors, language, keyboard actions and layouts. Font size and interface scale are device-independent; Qt applies screen DPI separately. Themes include dark, light and high contrast with an adjustable accent.
 
-**Preview** applies the draft. **Apply** saves it, **OK** saves and closes, and **Cancel** restores the last applied preferences. Scene data and history are separate from editor preferences. Layouts can be named, restored and deleted. Shortcuts use stable action IDs, include conflicts with unmodified defaults, and can be disabled or reset individually.
+The default is native [O3DE Blue Jay](BLUE_JAY.md) with its blue accent, Open Sans at 9 pt and 16 px icons. The window uses the blue/red Jester vector logo; Windows also receives an embedded multi-resolution ICO. Former factory amber/red accent and selection colors migrate once, while other custom colors remain user choices.
+
+**Preview** applies the draft. **Apply** saves it, **OK** saves and closes, and **Cancel** restores the last applied preferences, dock layout and decorated window geometry. Scene data and history are separate from editor preferences. Layouts can be named, restored and deleted. Shortcuts use stable action IDs, include conflicts with unmodified defaults, and can be disabled or reset individually.
 
 Preferences use versioned `JesterPreferences` JSON. Import validates before changing state; export excludes recent files, document paths, MCP endpoints and credentials. Custom visual presets are part of this portable model. Writable installations store preferences in `user/editor-preferences.json`; read-only installations use the per-user application configuration directory. `JESTER_PREFERENCES_FILE` selects an isolated location for tests.
 

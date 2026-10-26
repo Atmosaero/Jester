@@ -90,7 +90,7 @@ void Window::jointLimitDialog() {
 }
 void Window::mirrorPairsDialog() {
     QTimer::singleShot(0, this, [this] {
-        auto dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+        auto dialog = qobject_cast<QDialog *>(activeEditorModalWidget());
         if (!dialog || dialog->objectName() != "characterProfileDialog")
             return;
         auto pairs = dialog->findChild<QTreeWidget *>("profileMirrorPairs");

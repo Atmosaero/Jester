@@ -1,4 +1,5 @@
 #include "settings/preferences.h"
+#include "settings/blue_jay_style.h"
 #include "core/scene/visual_settings.h"
 #include <QByteArray>
 #include <QColor>
@@ -14,11 +15,11 @@ namespace trickster {
 namespace {
 QJsonObject defaults() {
     return {{"format","JesterPreferences"},{"version",1},{"language","system"},
-        {"appearance",QJsonObject{{"fontFamily","Segoe UI"},{"fontSize",10.0},{"uiScale",1.0},
-            {"iconSize",18},{"density","compact"},{"theme","dark"},{"accent","#d7a64f"}}},
-        {"overlays",QJsonObject{{"bones","#8ea9bc"},{"selection","#efbb62"},{"notes","#ecd58a"},
-                                {"trajectory","#62bdb4"},{"manipulatorX","#df7168"},
-                                {"manipulatorY","#72c58a"},{"manipulatorZ","#7ba5e2"}}},
+        {"appearance",QJsonObject{{"fontFamily","Open Sans"},{"fontSize",9.0},{"uiScale",1.0},
+            {"iconSize",16},{"density","compact"},{"theme","dark"},{"accent",BlueJay::Blue}}},
+        {"overlays",QJsonObject{{"bones","#cccccc"},{"selection",BlueJay::Blue},{"notes",BlueJay::Blue},
+                                {"trajectory",BlueJay::Success},{"manipulatorX",BlueJay::Error},
+                                {"manipulatorY",BlueJay::Success},{"manipulatorZ",BlueJay::Blue}}},
         {"shortcuts",QJsonObject{}},{"layouts",QJsonObject{}},{"scenePresets",QJsonObject{}}};
 }
 bool color(const QJsonValue &value) {

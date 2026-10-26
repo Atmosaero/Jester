@@ -20,8 +20,19 @@
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QWidget>
+#include <QApplication>
+#include <AzQtComponents/Components/WindowDecorationWrapper.h>
 
 namespace trickster {
+QWidget *editorWindowFrame(QWidget *widget) {
+    if(widget)if(auto *frame=qobject_cast<AzQtComponents::WindowDecorationWrapper*>(widget->parentWidget());frame && frame->guest()==widget)return frame;
+    return widget;
+}
+QWidget *activeEditorModalWidget() {
+    auto *widget=QApplication::activeModalWidget();
+    if(auto *frame=qobject_cast<AzQtComponents::WindowDecorationWrapper*>(widget))return frame->guest();
+    return widget;
+}
 namespace {
 constexpr int SourceTextRole=Qt::UserRole+319;
 QString translated(const QString &source,const QByteArray &context="Jester") {

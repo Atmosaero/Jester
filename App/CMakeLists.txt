@@ -18,6 +18,10 @@ ly_add_target(
 )
 ly_set_gem_variant_to_load(TARGETS JesterEditor VARIANTS Tools)
 if(WIN32)
+    set(JESTER_WINDOWS_ICON "${CMAKE_CURRENT_SOURCE_DIR}/../Editor/resources/branding/jester.ico")
+    configure_file(jester.rc.in "${CMAKE_CURRENT_BINARY_DIR}/jester.rc" @ONLY)
+    target_sources(JesterEditor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/jester.rc")
+    set_property(TARGET JesterEditor APPEND PROPERTY LINK_DEPENDS "${JESTER_WINDOWS_ICON}")
     # The SDK module loader passes UTF-8 paths to Win32 narrow APIs.
     # A process-local UTF-8 code page keeps relocated Unicode paths working.
     target_link_options(JesterEditor PRIVATE /MANIFEST:EMBED

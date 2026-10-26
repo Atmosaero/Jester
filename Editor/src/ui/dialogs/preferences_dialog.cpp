@@ -28,7 +28,7 @@
 namespace trickster {
 void showPreferences(Window &window) {
     auto &service=PreferencesService::instance();EditorPreferences baseline=service.current(),draft=baseline;
-    auto originalLayout=window.saveState(),originalGeometry=window.saveGeometry();
+    auto originalLayout=window.saveState(),originalGeometry=editorWindowFrame(&window)->saveGeometry();
     ActionRegistry registry(window);
     QDialog dialog(&window);dialog.setObjectName("preferencesDialog");bindUiText(&dialog,"windowTitle","Preferences");
     dialog.resize(760,680);auto *layout=new QVBoxLayout(&dialog);
@@ -162,7 +162,7 @@ void showPreferences(Window &window) {
     };
     QObject::connect(preview,&QPushButton::clicked,&dialog,[&]{if(applyPreview())bindUiTextFactory(status,"text",[] {return uiText("Preview active. Cancel restores your previous settings.");});});
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Apply|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
-    auto applyDraft=[&] {if(!applyPreview())return false;QString error;if(!service.apply(draft,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return false;}baseline=draft;originalLayout=window.saveState();originalGeometry=window.saveGeometry();return true;};
+    auto applyDraft=[&] {if(!applyPreview())return false;QString error;if(!service.apply(draft,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return false;}baseline=draft;originalLayout=window.saveState();originalGeometry=editorWindowFrame(&window)->saveGeometry();return true;};
     QObject::connect(buttons->button(QDialogButtonBox::Apply),&QPushButton::clicked,&dialog,[&]{applyDraft();});
     QObject::connect(buttons,&QDialogButtonBox::accepted,&dialog,[&]{if(applyDraft())dialog.accept();});
     QObject::connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
@@ -185,6 +185,6 @@ void showPreferences(Window &window) {
     const auto available=window.screen()->availableGeometry().size()-QSize(24,48);
     dialog.setMaximumSize(available);dialog.resize(QSize(760,680).boundedTo(available));
     dialog.exec();QString ignored;service.preview(baseline,ignored);registry.apply(baseline);
-    if(dialog.result()!=QDialog::Accepted) {window.restoreGeometry(originalGeometry);window.restoreState(originalLayout);}
+    if(dialog.result()!=QDialog::Accepted) {editorWindowFrame(&window)->restoreGeometry(originalGeometry);window.restoreState(originalLayout);}
 }
 }

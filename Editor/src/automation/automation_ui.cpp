@@ -1,6 +1,7 @@
 #include "ui/widgets/localized_ui.h"
 #include "automation/editor_api.h"
 #include "ui/widgets/icons.h"
+#include "settings/blue_jay_style.h"
 #include "automation/mcp_server.h"
 #include "ui/window/window.h"
 #include <QApplication>
@@ -42,7 +43,7 @@ void Window::buildAutomation() {
         stop->setEnabled(on);
         copy->setEnabled(on);
         status->setText(on ? uiText("MCP :%1").arg(mcp->port()) : uiText("MCP off"));
-        status->setStyleSheet(on?"color:palette(link);":"color:palette(placeholder-text);");
+        status->setStyleSheet(on?QString("color:%1;").arg(BlueJay::Success):QString("color:palette(placeholder-text);"));
     };
     connect(mcp, &McpServer::statusChanged, this, update);
     connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,update);

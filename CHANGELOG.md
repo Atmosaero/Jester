@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.0-alpha.1 — 2026-10-26
+
+Windows portable alpha with native GPU deformation, scene personalization and the O3DE Blue Jay interface. The latest UI changes are awaiting manual validation; no new runtime test matrix was run for this release.
+
+- Restyle the editor with native O3DE Blue Jay controls, blue interaction states and consistent painted surfaces. Add an authored SVG logo, Windows multi-resolution ICO and visible window branding.
+- Use icon-only viewport modes and Loop, green active MCP status, red scene-tab close buttons and pointed translation gizmo arrows.
+
 - Fix compact 150% dock/timeline/native-capture alignment, viewport text contrast and Russian Scene group search.
 - Preserve transparent Unlit surfaces with a native pre-transparency background; derive missing legacy mesh normals in the rendering cache and enable the supported main shadow caster.
 
