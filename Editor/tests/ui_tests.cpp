@@ -524,6 +524,9 @@ class UITests : public QObject {
     }
     void texturesMorphsAndPhysicsPreview() {
         Scene s;
+        // Compare authored texels in the neutral display mode. Lit intentionally
+        // includes the project's manual exposure and tonemapper.
+        QString visualError;QVERIFY(s.visuals.setValue("mode","unlit",visualError));
         s.nodes = {{"Morph", -1, {}, true, {0}}};
         s.pose = s.restPose();
         s.last = 30;
@@ -588,6 +591,9 @@ class UITests : public QObject {
         transformed.meshes[0].textures["baseColor"].offset={1,0};
         transformed.meshes[0].textures["baseColor"].wrapS=33071;
         color=sampleMaterial(transformed,"clamp");
+        const auto gpuClamp=color;
+        w.viewport->forceCpuSkinning=true;const auto cpuClamp=sampleMaterial(transformed,"clamp-cpu");w.viewport->forceCpuSkinning=false;
+        QCOMPARE(gpuClamp,cpuClamp);
         QVERIFY2(color.green()>150 && color.green()>color.red()+80 && color.green()>color.blue()+80,qPrintable(color.name()));
         transformed.meshes[0].textures["baseColor"].wrapS=10497;
         color=sampleMaterial(transformed,"repeat");
@@ -596,12 +602,21 @@ class UITests : public QObject {
         secondUv.meshes[0].textures["baseColor"].coord=1;
         for(auto& vertex:secondUv.meshes[0].vertices) vertex.uv1={1-vertex.uv.x(),vertex.uv.y()};
         color=sampleMaterial(secondUv,"uv1");
+        const auto gpuUvColor=color;
+        w.viewport->forceCpuSkinning=true;const auto cpuUvColor=sampleMaterial(secondUv,"uv1-cpu");w.viewport->forceCpuSkinning=false;
+        QCOMPARE(gpuUvColor,cpuUvColor);
         QVERIFY2(color.green()>150 && color.green()>color.red()+80 && color.green()>color.blue()+80,qPrintable(color.name()));
         auto cutout=s;
         cutout.meshes[0].alphaMode="MASK";
         cutout.meshes[0].color.setAlphaF(0);
         color=sampleMaterial(cutout,"alpha-mask");
         QVERIFY2(std::abs(color.red()-color.green())<12 && std::abs(color.blue()-color.green())<12,qPrintable(color.name()));
+        const auto background=color;
+        auto blend=s;blend.meshes[0].alphaMode="BLEND";blend.meshes[0].color.setAlphaF(.5);
+        color=sampleMaterial(blend,"alpha-blend");
+        QVERIFY2(color.red()>background.red()+20 && color.red()<250,qPrintable(color.name()));
+        const auto gpuBlend=color;w.viewport->forceCpuSkinning=true;const auto cpuBlend=sampleMaterial(blend,"alpha-blend-cpu");w.viewport->forceCpuSkinning=false;
+        QCOMPARE(gpuBlend,cpuBlend);
         sampleMaterial(s,"restored");
         auto dock = w.findChild<QDockWidget *>("shapesDock");
         dock->show();

@@ -72,7 +72,9 @@ surface = surface.replace(f'<{shader_root}BasePBR/BasePBR_SurfaceEval.azsli>', '
 surface = surface.replace(f'<{shader_root}MaterialFunctions/StandardGetAlphaAndClip.azsli>', '"JesterAlpha.azsli"')
 surface = surface.replace('    return surface;', '''    if (params.m_jesterUnlit)
     {
-        surface.emissiveLighting = surface.albedo;
+        // Atom's transparent pass expects premultiplied radiance. The unlit
+        // replacement must apply alpha just as the normal emissive input does.
+        surface.emissiveLighting = surface.albedo * (o_opacity_mode == OpacityMode::Blended ? surface.alpha : real(1));
         surface.albedo = real3(0,0,0);
         surface.specularF0 = real3(0,0,0);
     }

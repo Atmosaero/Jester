@@ -1,7 +1,9 @@
 #include "render/atom/AtomViewport.h"
 #include <Atom/RHI/Factory.h>
 #include <Atom/Feature/ImageBasedLights/ImageBasedLightFeatureProcessorInterface.h>
+#include <Atom/Feature/SkyBox/SkyBoxFeatureProcessorInterface.h>
 #include <Atom/RPI.Public/Image/StreamingImage.h>
+#include <AzCore/Asset/AssetManager.h>
 #include <AzCore/std/smart_ptr/make_shared.h>
 #include <Atom/RPI.Public/ViewportContext.h>
 #include <Atom/RPI.Public/View.h>
@@ -28,6 +30,7 @@
 
 namespace
 {
+int activeJesterViewports=0;
 AZ::Data::Asset<AZ::RPI::BufferAsset> makeBuffer(const void* data, uint32_t count, AZ::RHI::Format format)
 {
     auto view = AZ::RHI::BufferViewDescriptor::CreateTyped(0, count, format);
@@ -120,10 +123,12 @@ AtomViewport::AtomViewport(QWidget* parent, bool createDemo) : RenderViewportWid
     }
     updateCamera();
     AZ::RPI::ViewportContextIdNotificationBus::Handler::BusConnect(GetId());
+    ++activeJesterViewports;
 }
 
 AtomViewport::~AtomViewport()
 {
+    const bool lastViewport=--activeJesterViewports==0;
     AZ::RPI::ViewportContextIdNotificationBus::Handler::BusDisconnect();
     invalidateEditorScene();
     if(auto *ibl=m_scene->GetFeatureProcessor<AZ::Render::ImageBasedLightFeatureProcessorInterface>()) {
@@ -131,9 +136,21 @@ AtomViewport::~AtomViewport()
         // upload request otherwise can retain a named Vulkan image past the
         // application's NameDictionary lifetime after a rapid close.
         for(const auto &image:{ibl->GetSpecularImage(),ibl->GetDiffuseImage()})
-            if(auto *stream=azrtti_cast<AZ::RPI::StreamingImage*>(image.get()))stream->CancelExpanding();
+            if(auto *stream=azrtti_cast<AZ::RPI::StreamingImage*>(image.get())) {
+                stream->CancelExpanding();
+                if(lastViewport) {
+                    const auto asset=AZ::Data::AssetManager::Instance().GetAsset<AZ::RPI::StreamingImageAsset>(stream->GetAssetId(),AZ::Data::AssetLoadBehavior::NoLoad);
+                    // DX12 async mip uploads use a separate copy queue. Public
+                    // trimming waits for that image's upload fence and drains
+                    // its completion callbacks; Device::WaitForIdle alone does
+                    // not drain that queue. Other open viewports keep full IBL.
+                    if(asset.IsReady() && asset->GetMipChainCount()>1)
+                        stream->TrimToMipChainLevel(asset->GetMipChainCount()-1);
+                }
+            }
         ibl->SetSpecularImage({});ibl->SetDiffuseImage({});
     }
+    if(auto *sky=m_scene->GetFeatureProcessor<AZ::Render::SkyBoxFeatureProcessorInterface>()) {sky->Enable(false);sky->SetCubemap({});}
     m_visualData.reset();
     if (m_lights) for (auto& handle : m_lightHandles) m_lights->ReleaseLight(handle);
     m_handles.clear();
@@ -176,6 +193,8 @@ QJsonObject AtomViewport::diagnostics() const
         {"width", width()}, {"height", height()}, {"dpi", devicePixelRatioF()},
         {"cameraYaw", m_yaw}, {"cameraPitch", m_pitch}, {"cameraDistance", m_distance}};
     report["rhi"]=QString::fromUtf8(AZ::RHI::Factory::Get().GetName().GetCStr()).toLower();
+    report["cameraSource"]=m_externalCamera?"editor":"demo";
+    if(m_externalCamera)for(const char *key:{"cameraYaw","cameraPitch","cameraDistance"})report[key]=QJsonValue();
     report["diagnosticsVersion"]=2;
     const auto editor=editorDiagnostics();
     for(auto it=editor.begin();it!=editor.end();++it) report[it.key()]=it.value();

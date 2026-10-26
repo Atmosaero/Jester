@@ -1,6 +1,13 @@
 #include "render/atom/AtomViewport.h"
 #include "core/scene/visual_settings.h"
 #include <Atom/Feature/ImageBasedLights/ImageBasedLightFeatureProcessorInterface.h>
+#include <Atom/Feature/SkyBox/SkyBoxFeatureProcessorInterface.h>
+#include <Atom/RPI.Public/Image/ImageSystemInterface.h>
+#include <Atom/RPI.Public/Image/StreamingImage.h>
+#include <Atom/RPI.Public/Image/StreamingImagePool.h>
+#include <Atom/RPI.Reflect/Image/ImageMipChainAssetCreator.h>
+#include <Atom/RPI.Reflect/Image/StreamingImageAssetCreator.h>
+#include <Atom/RHI.Reflect/ImageSubresource.h>
 #include <Atom/Feature/DisplayMapper/DisplayMapperFeatureProcessorInterface.h>
 #include <Atom/Feature/PostProcess/PostProcessFeatureProcessorInterface.h>
 #include <Atom/Feature/PostProcess/PostProcessSettingsInterface.h>
@@ -17,6 +24,7 @@
 #include <AzCore/std/smart_ptr/make_shared.h>
 #include <QColor>
 #include <QJsonArray>
+#include <qfloat16.h>
 #include <QtMath>
 #include <array>
 #include <algorithm>
@@ -36,6 +44,31 @@ AZ::Data::Asset<AZ::RPI::BufferAsset> floorBuffer(const void *data,uint32_t coun
     creator.SetBufferViewDescriptor(view);creator.SetUseCommonPool(AZ::RPI::CommonBufferPoolType::StaticInputAssembly);
     AZ::Data::Asset<AZ::RPI::BufferAsset> result;creator.End(result);return result;
 }
+AZ::Data::Instance<AZ::RPI::Image> backgroundCubemap(const AZ::Color &top,const AZ::Color &bottom) {
+    constexpr uint32_t size=16;
+    auto descriptor=AZ::RHI::ImageDescriptor::CreateCubemap(AZ::RHI::ImageBindFlags::ShaderRead,size,AZ::RHI::Format::R16G16B16A16_FLOAT);
+    AZ::RPI::ImageMipChainAssetCreator mip;mip.Begin(AZ::Uuid::CreateRandom(),1,6);
+    mip.BeginMip(AZ::RHI::GetImageSubresourceLayout(descriptor,AZ::RHI::ImageSubresource{}));
+    for(int face=0;face<6;++face) {
+        std::array<std::array<qfloat16,4>,size*size> pixels;
+        for(uint32_t y=0;y<size;++y)for(uint32_t x=0;x<size;++x) {
+            const float u=2*(x+.5f)/size-1,v=2*(y+.5f)/size-1;
+            const AZ::Vector3 direction=face==0?AZ::Vector3(1,-v,-u):face==1?AZ::Vector3(-1,-v,u):
+                face==2?AZ::Vector3(u,1,v):face==3?AZ::Vector3(u,-1,-v):face==4?AZ::Vector3(u,-v,1):AZ::Vector3(-u,-v,-1);
+            const float t=std::clamp(.5f+direction.GetNormalized().GetY()*2,0.f,1.f);
+            const auto color=bottom.Lerp(top,t);
+            pixels[y*size+x]={qfloat16(color.GetR()),qfloat16(color.GetG()),qfloat16(color.GetB()),qfloat16(1.f)};
+        }
+        mip.AddSubImage(pixels.data(),sizeof(pixels));
+    }
+    mip.EndMip();AZ::Data::Asset<AZ::RPI::ImageMipChainAsset> mipAsset;if(!mip.End(mipAsset))return {};
+    AZ::RPI::StreamingImageAssetCreator creator;creator.Begin(AZ::Uuid::CreateRandom());creator.SetImageDescriptor(descriptor);
+    creator.SetImageViewDescriptor(AZ::RHI::ImageViewDescriptor::CreateCubemap());creator.AddMipChainAsset(*mipAsset);
+    creator.SetFlags(AZ::RPI::StreamingImageFlags::NotStreamable);
+    creator.SetPoolAssetId(AZ::RPI::ImageSystemInterface::Get()->GetSystemStreamingPool()->GetAssetId());
+    AZ::Data::Asset<AZ::RPI::StreamingImageAsset> asset;if(!creator.End(asset))return {};
+    return AZ::RPI::StreamingImage::FindOrCreate(asset);
+}
 }
 struct AtomViewport::VisualSceneData {
     trickster::SceneVisualSettings settings;
@@ -45,6 +78,8 @@ struct AtomViewport::VisualSceneData {
     AZ::EntityId postId;
     float ground=0;
     bool environmentReady=false;
+    QString backgroundKey;
+    AZ::Data::Instance<AZ::RPI::Image> background;
     QJsonObject applied;
     ~VisualSceneData() {if(meshes && floor)meshes->ReleaseMesh(*floor);}
 };
@@ -67,12 +102,33 @@ void AtomViewport::setSceneVisualSettings(const trickster::SceneVisualSettings &
             rgb(settings.value(prefix+"color").toString(),true)*(lit && settings.value(prefix+"enabled").toBool()?number(prefix+"intensityLux"):0.f)));
         // Atom directional shadow maps share one active caster per view.
         const bool shadows=i==0 && lit && settings.value(prefix+"enabled").toBool() && settings.value(prefix+"shadows").toBool();
-        m_lights->SetShadowEnabled(m_lightHandles[i],shadows);
+        // SetShadowEnabled(false) resets the scene's active caster even when
+        // passed a different handle. Never call it for the non-casting fill.
+        if(i==0)m_lights->SetShadowEnabled(m_lightHandles[i],shadows);
         if(shadows) {
             const auto quality=settings.value(prefix+"shadowQuality").toString();
             m_lights->SetShadowmapSize(m_lightHandles[i],quality=="low"?AZ::Render::ShadowmapSize::Size512:quality=="high"?AZ::Render::ShadowmapSize::Size2048:AZ::Render::ShadowmapSize::Size1024);
             m_lights->SetCascadeCount(m_lightHandles[i],2);m_lights->SetShadowFarClipDistance(m_lightHandles[i],50);
+            // Match the SDK component's acne protection; raw FP lights do not
+            // receive the component configuration defaults automatically.
+            m_lights->SetShadowBias(m_lightHandles[i],.0015f);m_lights->SetNormalShadowBias(m_lightHandles[i],2.5f);
+            m_lights->SetShadowReceiverPlaneBiasEnabled(m_lightHandles[i],true);
+            m_lights->SetShadowFilterMethod(m_lightHandles[i],AZ::Render::ShadowFilterMethod::Pcf);
+            m_lights->SetFilteringSampleCount(m_lightHandles[i],quality=="low"?4:quality=="high"?32:16);
+            m_lights->SetCascadeBlendingEnabled(m_lightHandles[i],true);
         }
+    }
+    if(auto *sky=m_scene->GetFeatureProcessor<AZ::Render::SkyBoxFeatureProcessorInterface>()) {
+        const auto key=settings.value("background.mode").toString()+settings.value("background.topColor").toString()+settings.value("background.bottomColor").toString();
+        if(data.backgroundKey!=key) {
+            const auto top=rgb(settings.value("background.topColor").toString(),true);
+            const auto bottom=settings.value("background.mode")=="gradient"?rgb(settings.value("background.bottomColor").toString(),true):top;
+            data.background=backgroundCubemap(top,bottom);data.backgroundKey=key;
+        }
+        sky->SetSkyboxMode(AZ::Render::SkyBoxMode::Cubemap);sky->SetCubemap(data.background);sky->Enable(bool(data.background));
+        // Keep background brightness independent of manual scene exposure;
+        // the selected tonemapper/grading still applies to the native sky.
+        sky->SetCubemapExposure(post?-number("post.exposureEV"):0.f);
     }
     QMatrix4x4 cameraProjection;
     cameraProjection(0,0)=GetDefaultCamera()->GetViewToClipMatrix().GetElement(0,0);
@@ -183,18 +239,9 @@ void AtomViewport::drawEditorGrid() {
     if(!m_visualData)return;
     auto queue=AZ::RPI::AuxGeomFeatureProcessorInterface::GetDrawQueueForScene(m_scene);if(!queue)return;
     const auto &data=*m_visualData;const auto &settings=data.settings;
-    // A far-depth quad fills only pixels untouched by scene geometry. Keeping
-    // this in the native scene preserves viewport/readback/sequence parity.
-    const AZ::Vector3 background[]={{-1,-1,0},{1,-1,0},{1,1,0},{-1,-1,0},{1,1,0},{-1,1,0}};
-    const auto top=rgb(settings.value("background.topColor").toString());
-    const auto bottom=settings.value("background.mode")=="gradient"?rgb(settings.value("background.bottomColor").toString()):top;
-    const AZ::Color colors[]={bottom,bottom,top,bottom,top,top};
     AZ::RPI::AuxGeomDraw::AuxGeomDynamicDrawArguments args;
-    args.m_verts=background;args.m_vertCount=6;args.m_colors=colors;args.m_colorCount=6;
     args.m_depthWrite=AZ::RPI::AuxGeomDraw::DepthWrite::Off;
-    args.m_viewProjectionOverrideIndex=queue->AddViewProjOverride(AZ::Matrix4x4::CreateIdentity());queue->DrawTriangles(args);
-    args.m_viewProjectionOverrideIndex=-1;
-    const float unit=float(settings.value("grid.step").toDouble()),ground=data.ground+std::max(.002f,unit*.02f);
+    const float unit=float(settings.value("grid.step").toDouble()),ground=data.ground+std::max(.01f,unit*.1f);
     if(settings.value("grid.enabled").toBool()) {
         AZStd::vector<AZ::Vector3> points;points.reserve(164);
         for(int i=-20;i<=20;++i) {points.push_back({i*unit,ground,-20*unit});points.push_back({i*unit,ground,20*unit});points.push_back({-20*unit,ground,i*unit});points.push_back({20*unit,ground,i*unit});}

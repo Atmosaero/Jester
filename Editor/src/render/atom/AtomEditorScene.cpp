@@ -4,6 +4,7 @@
 #include "render/atom/skinning_readback.h"
 #include "render/atom/gpu_profiler.h"
 #include <QJsonArray>
+#include <QApplication>
 #include <cstring>
 #include <Atom/RPI.Public/ViewportContext.h>
 #include <Atom/RPI.Public/View.h>
@@ -185,6 +186,9 @@ struct AtomViewport::EditorSceneData
     trickster::Pose pose;
     trickster::MorphWeights morphs;
     std::vector<Entry> entries;
+    // Missing legacy/imported normals are derived only in the rendering cache;
+    // never write them back into the authored project or regenerate per pose.
+    std::vector<std::unique_ptr<trickster::Mesh>> generatedNormalMeshes;
     QMap<QByteArray,AZ::Data::Instance<AZ::RPI::Image>> images;
     double paletteMs=0,totalPaletteMs=0,skinMs=0,preparationMs=0,bufferUpdateMs=0,meshBuildMs=0;
     double totalSkinMs=0,totalPreparationMs=0,totalBufferUpdateMs=0,totalMeshBuildMs=0;
@@ -204,7 +208,10 @@ AZ::Data::Instance<AZ::RPI::Material> AtomViewport::createDefaultMaterial()
     auto material=AZ::RPI::Material::Create(asset);
     // Allocate SceneMaterialSrg's type-index buffer while a material is
     // registered, even when no viewport has rendered before shutdown.
-    if(material) AZ::RPI::MaterialInstanceHandlerInterface::Get()->Compile();
+    if(material && !qApp->property("jesterSceneMaterialInitialized").toBool()) {
+        AZ::RPI::MaterialInstanceHandlerInterface::Get()->Compile();
+        qApp->setProperty("jesterSceneMaterialInitialized",true);
+    }
     return material;
 }
 
@@ -344,19 +351,30 @@ void AtomViewport::syncEditorScene(const trickster::Scene& scene,quint64 meshRev
         QElapsedTimer timer;timer.start();
         auto globals=scene.globals(scene.pose);
         cache.paletteMs=timer.nsecsElapsed()/1e6;timer.restart();
+        cache.preparationMs=cache.bufferUpdateMs=cache.meshBuildMs=0;
+        if(rebuild) {
+            cache.generatedNormalMeshes.resize(scene.meshes.size());
+            for(size_t index=0;index<scene.meshes.size();++index) {
+                const auto &source=scene.meshes[index];
+                if(std::none_of(source.vertices.begin(),source.vertices.end(),[](const auto &v){return v.normal.lengthSquared()<1e-12f;}))continue;
+                auto mesh=std::make_unique<trickster::Mesh>(source);trickster::completeGeometryBasis(*mesh);
+                cache.generatedNormalMeshes[index]=std::move(mesh);
+            }
+        }
+        cache.preparationMs=timer.nsecsElapsed()/1e6;timer.restart();
+        const auto geometry=[&](size_t index)->const trickster::Mesh& {return cache.generatedNormalMeshes[index]?*cache.generatedNormalMeshes[index]:scene.meshes[index];};
         std::vector<std::vector<QVector3D>> positions(scene.meshes.size()),normals(scene.meshes.size());
         for(size_t i=0;i<scene.meshes.size();++i)
         {
             auto entry=std::find_if(cache.entries.begin(),cache.entries.end(),[i](const auto &value){return value.source==i;});
             if(entry!=cache.entries.end() && entry->gpu)continue;
             positions[i]=scene.skinned(scene.meshes[i],globals);
-            normals[i]=scene.skinnedNormals(scene.meshes[i],globals);
+            normals[i]=scene.skinnedNormals(geometry(i),globals);
         }
         cache.skinMs=timer.nsecsElapsed()/1e6;
-        cache.preparationMs=cache.bufferUpdateMs=cache.meshBuildMs=0;
         for(size_t i=0;i<scene.meshes.size();++i)
         {
-            const auto& mesh=scene.meshes[i];
+            const auto& mesh=geometry(i);
             if(mesh.vertices.empty() || mesh.indices.empty()) continue;
             timer.restart();
             if(!rebuild) {
@@ -542,7 +560,7 @@ QJsonObject AtomViewport::validateSkinningReference() {
     for(size_t i=0;i<snapshot.pose.size();++i)if((snapshot.pose[i].t!=cache->source->pose[i].t || snapshot.pose[i].r!=cache->source->pose[i].r || snapshot.pose[i].s!=cache->source->pose[i].s))return {{"error","skinning_readback.pose_changed"}};
     const auto globals=snapshot.globals(snapshot.pose);QJsonArray meshes;
     for(const auto &entry:cache->entries)if(entry.gpu) {
-        const auto &source=snapshot.meshes[entry.source];
+        const auto &source=cache->generatedNormalMeshes[entry.source]?*cache->generatedNormalMeshes[entry.source]:snapshot.meshes[entry.source];
         const auto positions=snapshot.skinned(source,globals),normals=snapshot.skinnedNormals(source,globals);
         std::vector<F4> tangents;std::vector<F3> bitangents;deformedBasis(snapshot,source,globals,normals,tangents,bitangents);
         const auto model=entry.gpu->outputModel();const auto &mesh=model->GetModelAsset()->GetLodAssets()[0]->GetMeshes()[0];
