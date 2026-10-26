@@ -17,7 +17,7 @@ import urllib.request
 
 
 class Session:
-    def __init__(self, executable, project, folder, preferences, backend, scale, isolate):
+    def __init__(self, executable, project, folder, preferences, backend, scale, isolate, allow_signed_host_hooks=False):
         folder.mkdir(parents=True, exist_ok=True)
         self.folder = folder
         self.connection = folder/'connection.json'
@@ -28,7 +28,8 @@ class Session:
             for key in list(env):
                 if key.upper().startswith(('QT_', 'O3DE', 'LY_', 'PYTHON')):
                     del env[key]
-            env['PATH'] = str(Path(env['SystemRoot'])/'System32')+';'+env['SystemRoot']
+            system_root=Path(os.environ['SystemRoot'])
+            env['PATH'] = str(system_root/'System32')+';'+str(system_root)
         env.update(QT_SCALE_FACTOR=str(scale), JESTER_PREFERENCES_FILE=str(preferences), JESTER_RHI=backend)
         self.log = (folder/'engine.log').open('wb')
         self.process = subprocess.Popen([str(executable), '--project-path='+str(project), '--rhi='+backend,
@@ -53,6 +54,7 @@ class Session:
         self.backend = backend
         self.executable = executable
         self.isolate = isolate
+        self.allow_signed_host_hooks=allow_signed_host_hooks
         self.size_window()
 
     def rpc(self, method, params=None, notification=False):
@@ -117,11 +119,27 @@ class Session:
             app = self.executable.parent.resolve()
             windows = Path(os.environ['SystemRoot']).resolve()
             external = []
+            injected = []
             for name in modules:
                 path = Path(name).resolve()
                 if app not in path.parents and windows not in path.parents:
+                    publisher=None
+                    program_data=Path(os.environ['ProgramData']).resolve()
+                    if self.allow_signed_host_hooks:
+                        if path.name.lower()=='mpoav.dll' and program_data/'Microsoft/Windows Defender/Platform' in path.parents:
+                            publisher='O=Microsoft Corporation'
+                        elif path==program_data/'obs-studio-hook/graphics-hook64.dll':
+                            publisher='CN=Hugh Bailey'
+                    if publisher:
+                        literal="'"+str(path).replace("'","''")+"'"
+                        query='[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); '+f'$s=Get-AuthenticodeSignature -LiteralPath {literal}; '+"[pscustomobject]@{status=$s.Status.ToString();subject=$s.SignerCertificate.Subject}|ConvertTo-Json"
+                        signature=json.loads(subprocess.check_output(['powershell','-NoProfile','-Command',query],encoding='utf-8'))
+                        if signature['status']=='Valid' and publisher in signature['subject']:
+                            injected.append({'name':path.name,'path':str(path),'publisher':signature['subject'],
+                                'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
+                            continue
                     external.append(str(path))
-            (self.folder/'loaded-modules.json').write_text(json.dumps({'modules':modules,'external':external},indent=2),encoding='utf-8')
+            (self.folder/'loaded-modules.json').write_text(json.dumps({'modules':modules,'external':external,'signedHostInjections':injected},indent=2),encoding='utf-8')
             assert not external, 'A runtime module resolved outside the portable folder and Windows; inspect loaded-modules.json'
         try:
             self.tool('editor_action', {'id':'quit'})
@@ -134,7 +152,8 @@ class Session:
         registered = re.findall(r'Registering\s+(\w+)\s+RHI',text)
         assert code==0 and errors==0 and registered==[self.backend], (code,errors,registered)
         return {'exitCode':code,'traceErrors':errors,'registeredRhi':registered,
-                'executableSha256':hashlib.sha256(self.executable.read_bytes()).hexdigest()}
+                'executableSha256':hashlib.sha256(self.executable.read_bytes()).hexdigest(),
+                **({'moduleAuditPassed':True,'signedHostInjections':[item['name'] for item in injected]} if self.isolate else {})}
 
     def abort(self):
         if self.process.poll() is None:
@@ -153,6 +172,7 @@ def main():
     parser.add_argument('--scales',nargs='+',type=float,default=[1,1.5])
     parser.add_argument('--languages',nargs='+',choices=['en','ru'],default=['en','ru'])
     parser.add_argument('--isolate',action='store_true')
+    parser.add_argument('--allow-signed-host-hooks',action='store_true',help='Separately record valid signed Defender/OBS hooks at their exact standard paths; reject other external DLLs')
     args = parser.parse_args()
     project,executable,output = args.project_root.resolve(),args.exe.resolve(),args.output_dir.resolve()
     output.mkdir(parents=True,exist_ok=True)
@@ -166,7 +186,7 @@ def main():
                 preferences.write_text(json.dumps({'format':'JesterPreferences','version':1,'language':language}),encoding='utf-8')
                 session = None
                 try:
-                    session = Session(executable,project,folder/'before',preferences,backend,scale,args.isolate)
+                    session = Session(executable,project,folder/'before',preferences,backend,scale,args.isolate,args.allow_signed_host_hooks)
                     session.tool('scene',{'operation':'open','path':str(project/'examples/welcome.jst')})
                     session.tool('scene',{'operation':'rename','name':'Jester studio'})
                     session.tool('pose_transform',{'node':7,'rotation':[0,0,25],'frame':15,'key':True})
@@ -184,6 +204,12 @@ def main():
                     session.tool('editor_action',{'id':'toggleSceneSettings','checked':False})
                     session.tool('editor_action',{'id':'toggleSceneSettings','checked':True})
                     session.capture('native-viewport','viewport')
+                    deadline=time.monotonic()+5
+                    renderer=session.tool('scene_visuals',{'operation':'get'})['renderer']
+                    while renderer.get('gpuMeshes',0)<1 and time.monotonic()<deadline:
+                        time.sleep(.05)
+                        renderer=session.tool('scene_visuals',{'operation':'get'})['renderer']
+                    assert renderer['rhi']==backend and renderer['skinningPath']=='gpu' and renderer['gpuMeshes']>0, renderer
                     for mode in ['lit','unlit','wireframe']:
                         session.tool('scene_visuals',{'operation':'set','settings':{'mode':mode}})
                         session.capture(mode)
@@ -216,7 +242,7 @@ def main():
                         'target':'viewport','maxWidth':640,'overwrite':True})
                     assert len(list((folder/'sequence').glob('*.png')))==3
                     before = session.close()
-                    session = Session(executable,project,folder/'after',preferences,backend,scale,args.isolate)
+                    session = Session(executable,project,folder/'after',preferences,backend,scale,args.isolate,args.allow_signed_host_hooks)
                     restored_preferences = session.tool('editor_preferences',{'operation':'get'})
                     assert restored_preferences['preferences']==saved_preferences['preferences']
                     assert restored_preferences['language']==language
@@ -243,7 +269,8 @@ def main():
                     after = session.close()
                     result = {'backend':backend,'scale':scale,'language':language,'passed':True,
                         'physicalWindow':[1280,720],'before':before,'after':after,
-                        'unicodeProject':True,'motionPreserved':True,'preferenceRestart':True,'sequenceFrames':3}
+                        'unicodeProject':True,'motionPreserved':True,'preferenceRestart':True,'sequenceFrames':3,
+                        'nativeGpuSkinning':True}
                 finally:
                     if session is not None and session.process.poll() is None:
                         session.abort()
