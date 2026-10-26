@@ -1,4 +1,7 @@
 #include "settings/editor_appearance.h"
+#include "settings/preferences_service.h"
+#include "ui/widgets/icons.h"
+#include <QAbstractButton>
 #include <QAbstractSpinBox>
 #include <QApplication>
 #include <QComboBox>
@@ -56,7 +59,11 @@ class EditorInputAndWindowPolicy final:public QObject {
             if(editing) {
                 // Reserve editing keys for the focused field. KeyPress still
                 // reaches the widget, including its own clipboard/undo logic.
-                event->accept();return true;
+                const auto *key=static_cast<QKeyEvent*>(event);
+                const bool recording=qobject_cast<QKeySequenceEdit*>(focus) || (focus && focus->parentWidget() && qobject_cast<QKeySequenceEdit*>(focus->parentWidget()));
+                const bool global=key->modifiers().testFlag(Qt::ControlModifier) &&
+                    (key->key()==Qt::Key_S || key->key()==Qt::Key_O || key->key()==Qt::Key_Comma);
+                if(recording || !global) {event->accept();return true;}
             }
         }
         return false;
@@ -64,14 +71,21 @@ class EditorInputAndWindowPolicy final:public QObject {
 };
 }
 void applyEditorAppearance(QApplication &app,const EditorPreferences &preferences) {
+    app.setAttribute(Qt::AA_DontUseNativeDialogs,true);
     if(!app.property("jesterInputAndWindowPolicy").toBool()) {
         new EditorInputAndWindowPolicy(app);app.setProperty("jesterInputAndWindowPolicy",true);
     }
     const auto appearance=preferences.toJson()["appearance"].toObject();
+    // Preserve relative heading sizes/weight while updating their family and
+    // base size. Explicit local fonts otherwise retain the previous app font.
+    const double oldBase=app.font().pointSizeF();
+    for(auto *window:app.topLevelWidgets())for(auto *widget:window->findChildren<QWidget*>())
+        if(widget->testAttribute(Qt::WA_SetFont) && !widget->property("jesterRelativeFontSize").isValid() && oldBase>0 && widget->font().pointSizeF()>0)
+            widget->setProperty("jesterRelativeFontSize",widget->font().pointSizeF()/oldBase);
     const auto theme=appearance["theme"].toString();
     const auto previous=app.property("jesterAppliedAppearance").toJsonObject();
-    if(previous==appearance)return;
     const auto scale=appearance["uiScale"].toDouble();
+    if(previous!=appearance) {
     app.setStyle(new EditorStyle(preferences));
     const bool light=theme=="light",contrast=theme=="high-contrast";
     const QColor accent(appearance["accent"].toString());
@@ -99,9 +113,35 @@ void applyEditorAppearance(QApplication &app,const EditorPreferences &preference
     // Font sizes and style metrics remain device-independent; Qt applies the
     // screen DPI once. This scale is not a second devicePixelRatio factor.
     font.setPointSizeF(appearance["fontSize"].toDouble()*scale);app.setFont(font);
+    app.setStyleSheet("QToolBar { border: 0; } QToolButton { border-radius: 3px; } "
+        "QToolButton:hover { background: palette(mid); } QToolButton:checked { background: palette(highlight); color: palette(highlighted-text); } "
+        "QDockWidget::title { padding: 4px 6px; background: palette(button); } "
+        "QGroupBox { border: 1px solid palette(mid); border-radius: 3px; margin-top: 10px; padding-top: 7px; } "
+        "QGroupBox::title { subcontrol-origin: margin; left: 7px; padding: 0 3px; } "
+        "QToolTip { border: 1px solid palette(mid); padding: 3px; }");
+    refreshEditorIcons();
+    app.setProperty("jesterAppliedAppearance",appearance);
+    }
     const int iconSize=int(std::lround(appearance["iconSize"].toInt()*scale));
     for(auto *window:app.topLevelWidgets())
-        for(auto *toolbar:window->findChildren<QToolBar*>())toolbar->setIconSize({iconSize,iconSize});
-    app.setProperty("jesterAppliedAppearance",appearance);
+        {
+            for(auto *widget:window->findChildren<QWidget*>())if(widget->property("jesterRelativeFontSize").isValid()) {
+                auto font=widget->font();font.setFamily(app.font().family());
+                font.setPointSizeF(app.font().pointSizeF()*widget->property("jesterRelativeFontSize").toDouble());
+                if(widget->font()!=font)widget->setFont(font);
+            }
+            for(auto *toolbar:window->findChildren<QToolBar*>())toolbar->setIconSize({iconSize,iconSize});
+            for(auto *button:window->findChildren<QAbstractButton*>())if(!button->icon().isNull()) {
+                button->setIconSize({iconSize,iconSize});
+                if(button->property("jesterTransportButton").toBool()) {
+                    const int margin=int(std::lround((appearance["density"]=="compact"?8:14)*scale));
+                    button->setFixedSize(iconSize+margin,iconSize+margin);
+                }
+            }
+        }
+}
+QColor overlayColor(const char *name,int alpha) {
+    QColor result(PreferencesService::instance().current().value(QString("overlays.")+name).toString());
+    result.setAlpha(alpha);return result;
 }
 } // namespace trickster

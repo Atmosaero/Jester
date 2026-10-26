@@ -1,9 +1,17 @@
 #include "ui/widgets/icons.h"
+#include <QApplication>
+#include <QAction>
+#include <QAbstractButton>
+#include <QMap>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPolygonF>
 namespace trickster {
+namespace {QMap<qint64,Glyph> generatedIcons;}
 QIcon icon(Glyph glyph) {
+    static QMap<Glyph,QIcon> cache;static qint64 paletteKey=0;
+    if(paletteKey!=qApp->palette().cacheKey()) {cache.clear();paletteKey=qApp->palette().cacheKey();}
+    if(cache.contains(glyph))return cache[glyph];
     QIcon result;
     for (bool active : {false, true}) {
         QPixmap pixmap(48, 48);
@@ -11,7 +19,7 @@ QIcon icon(Glyph glyph) {
         pixmap.fill(Qt::transparent);
         QPainter p(&pixmap);
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QPen(active ? QColor(70, 192, 239) : QColor(200, 207, 215), 1.65, Qt::SolidLine,
+        p.setPen(QPen(qApp->palette().color(active?QPalette::HighlightedText:QPalette::ButtonText), 1.65, Qt::SolidLine,
                       Qt::RoundCap, Qt::RoundJoin));
         auto line = [&](qreal x, qreal y, qreal a, qreal b) { p.drawLine(QPointF(x, y), QPointF(a, b)); };
         auto poly = [&](std::initializer_list<QPointF> points, bool fill = false) {
@@ -225,6 +233,19 @@ QIcon icon(Glyph glyph) {
         p.end();
         result.addPixmap(pixmap, QIcon::Normal, active ? QIcon::On : QIcon::Off);
     }
-    return result;
+    generatedIcons[result.cacheKey()]=glyph;cache[glyph]=result;return result;
+}
+void refreshEditorIcons() {
+    const auto previous=generatedIcons;QMap<Glyph,QIcon> replacements;
+    auto replace=[&](const QIcon &old) {
+        auto found=previous.constFind(old.cacheKey());if(found==previous.cend())return old;
+        if(!replacements.contains(*found))replacements[*found]=icon(*found);
+        return replacements[*found];
+    };
+    for(auto *window:qApp->topLevelWidgets()) {
+        for(auto *action:window->findChildren<QAction*>())action->setIcon(replace(action->icon()));
+        for(auto *button:window->findChildren<QAbstractButton*>())button->setIcon(replace(button->icon()));
+        for(auto *widget:window->findChildren<QWidget*>())widget->setWindowIcon(replace(widget->windowIcon()));
+    }
 }
 } // namespace trickster

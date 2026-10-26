@@ -16,7 +16,10 @@ destination = root / 'Assets/Materials/Types'
 destination.mkdir(parents=True, exist_ok=True)
 shader_root = 'Atom/Feature/Common/Assets/Shaders/Materials/'
 
-material = json.loads((sdk / 'Materials/Types/StandardPBR.materialtype').read_text())
+def write_utf8(path, text):
+    path.write_bytes(text.replace('\r\n', '\n').encode('utf-8'))
+
+material = json.loads((sdk / 'Materials/Types/StandardPBR.materialtype').read_text(encoding='utf-8'))
 for group in material['propertyLayout']['propertyGroups']:
     source = group['$import']
     target = destination / source
@@ -39,11 +42,11 @@ material['propertyLayout']['propertyGroups'].append(dict(name='jester', properti
 material['description'] = 'Jester imported PBR: independent glTF texture transforms and samplers.'
 material['materialShaderCode'] = 'JesterPBR.azsli'
 material['materialShaderDefines'] = 'JesterPBR_Defines.azsli'
-(destination / 'JesterPBR.materialtype').write_text(json.dumps(material, indent=4) + '\n')
+write_utf8(destination / 'JesterPBR.materialtype', json.dumps(material, indent=4) + '\n')
 (destination / 'JesterPBR_Defines.azsli').write_bytes((sdk / 'Materials/Types/StandardPBR_Defines.azsli').read_bytes())
 
 def read_shader(path):
-    text = (sdk / 'Shaders/Materials' / path).read_text()
+    text = (sdk / 'Shaders/Materials' / path).read_text(encoding='utf-8')
     # The vendored files live together; unchanged dependencies remain in the SDK.
     parent = Path(path).parent
     import re
@@ -66,7 +69,7 @@ base = adapt_maps(read_shader('BasePBR/BasePBR_SurfaceEval.azsli'))
 start = base.index('    real3x3 uvMatrix =')
 end = base.index('\n', start)
 base = base[:start] + '    real3x3 uvMatrix = real3x3(params.m_jesterNormalRow0.xyz, params.m_jesterNormalRow1.xyz, float3(0,0,1));' + base[end:]
-(destination / 'JesterBaseSurface.azsli').write_text(base)
+write_utf8(destination / 'JesterBaseSurface.azsli', base)
 surface = adapt_maps(read_shader('StandardPBR/StandardPBR_SurfaceEval.azsli'))
 surface = surface.replace(f'<{shader_root}BasePBR/BasePBR_SurfaceEval.azsli>', '"JesterBaseSurface.azsli"')
 surface = surface.replace(f'<{shader_root}MaterialFunctions/StandardGetAlphaAndClip.azsli>', '"JesterAlpha.azsli"')
@@ -79,13 +82,13 @@ surface = surface.replace('    return surface;', '''    if (params.m_jesterUnlit
         surface.specularF0 = real3(0,0,0);
     }
     return surface;''', 1)
-(destination / 'JesterSurface.azsli').write_text(surface)
+write_utf8(destination / 'JesterSurface.azsli', surface)
 alpha = adapt_maps(read_shader('MaterialFunctions/StandardGetAlphaAndClip.azsli'))
 alpha = alpha.replace('GetMaterialTextureSampler(), o_opacity_source', 'GetMaterialTextureSampler(params.m_jesterBaseSampler), o_opacity_source')
 alpha = alpha.replace('    CheckClipping(alpha,', '    alpha *= real(params.m_jesterAlphaFactor);\n    CheckClipping(alpha,')
 alpha = alpha.replace('return real(params.m_opacityFactor) * alpha;', 'return o_opacity_mode == OpacityMode::Cutout ? real(1) : real(params.m_opacityFactor) * alpha;')
-(destination / 'JesterAlpha.azsli').write_text(alpha)
-pbr = (sdk / 'Materials/Types/StandardPBR.azsli').read_text()
+write_utf8(destination / 'JesterAlpha.azsli', alpha)
+pbr = (sdk / 'Materials/Types/StandardPBR.azsli').read_text(encoding='utf-8')
 pbr = pbr.replace(f'<{shader_root}StandardPBR/StandardPBR_SurfaceEval.azsli>', '"JesterSurface.azsli"')
 pbr = pbr.replace('"' + shader_root + 'MaterialFunctions/StandardGetAlphaAndClip.azsli"', '"JesterAlpha.azsli"')
 pbr = pbr.replace('#if MATERIALPIPELINE_SHADER_HAS_PIXEL_STAGE', '''float2 JesterUv(float2 uv, float4 row0, float4 row1)
@@ -94,8 +97,8 @@ pbr = pbr.replace('#if MATERIALPIPELINE_SHADER_HAS_PIXEL_STAGE', '''float2 Jeste
 }
 
 #if MATERIALPIPELINE_SHADER_HAS_PIXEL_STAGE''', 1)
-(destination / 'JesterPBR.azsli').write_text(pbr)
+write_utf8(destination / 'JesterPBR.azsli', pbr)
 asset = root / 'Assets/Materials/JesterDefault.material'
-data = json.loads(asset.read_text())
+data = json.loads(asset.read_text(encoding='utf-8'))
 data['materialType'] = 'Types/JesterPBR.materialtype'
-asset.write_text(json.dumps(data, indent=4) + '\n')
+write_utf8(asset, json.dumps(data, indent=4) + '\n')

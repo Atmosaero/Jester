@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "automation/editor_api.h"
 #include "ui/widgets/icons.h"
 #include "automation/mcp_server.h"
@@ -19,20 +20,20 @@
 namespace trickster {
 void Window::buildAutomation() {
     mcp = new McpServer(this);
-    auto menu = menuBar()->addMenu("&Automation");
+    auto menu = addTranslatedMenu(menuBar(),"&Automation");
     menu->setObjectName("automationMenu");
-    auto start = menu->addAction("Start MCP server");
+    auto start = addTranslatedAction(menu,"Start MCP server");
     start->setObjectName("mcpStartAction");
-    auto stop = menu->addAction("Stop MCP server");
+    auto stop = addTranslatedAction(menu,"Stop MCP server");
     stop->setObjectName("mcpStopAction");
     menu->addSeparator();
-    auto connection = menu->addAction("MCP connection…");
+    auto connection = addTranslatedAction(menu,"MCP connection…");
     connection->setObjectName("mcpConnectionAction");
-    auto copy = menu->addAction("Copy MCP client configuration");
+    auto copy = addTranslatedAction(menu,"Copy MCP client configuration");
     copy->setObjectName("mcpCopyConfigAction");
     auto status = new QToolButton(this);
     status->setObjectName("mcpStatusButton");
-    status->setToolTip("MCP automation server · connection and controls");
+    bindUiText(status,"toolTip","MCP automation server · connection and controls");
     status->setAutoRaise(true);
     statusBar()->addPermanentWidget(status);
     auto update = [this, start, stop, copy, status] {
@@ -40,38 +41,38 @@ void Window::buildAutomation() {
         start->setEnabled(!on);
         stop->setEnabled(on);
         copy->setEnabled(on);
-        status->setText(on ? QString("MCP :%1").arg(mcp->port()) : "MCP off");
-        status->setStyleSheet(on ? "color: #6cd8ad;" : "color: #a1abb7;");
+        status->setText(on ? uiText("MCP :%1").arg(mcp->port()) : uiText("MCP off"));
+        status->setStyleSheet(on?"color:palette(link);":"color:palette(placeholder-text);");
     };
     connect(mcp, &McpServer::statusChanged, this, update);
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,update);
     update();
     connect(start, &QAction::triggered, this, [this] {
         auto port = quint16(QSettings().value("automation/port", 18530).toUInt());
         if (mcp->start(port))
-            report("MCP running at " + mcp->endpoint());
+            report(uiText("MCP running at ") + mcp->endpoint());
         else
-            report("MCP could not start: " + mcp->lastError());
+            report(uiText("MCP could not start: ") + mcp->lastError());
     });
     connect(stop, &QAction::triggered, this, [this] {
         mcp->stop();
-        report("MCP stopped. Remote editor commands are disconnected.");
+        report(uiText("MCP stopped. Remote editor commands are disconnected."));
     });
     connect(copy, &QAction::triggered, this, [this] {
         if (mcp->isRunning()) {
             QApplication::clipboard()->setText(
                 QString::fromUtf8(QJsonDocument(mcp->connectionConfig()).toJson(QJsonDocument::Indented)));
-            report("MCP client configuration copied, including the local access token.");
+            report(uiText("MCP client configuration copied, including the local access token."));
         }
     });
     connect(status, &QToolButton::clicked, connection, &QAction::trigger);
     connect(connection, &QAction::triggered, this, [this, start, stop, copy] {
         QDialog dialog(this);
         dialog.setObjectName("mcpConnectionDialog");
-        dialog.setWindowTitle("Jester · MCP connection");
+        bindUiText(&dialog,"windowTitle","Jester · MCP connection");
         dialog.resize(620, 470);
         auto layout = new QVBoxLayout(&dialog);
-        auto intro = new QLabel(
-            "Allow an assistant to control this running editor through MCP. The server listens on this "
+        auto intro = translatedWidget<QLabel>("Allow an assistant to control this running editor through MCP. The server listens on this "
             "computer only and starts when you enable it. Pose edits use the editor's Undo history.");
         intro->setWordWrap(true);
         layout->addWidget(intro);
@@ -80,28 +81,28 @@ void Window::buildAutomation() {
         port->setObjectName("mcpPort");
         port->setRange(1024, 65535);
         port->setValue(QSettings().value("automation/port", 18530).toInt());
-        form->addRow("Port", port);
+        addTranslatedRow(form,"Port", port);
         auto endpoint = new QLineEdit(&dialog);
         endpoint->setObjectName("mcpEndpoint");
         endpoint->setReadOnly(true);
-        form->addRow("Streamable HTTP", endpoint);
+        addTranslatedRow(form,"Streamable HTTP", endpoint);
         auto token = new QLineEdit(mcp->accessToken(), &dialog);
         token->setObjectName("mcpAccessToken");
         token->setEchoMode(QLineEdit::Password);
         token->setReadOnly(true);
-        form->addRow("Bearer token", token);
+        addTranslatedRow(form,"Bearer token", token);
         layout->addLayout(form);
         auto row = new QHBoxLayout;
-        auto startButton = new QPushButton("Start", &dialog);
+        auto startButton = translatedWidget<QPushButton>("Start", &dialog);
         startButton->setObjectName("mcpStartButton");
         row->addWidget(startButton);
-        auto stopButton = new QPushButton("Stop", &dialog);
+        auto stopButton = translatedWidget<QPushButton>("Stop", &dialog);
         stopButton->setObjectName("mcpStopButton");
         row->addWidget(stopButton);
-        auto copyButton = new QPushButton("Copy JSON", &dialog);
+        auto copyButton = translatedWidget<QPushButton>("Copy JSON", &dialog);
         copyButton->setObjectName("mcpCopyConfigButton");
         row->addWidget(copyButton);
-        auto codexButton = new QPushButton("Copy Codex config", &dialog);
+        auto codexButton = translatedWidget<QPushButton>("Copy Codex config", &dialog);
         codexButton->setObjectName("mcpCopyCodexButton");
         row->addWidget(codexButton);
         connect(codexButton, &QPushButton::clicked, &dialog,
@@ -114,8 +115,7 @@ void Window::buildAutomation() {
         activity->setObjectName("mcpActivity");
         activity->setReadOnly(true);
         activity->setMaximumBlockCount(100);
-        activity->setPlaceholderText(
-            "Tool calls will appear here. Arguments and access tokens are not logged.");
+        bindPlaceholder(activity,"Tool calls will appear here. Arguments and access tokens are not logged.");
         layout->addWidget(activity, 1);
         auto refresh = [&, this] {
             bool on = mcp->isRunning();
@@ -126,14 +126,15 @@ void Window::buildAutomation() {
             stopButton->setEnabled(on);
             copyButton->setEnabled(on);
             codexButton->setEnabled(on);
-            endpoint->setText(on ? mcp->endpoint() : "Stopped");
-            summary->setText(QString("%1 tools · %2 resources · %3 requests%4")
+            endpoint->setText(on ? mcp->endpoint() : uiText("Stopped"));
+            summary->setText(uiText("%1 tools · %2 resources · %3 requests%4")
                                  .arg(mcp->api()->tools().size())
                                  .arg(mcp->api()->resources().size())
                                  .arg(mcp->requestCount())
                                  .arg(mcp->lastError().isEmpty() ? QString() : " · " + mcp->lastError()));
         };
         connect(mcp, &McpServer::statusChanged, &dialog, refresh);
+        connect(&LocalizationService::instance(),&LocalizationService::languageChanged,&dialog,refresh);
         connect(mcp, &McpServer::activity, &dialog, [activity](QString method, bool success) {
             activity->appendPlainText((success ? "OK  " : "ERR ") + method);
         });

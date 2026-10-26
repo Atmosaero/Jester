@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QPointer>
 #include <QStandardPaths>
+#include <QSettings>
 
 namespace trickster {
 PreferencesService &PreferencesService::instance() {
@@ -22,6 +23,12 @@ PreferencesService::PreferencesService(QObject *parent):QObject(parent) {
         if(QFileInfo::exists(fallback))path=fallback;
     }
     if(QFileInfo::exists(path))EditorPreferences::load(path,preferences,warning);
+    if(qEnvironmentVariableIsSet("JESTER_PREFERENCES_FILE")) {
+        // Test/isolated installations keep window state beside their explicit
+        // preferences file rather than changing the normal Windows profile.
+        QSettings::setDefaultFormat(QSettings::IniFormat);
+        QSettings::setPath(QSettings::IniFormat,QSettings::UserScope,QFileInfo(path).absolutePath()+"/qt-state");
+    }
 }
 bool PreferencesService::preview(const EditorPreferences &value,QString &error) {
     if(!LocalizationService::instance().setPreference(value.value("language").toString(),error))return false;

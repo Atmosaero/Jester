@@ -1,6 +1,6 @@
 # Build and run
 
-Supported alpha configuration: Windows x64, DirectX 12 GPU, installed **O3DE SDK 26.10** (`o3de-sdk`), **Visual Studio 2026 / MSVC** with Desktop development with C++, Windows SDK, Git and PowerShell. Use the SDK's **Qt 6.10.2** and bundled CMake; do not mix in another Qt installation.
+Supported alpha configuration: Windows x64, DX12/Vulkan-capable GPU, installed **O3DE SDK 26.10** (`o3de-sdk`), **Visual Studio 2026 / MSVC** with Desktop development with C++, Windows SDK, Git and PowerShell. Use the SDK's **Qt 6.10.2** and bundled CMake; do not mix in another Qt installation.
 
 ```powershell
 git clone https://github.com/Atmosaero/Jester.git
@@ -22,7 +22,7 @@ cd Jester
 ./launch.ps1 -Smoke                  # Native viewport check, then exit
 ```
 
-Output: `build/bin/profile/Jester.exe`. `-Configuration release` is supported by both build and launch scripts. Cache, user settings, test output and imported libraries remain local and ignored by Git. The source version lives in `project.json`; CMake generates the application version and embeds the current Git SHA as the build identity.
+Output: `build/bin/profile/Jester.exe`. The scripts accept `-Configuration release`, but that requires matching Release libraries in the installed engine SDK. The supplied SDK tools libraries are optimized Profile; Profile is the configuration validated and packaged here. Cache, user settings, test output and imported libraries remain local and ignored by Git. The source version lives in `project.json`; CMake generates the application version and embeds the current Git SHA as the build identity.
 
 Open `.fbx`, `.glb`, `.gltf` or `.jst` files from File → Open. Try Scene → Choose scene for included synthetic templates. Save As preserves the original examples.
 

@@ -1,3 +1,5 @@
+#include "ui/widgets/localized_ui.h"
+#include "settings/editor_appearance.h"
 #include "ui/notes/notes_overlay.h"
 #include "ui/notes/notes_ui.h"
 #include "core/annotations/motion_annotations.h"
@@ -49,13 +51,13 @@ void NotesOverlay::draw(QPainter *p){
         }
         if(!placed)continue; // Crowded/offscreen notes remain navigable in the dock.
         QString id=note["id"].toString();hits[id]=marker;exposed[id]=marker.toRect();
-        p->save();p->setPen(QPen(QColor(240,192,90,150),1));p->drawLine(anchor,marker.center());
-        p->setPen(QPen(QColor(245,205,120),id==document->activeAnnotation?2:1));
-        p->setBrush(id==document->activeAnnotation?QColor(160,106,30):QColor(50,46,37,235));
+        p->save();p->setPen(QPen(overlayColor("notes",150),1));p->drawLine(anchor,marker.center());
+        p->setPen(QPen(overlayColor("notes"),id==document->activeAnnotation?2:1));
+        p->setBrush(id==document->activeAnnotation?overlayColor("notes").darker(180):QColor(view->palette().color(QPalette::Window)));
         p->drawRoundedRect(marker,5,5);
         p->drawLine(marker.topLeft()+QPointF(6,8),marker.topRight()+QPointF(-6,8));
         p->drawLine(marker.topLeft()+QPointF(6,13),marker.topRight()+QPointF(-8,13));
-        if(nodes.empty())p->drawText(marker,Qt::AlignCenter,"C");
+        if(nodes.empty())p->drawText(marker,Qt::AlignCenter,uiText("C"));
         p->restore();
     }
     view->setProperty("annotationMarkers",exposed);
@@ -71,7 +73,7 @@ bool NotesOverlay::eventFilter(QObject *,QEvent *event){
     if(event->type()==QEvent::ToolTip){auto help=static_cast<QHelpEvent*>(event);
         for(auto it=hits.begin();it!=hits.end();++it)if(it.value().contains(help->pos())){
             for(auto value:document->scene.annotations){auto note=value.toObject();if(note["id"]==it.key()){
-                QString text=annotationBindings(document->scene,note)+" | "+annotationTimeLabel(note,document->scene.fps)+"\n"+note["description"].toString(note["name"].toString()).left(240);
+                QString text=noteBindingText(document->scene,note)+" | "+noteTimeLabel(note,document->scene.fps)+"\n"+note["description"].toString(note["name"].toString()).left(240);
                 QToolTip::showText(help->globalPos(),Qt::convertFromPlainText(text),view);return true;}}
         }
     }

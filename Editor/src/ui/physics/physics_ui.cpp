@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "core/scene/edit_service.h"
 #include "ui/widgets/icons.h"
 #include "physics/physics_proxy.h"
@@ -44,7 +45,7 @@ QWidget *vectorEditor(QWidget *parent, const QString &name, QVector3D value) {
     l->setContentsMargins(0, 0, 0, 0);
     for (int k = 0; k < 3; ++k) {
         auto box = number(w, name + QString::number(k), value[k]);
-        box->setPrefix(QString("XYZ")[k] + QString(" "));
+        box->setPrefix(QString("XYZ")[k] + uiText(" "));
         l->addWidget(box);
     }
     return w;
@@ -56,7 +57,7 @@ QJsonArray vectorValue(QWidget *w) {
     return a;
 }
 QString reportText(const QJsonObject &r) {
-    return QString("%1 · %2 ms\nSupport %3 mm · target %4 mm · COM %5 mm\n%6\nStatic pose check; dynamic "
+    return uiText("%1 · %2 ms\nSupport %3 mm · target %4 mm · COM %5 mm\n%6\nStatic pose check; dynamic "
                    "validation is separate.")
         .arg(r["status"].toString())
         .arg(r["elapsedMs"].toDouble(), 0, 'f', 0)
@@ -70,25 +71,26 @@ void Window::showWholeBodyDialog() {
     commitPendingEditor();
     document().play(false);
     if (document().scene.nodes.empty()) {
-        report("Open a character first.");
+        report(QString("Open a character first."));
         return;
     }
     QDialog dialog(this);
     dialog.setObjectName("wholeBodyDialog");
-    dialog.setWindowTitle("Whole-body pose · Trickster");
-    dialog.resize(700, 430);
+    bindUiText(&dialog,"windowTitle","Whole-body pose · Jester");
+    dialog.resize(std::clamp(width()-80,700,900),430);
     auto layout = new QVBoxLayout(&dialog);
     auto goals = new QTableWidget(0, 8, &dialog);
     goals->setObjectName("wholeBodyGoals");
-    goals->setHorizontalHeaderLabels({"Effector", "Hard", "Priority", "Weight", "X", "Y", "Z", ""});
+    bindHeaders(goals,{"Effector", "Hard", "Priority", "Weight", "X", "Y", "Z", ""});
     goals->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     goals->horizontalHeader()->setStretchLastSection(false);
     goals->horizontalHeader()->setSectionResizeMode(7, QHeaderView::Fixed);
     goals->setColumnWidth(7, 28);
+    for(int column=4;column<=6;++column)goals->horizontalHeader()->setSectionResizeMode(column,QHeaderView::Stretch);
     auto &s = document().scene;
     auto defs = s.bodies.empty() ? fittedPhysicsRig(s) : s.bodies;
     if (defs.empty()) {
-        report("No physical bodies. Fit or add bodies in Model before posing.");
+        report(QString("No physical bodies. Fit or add bodies in Model before posing."));
         return;
     }
     auto defaults = s.physics.requests["whole_body"].toObject();
@@ -130,8 +132,8 @@ void Window::showWholeBodyDialog() {
         auto remove = new QToolButton(goals);
         remove->setText(QString(QChar(0x00d7)));
         remove->setObjectName("removeWholeBodyGoal");
-        remove->setToolTip("Remove this additional target; authored contacts stay in the Contacts editor.");
-        remove->setAccessibleName("Remove target");
+        bindUiText(remove,"toolTip","Remove this additional target; authored contacts stay in the Contacts editor.");
+        bindUiText(remove,"accessibleName","Remove target");
         goals->setCellWidget(row, 7, remove);
         connect(remove, &QToolButton::clicked, goals, [=] {
             int r = rowOf();
@@ -206,12 +208,12 @@ void Window::showWholeBodyDialog() {
                                                    g["orientation"].toArray().toVariantList());
     }
     layout->addWidget(goals);
-    auto addGoal = new QPushButton(icon(Glyph::Pin), "Add target", &dialog);
+    auto addGoal = translatedIconWidget<QPushButton>(icon(Glyph::Pin),"Add target", &dialog);
     addGoal->setObjectName("addWholeBodyGoal");
     connect(addGoal, &QPushButton::clicked, &dialog, [&] { add(selected, false); });
     layout->addWidget(addGoal);
     auto form = new QFormLayout;
-    auto comEnabled = new QCheckBox("COM goal", &dialog);
+    auto comEnabled = translatedWidget<QCheckBox>("COM goal", &dialog);
     comEnabled->setObjectName("wholeBodyComEnabled");
     auto comTarget = physicalCenterOfMass(s);
     auto requestedCom = defaults["comTarget"].toArray();
@@ -221,7 +223,7 @@ void Window::showWholeBodyDialog() {
         comEnabled->setChecked(true);
     }
     auto com = vectorEditor(&dialog, "wholeBodyCom", comTarget);
-    auto comHeight = new QCheckBox("Height", &dialog);
+    auto comHeight = translatedWidget<QCheckBox>("Height", &dialog);
     comHeight->setObjectName("wholeBodyComHeight");
     comHeight->setChecked(defaults["comHeight"].toBool());
     auto comControls = new QWidget(&dialog);
@@ -241,8 +243,8 @@ void Window::showWholeBodyDialog() {
     layout->addLayout(form);
     auto stats = new QLabel(
         missingGoal
-            ? "Some saved targets no longer have a physical body; review goals."
-            : "Hard targets preserve supports. COM is a static hint; authored contacts remain active.",
+            ? uiText("Some saved targets no longer have a physical body; review goals.")
+            : uiText("Hard targets preserve supports. COM is a static hint; authored contacts remain active."),
         &dialog);
     stats->setObjectName("wholeBodyReport");
     stats->setMinimumHeight(stats->fontMetrics().lineSpacing() * 6 + 8);
@@ -250,7 +252,7 @@ void Window::showWholeBodyDialog() {
     stats->setWordWrap(true);
     layout->addWidget(stats);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
-    auto solve = buttons->addButton("Solve + key", QDialogButtonBox::ActionRole);
+    auto solve = addTranslatedButton(buttons,"Solve + key", QDialogButtonBox::ActionRole);
     solve->setObjectName("solveWholeBodyButton");
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     connect(solve, &QPushButton::clicked, &dialog, [&] {
@@ -293,7 +295,7 @@ void Window::showWholeBodyDialog() {
             viewport->showBalance = comEnabled->isChecked();
             refresh();
         } catch (const std::exception &e) {
-            stats->setText(QString::fromUtf8(e.what()));
+            stats->setText(translatedDiagnostic(QString::fromUtf8(e.what())));
         }
     });
     layout->addWidget(buttons);
@@ -304,8 +306,8 @@ void Window::physicsCalculationDialog(const QString &kind) {
     document().play(false);
     QDialog dialog(this);
     dialog.setObjectName("physicsCalculationDialog");
-    dialog.setWindowTitle(kind == "flight" ? "Flight correction · Trickster"
-                                           : "Dynamics correction · Trickster");
+    dialog.setWindowTitle(kind == "flight" ? uiText("Flight correction · Jester")
+                                           : uiText("Dynamics correction · Jester"));
     dialog.resize(560, 430);
     auto l = new QVBoxLayout(&dialog);
     auto defaults = document().scene.physics.requests[kind].toObject();
@@ -317,17 +319,17 @@ void Window::physicsCalculationDialog(const QString &kind) {
     last->setRange(document().scene.first, document().scene.last);
     first->setValue(physicsFrom->value());
     last->setValue(physicsTo->value());
-    form->addRow("In", first);
-    form->addRow("Out", last);
+    addTranslatedRow(form,"In", first);
+    addTranslatedRow(form,"Out", last);
     auto mode = new QComboBox(&dialog);
     mode->setObjectName("flightBoundaryMode");
-    mode->addItems({"Endpoint positions", "Initial position + velocity"});
+    addTranslatedItems(mode,{"Endpoint positions", "Initial position + velocity"});
     mode->setCurrentIndex(defaults["mode"] == "initial-velocity" ? 1 : 0);
     auto velocity = vectorEditor(&dialog, "flightInitialVelocity", {}),
          endVelocity = vectorEditor(&dialog, "flightEndVelocity", {});
-    auto constrain = new QCheckBox("Require end velocity (m/s)", &dialog);
+    auto constrain = translatedWidget<QCheckBox>("Require end velocity (m/s)", &dialog);
     constrain->setObjectName("flightConstrainEndVelocity");
-    auto angular = new QCheckBox("Conserve angular momentum", &dialog);
+    auto angular = translatedWidget<QCheckBox>("Conserve angular momentum", &dialog);
     angular->setObjectName("flightConserveAngular");
     angular->setChecked(defaults["conserveAngularMomentum"].toBool(true));
     constrain->setChecked(defaults["constrainEndVelocity"].toBool());
@@ -337,7 +339,7 @@ void Window::physicsCalculationDialog(const QString &kind) {
     };
     connect(mode, qOverload<int>(&QComboBox::currentIndexChanged), &dialog, updateVelocityInputs);
     connect(constrain, &QCheckBox::toggled, &dialog, updateVelocityInputs);
-    velocity->setToolTip("Endpoint mode derives velocity from positions and duration.");
+    bindUiText(velocity,"toolTip","Endpoint mode derives velocity from positions and duration.");
     updateVelocityInputs();
     for (auto pair : {std::make_pair(velocity, QString("initialVelocity")),
                       std::make_pair(endVelocity, QString("endVelocity"))}) {
@@ -354,18 +356,18 @@ void Window::physicsCalculationDialog(const QString &kind) {
     auto seconds = number(&dialog, "solverSeconds", defaults["seconds"].toDouble(15), .01, 300);
     auto important = new QLineEdit(&dialog);
     important->setObjectName("solverImportantFrames");
-    important->setPlaceholderText("e.g. 0:10, 15:5, 30:10");
+    bindUiText(important,"placeholderText","e.g. 0:10, 15:5, 30:10");
     QStringList frames;
     for (auto f : defaults["importantFrames"].toArray())
-        frames << QString("%1:%2").arg(f.toObject()["frame"].toInt()).arg(f.toObject()["weight"].toDouble(5));
+        frames << uiText("%1:%2").arg(f.toObject()["frame"].toInt()).arg(f.toObject()["weight"].toDouble(5));
     important->setText(frames.join(", "));
-    auto endRest = new QCheckBox("Rest at end", &dialog);
+    auto endRest = translatedWidget<QCheckBox>("Rest at end", &dialog);
     endRest->setObjectName("physicsEndAtRest");
     endRest->setChecked(defaults["endAtRest"].toBool());
-    auto prepareLanding = new QCheckBox("Prepare landing reference", &dialog);
+    auto prepareLanding = translatedWidget<QCheckBox>("Prepare landing reference", &dialog);
     prepareLanding->setObjectName("physicsPrepareLanding");
     prepareLanding->setChecked(defaults["prepareLanding"].toBool(true));
-    prepareLanding->setToolTip("Adjust intermediate leg reference poses around authored contact. Important "
+    bindUiText(prepareLanding,"toolTip","Adjust intermediate leg reference poses around authored contact. Important "
                                "poses, initial state and physical model remain fixed.");
     for (QWidget *widget : std::initializer_list<QWidget *>{mode, velocity, endVelocity, constrain, angular})
         widget->setVisible(kind == "flight");
@@ -373,35 +375,35 @@ void Window::physicsCalculationDialog(const QString &kind) {
          std::initializer_list<QWidget *>{iterations, seconds, important, endRest, prepareLanding})
         widget->setVisible(kind != "flight");
     if (kind == "flight") {
-        form->addRow("Boundary", mode);
-        form->addRow("Initial velocity (m/s)", velocity);
+        addTranslatedRow(form,"Boundary", mode);
+        addTranslatedRow(form,"Initial velocity (m/s)", velocity);
         form->addRow(constrain, endVelocity);
         form->addRow(angular);
     } else {
-        form->addRow("Iterations", iterations);
-        form->addRow("Budget (s)", seconds);
-        form->addRow("Poses (frame:weight)", important);
+        addTranslatedRow(form,"Iterations", iterations);
+        addTranslatedRow(form,"Budget (s)", seconds);
+        addTranslatedRow(form,"Poses (frame:weight)", important);
         form->addRow(endRest);
         form->addRow(prepareLanding);
     }
     auto outputFps = new QSpinBox(&dialog);
     outputFps->setObjectName("physicsOutputFps");
     outputFps->setRange(0, 240);
-    outputFps->setSpecialValueText("Auto (simulation detail)");
+    bindUiText(outputFps,"specialValueText","Auto (simulation detail)");
     outputFps->setValue(defaults["outputFps"].toInt());
-    form->addRow("Result FPS", outputFps);
+    addTranslatedRow(form,"Result FPS", outputFps);
     l->addLayout(form);
     auto note =
         new QLabel(kind == "flight"
-                       ? "Release world pins; contact-free interval only. Incompatible velocity conditions "
-                         "produce an error."
-                       : "Contacts use real ground collision and the authored schedule. No root actuator or "
-                         "hidden world anchor. An approximate result may miss goals; inspect the report.",
+                       ? uiText("Release world pins; contact-free interval only. Incompatible velocity conditions "
+                         "produce an error.")
+                       : uiText("Contacts use real ground collision and the authored schedule. No root actuator or "
+                         "hidden world anchor. An approximate result may miss goals; inspect the report."),
                    &dialog);
     note->setWordWrap(true);
     l->addWidget(note);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    buttons->button(QDialogButtonBox::Ok)->setText("Calculate");
+    buttons->button(QDialogButtonBox::Ok)->setText(uiText("Calculate"));
     buttons->button(QDialogButtonBox::Ok)->setObjectName("calculatePhysicsButton");
     l->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -422,7 +424,7 @@ void Window::physicsCalculationDialog(const QString &kind) {
                 double weight = parts.size() == 2 ? parts[1].trimmed().toDouble(&weightOk) : 5;
                 if (!ok || !weightOk || parts.size() > 2 || !std::isfinite(weight) || weight <= 0 ||
                     f < first->value() || f > last->value()) {
-                    note->setText("Use frame or frame:weight, separated by commas. Frames must be inside the "
+                    bindUiText(note,"text","Use frame or frame:weight, separated by commas. Frames must be inside the "
                                   "interval and weights positive.");
                     return;
                 }
@@ -453,7 +455,7 @@ void Window::physicsModelDialog() {
     auto &s = document().scene;
     QDialog dialog(this);
     dialog.setObjectName("physicsModelDialog");
-    dialog.setWindowTitle("Physical model · Trickster");
+    bindUiText(&dialog,"windowTitle","Physical model · Jester");
     dialog.resize(760, 440);
     auto l = new QVBoxLayout(&dialog);
     auto summary = new QLabel(&dialog);
@@ -463,7 +465,7 @@ void Window::physicsModelDialog() {
         QString error;
         PhysicsMeasurement m;
         if (measurePhysics(document().scene, document().frame, m, error))
-            summary->setText(QString("%1 · %2 kg · COM (%3, %4, %5) m\nEstimated capsules/inertias are "
+            summary->setText(uiText("%1 · %2 kg · COM (%3, %4, %5) m\nEstimated capsules/inertias are "
                                      "initial guesses; authored values are authoritative.")
                                  .arg(physicsBackendVersion())
                                  .arg(m.mass, 0, 'f', 3)
@@ -477,7 +479,7 @@ void Window::physicsModelDialog() {
     auto defs = s.bodies.empty() ? fittedPhysicsRig(s) : s.bodies;
     auto table = new QTableWidget(int(defs.size()), 22, &dialog);
     table->setObjectName("physicsModelTable");
-    table->setHorizontalHeaderLabels({"Body",       "kg",        "Radius u",  "COM X",      "COM Y",
+    bindHeaders(table,{"Body",       "kg",        "Radius u",  "COM X",      "COM Y",
                                       "COM Z",      "Ixx kgm²",  "Iyy kgm²",  "Izz kgm²",   "Foot X u",
                                       "Foot Y u",   "Foot Z u",  "Kp Nm/rad", "Kd Nms/rad", "Limit Nm",
                                       "Estimated",  "Shape Rx",  "Shape Ry",  "Shape Rz",   "Inertia Rx",
@@ -488,7 +490,7 @@ void Window::physicsModelDialog() {
     newBody->setObjectName("physicsNewBodyNode");
     for (int n = 0; n < int(s.nodes.size()); ++n)
         newBody->addItem(s.nodes[n].name, n);
-    auto addBody = new QPushButton("Add", &dialog), removeBody = new QPushButton("Remove", &dialog);
+    auto addBody = translatedWidget<QPushButton>("Add", &dialog), removeBody = translatedWidget<QPushButton>("Remove", &dialog);
     addBody->setObjectName("physicsAddBody");
     removeBody->setObjectName("physicsRemoveBody");
     rigRow->addWidget(newBody, 1);
@@ -561,14 +563,14 @@ void Window::physicsModelDialog() {
     l->addWidget(table);
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, &dialog);
     buttons->button(QDialogButtonBox::Apply)->setObjectName("applyPhysicsModel");
-    auto exportButton = buttons->addButton("Export MJCF", QDialogButtonBox::ActionRole);
+    auto exportButton = addTranslatedButton(buttons,"Export MJCF", QDialogButtonBox::ActionRole);
     exportButton->setObjectName("exportMjcfButton");
-    auto human = buttons->addButton("Fit human rig", QDialogButtonBox::ActionRole);
+    auto human = addTranslatedButton(buttons,"Fit human rig", QDialogButtonBox::ActionRole);
     human->setObjectName("fitHumanPhysicsRigButton");
-    human->setToolTip("Replace the rig with estimated major-segment masses and capsules. Undo is available.");
-    auto feet = buttons->addButton("Fit feet", QDialogButtonBox::ActionRole);
+    bindUiText(human,"toolTip","Replace the rig with estimated major-segment masses and capsules. Undo is available.");
+    auto feet = addTranslatedButton(buttons,"Fit feet", QDialogButtonBox::ActionRole);
     feet->setObjectName("fitFootPadsButton");
-    feet->setToolTip("Fit estimated oriented support boxes to the authored rest pose and ground.");
+    bindUiText(feet,"toolTip","Fit estimated oriented support boxes to the authored rest pose and ground.");
     connect(human, &QPushButton::clicked, &dialog, [&] {
         if (applyOperation("physics_body",
                            {{"operation", "fit"},
@@ -616,7 +618,7 @@ void Window::physicsModelDialog() {
         if (applyOperation("physics_body", {{"operation", "set_many"}, {"bodies", bodies}}, "Physical model"))
             measure();
         else
-            summary->setText("Invalid model: inertia must be positive and satisfy triangle inequalities; "
+            bindUiText(summary,"text","Invalid model: inertia must be positive and satisfy triangle inequalities; "
                              "foot half sizes must all be positive or all zero.");
     });
     connect(exportButton, &QPushButton::clicked, &dialog, [&] {
@@ -625,14 +627,14 @@ void Window::physicsModelDialog() {
             summary->setText(error);
             return;
         }
-        auto path = QFileDialog::getSaveFileName(&dialog, "Export model", {}, "MuJoCo model (*.xml)");
+        auto path = QFileDialog::getSaveFileName(&dialog, uiText("Export model"), {}, uiText("MuJoCo model (*.xml)"));
         if (path.isEmpty())
             return;
         QSaveFile f(path);
         if (!f.open(QIODevice::WriteOnly) || f.write(xml.toUtf8()) < 0 || !f.commit())
             summary->setText(f.errorString());
         else
-            summary->setText("MJCF saved: " + path);
+            summary->setText(uiText("MJCF saved: ") + path);
     });
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     l->addWidget(buttons);
@@ -642,7 +644,7 @@ void Window::physicsProxyDialog() {
     commitPendingEditor();
     document().play(false);
     if (document().scene.nodes.empty()) {
-        report("Open a character before preparing a physical proxy.", true);
+        report(QString("Open a character before preparing a physical proxy."), true);
         return;
     }
     const Scene source = document().scene;
@@ -658,7 +660,7 @@ void Window::physicsProxyDialog() {
     sourceView.select(sourceSelection);
     QDialog dialog(this);
     dialog.setObjectName("physicsProxyDialog");
-    dialog.setWindowTitle("Rigid proxy preview - Trickster");
+    bindUiText(&dialog,"windowTitle","Rigid proxy preview - Jester");
     dialog.resize(qMin(860, qRound(1200 / devicePixelRatioF())),
                   qMin(480, qRound(640 / devicePixelRatioF())));
     auto layout = new QVBoxLayout(&dialog);
@@ -667,14 +669,14 @@ void Window::physicsProxyDialog() {
     layout->addWidget(info);
     auto controls = new QHBoxLayout;
     layout->addLayout(controls);
-    controls->addWidget(new QLabel("Proxy FPS", &dialog));
+    controls->addWidget(translatedWidget<QLabel>("Proxy FPS", &dialog));
     auto fps = new QComboBox(&dialog);
     fps->setObjectName("physicsProxyFps");
     for (int rate = source.fps; rate <= 240; rate += source.fps)
         fps->addItem(QString::number(rate), rate);
     fps->setCurrentIndex(qMax(0, fps->findData(QSettings().value("physics/proxyFps", source.fps).toInt())));
     controls->addWidget(fps);
-    auto calculate = new QPushButton("Preview", &dialog);
+    auto calculate = translatedWidget<QPushButton>("Preview", &dialog);
     calculate->setObjectName("previewPhysicsProxyButton");
     controls->addWidget(calculate);
     controls->addStretch();
@@ -692,7 +694,7 @@ void Window::physicsProxyDialog() {
     slider->setObjectName("physicsProxyFrameSlider");
     slider->setRange(source.first, source.last);
     slider->setValue(sourceFrame);
-    slider->setToolTip("Source frame; both views use the same time");
+    bindUiText(slider,"toolTip","Source frame; both views use the same time");
     layout->addWidget(slider);
     connect(slider, &QSlider::valueChanged, &dialog, [&](int frame) {
         sourceView.seek(frame);
@@ -702,7 +704,7 @@ void Window::physicsProxyDialog() {
     auto buttons = new QDialogButtonBox(QDialogButtonBox::Open | QDialogButtonBox::Cancel, &dialog);
     layout->addWidget(buttons);
     auto open = buttons->button(QDialogButtonBox::Open);
-    open->setText("Open proxy as scene");
+    bindUiText(open,"text","Open proxy as scene");
     open->setObjectName("openPhysicsProxyButton");
     open->setEnabled(false);
     auto preview = [&] {
@@ -719,7 +721,7 @@ void Window::physicsProxyDialog() {
         proxyView.select(sourceSelection);
         proxyView.seek(qRound(double(slider->value()) * proxy.fps / source.fps));
         proxyViewport->fit();
-        info->setText(QString("Approximate active-clip copy ? geometry error %1 mm ? joint error %2 "
+        info->setText(uiText("Approximate active-clip copy ? geometry error %1 mm ? joint error %2 "
                               "mm\nLeft: source. Right: rigid proxy. Source is preserved.")
                           .arg(measurement["maximumWorldGeometryErrorM"].toDouble() * 1000, 0, 'g', 5)
                           .arg(measurement["maximumWorldJointErrorM"].toDouble() * 1000, 0, 'g', 5));
@@ -732,7 +734,7 @@ void Window::physicsProxyDialog() {
     connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
         auto current = workspace.find(sourceId);
         if (!current || current->motionRevision != sourceRevision) {
-            info->setText("Source changed. Reopen preparation to measure the current scene.");
+            bindUiText(info,"text","Source changed. Reopen preparation to measure the current scene.");
             open->setEnabled(false);
             return;
         }
@@ -750,20 +752,20 @@ void Window::physicsReportDialog() {
     auto r = hasPhysicsResult() ? state["report"].toObject() : document().scene.physicsResult;
     QDialog dialog(this);
     dialog.setObjectName("physicsReportDialog");
-    dialog.setWindowTitle("Physics report · Trickster");
+    bindUiText(&dialog,"windowTitle","Physics report · Jester");
     dialog.resize(650, 430);
     auto l = new QVBoxLayout(&dialog);
     auto status = new QLabel(
-        r.isEmpty() ? "No computed report. Calculate a preview first."
+        r.isEmpty() ? uiText("No computed report. Calculate a preview first.")
                     : r["backend"].toString() + " · " + r["status"].toString() +
-                          (r["validationStale"].toBool() ? " · STALE (edited since validation)" : "") + "\n" +
+                          (r["validationStale"].toBool() ? uiText(" · STALE (edited since validation)") : "") + uiText("\n") +
                           r["stopReason"].toString(),
         &dialog);
     status->setWordWrap(true);
     l->addWidget(status);
     auto table = new QTableWidget(0, 4, &dialog);
     table->setObjectName("physicsReportTable");
-    table->setHorizontalHeaderLabels({"Metric", "Before", "After", "Tolerance"});
+    bindHeaders(table,{"Metric", "Before", "After", "Tolerance"});
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     table->horizontalHeader()->setStretchLastSection(true);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -774,7 +776,7 @@ void Window::physicsReportDialog() {
         int i = table->rowCount();
         table->insertRow(i);
         for (int c = 0; c < 4; ++c)
-            table->setItem(i, c, new QTableWidgetItem(QStringList{name, before, after, tolerance}[c]));
+            table->setItem(i, c, new QTableWidgetItem(QStringList{uiText(name),before,uiText(after),uiText(tolerance)}[c]));
         return i;
     };
     auto n = [](double v) { return QString::number(v, 'g', 5); };
@@ -871,7 +873,7 @@ void Window::physicsReportDialog() {
                         n(f["positionM"].toDouble() * 1000) + " mm / " + n(f["angleDeg"].toDouble()) + " deg",
                         n(.02 * H * 1000) + " mm / 5 deg");
         table->item(index, 0)->setData(Qt::UserRole, f["frame"].toDouble());
-        table->item(index, 0)->setToolTip("Double-click to seek this measured frame.");
+        table->item(index, 0)->setToolTip(uiText("Double-click to seek this measured frame."));
     }
     connect(table, &QTableWidget::cellDoubleClicked, &dialog, [&](int index, int) {
         auto frame = table->item(index, 0)->data(Qt::UserRole);

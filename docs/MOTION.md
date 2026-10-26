@@ -1,6 +1,6 @@
 # Motion editing
 
-Current release: **0.1.0-alpha.1**. Use `Jester --build-info` for the source Git SHA. Project schema 8 reads schemas 1-8; an old constant correction becomes one equivalent layer, and legacy transform keys retain all TRS components.
+Current release: **0.1.0-alpha.1**. Use `Jester --build-info` for the source Git SHA. Project schema 9 reads schemas 1-9; an old constant correction becomes one equivalent layer, and legacy transform keys retain all TRS components.
 
 ## Main workflow
 

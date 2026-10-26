@@ -9,6 +9,8 @@
 #include <QFileDialog>
 #include <QFontComboBox>
 #include <QFormLayout>
+#include <QFontDatabase>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QInputDialog>
@@ -18,13 +20,15 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
+#include <QScreen>
+#include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
 namespace trickster {
 void showPreferences(Window &window) {
     auto &service=PreferencesService::instance();EditorPreferences baseline=service.current(),draft=baseline;
-    const auto originalLayout=window.saveState(),originalGeometry=window.saveGeometry();
+    auto originalLayout=window.saveState(),originalGeometry=window.saveGeometry();
     ActionRegistry registry(window);
     QDialog dialog(&window);dialog.setObjectName("preferencesDialog");bindUiText(&dialog,"windowTitle","Preferences");
     dialog.resize(760,680);auto *layout=new QVBoxLayout(&dialog);
@@ -43,7 +47,7 @@ void showPreferences(Window &window) {
         const auto parts=path.split('.');QJsonObject changes;
         if(parts.size()==1)changes[parts[0]]=value;else changes[parts[0]]=QJsonObject{{parts[1],value}};
         QString error;auto next=draft;
-        if(!next.patch(changes,error)) {status->setText(error);return;}
+        if(!next.patch(changes,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return;}
         draft=next;
     };
     auto combo=[&](QFormLayout *form,const QString &path,const QString &label,const QList<QPair<QString,QString>> &choices) {
@@ -65,7 +69,7 @@ void showPreferences(Window &window) {
             if(value.isValid()) {patch(path,value.name());widget->setText(value.name());}
         });
     };
-    auto *font=new QFontComboBox(body);font->setObjectName("preference_appearance.fontFamily");font->setCurrentFont(QFont(draft.value("appearance.fontFamily").toString()));
+    auto *font=new QFontComboBox(body);font->setWritingSystem(QFontDatabase::Cyrillic);font->setObjectName("preference_appearance.fontFamily");font->setCurrentFont(QFont(draft.value("appearance.fontFamily").toString()));
     fields["appearance.fontFamily"]=font;addTranslatedRow(appearance,"Font family",font);
     QObject::connect(font,&QFontComboBox::currentFontChanged,&dialog,[&](const QFont &value){patch("appearance.fontFamily",value.family());});
     number("appearance.fontSize","Font size (pt)",7,32,1);number("appearance.uiScale","Interface scale",.75,2.5,.05);number("appearance.iconSize","Icon size (px)",12,48,1);
@@ -77,6 +81,7 @@ void showPreferences(Window &window) {
     combo(language,"language","Interface language",{{"System","system"},{"English","en"},{"Russian","ru"}});
     auto *actionsGroup=translatedGroupBox("Keyboard shortcuts",body);groups->addWidget(actionsGroup);auto *actionLayout=new QVBoxLayout(actionsGroup);
     auto *actions=new QTreeWidget(actionsGroup);actions->setObjectName("preferencesActions");bindHeaders(actions,{"Action","Shortcut","Stable ID"});
+    auto *actionCount=new QLabel(actionsGroup);actionCount->setObjectName("preferencesActionCount");actionLayout->addWidget(actionCount);
     actions->setRootIsDecorated(false);actions->setMinimumHeight(180);actions->header()->setSectionResizeMode(QHeaderView::ResizeToContents);actionLayout->addWidget(actions);
     auto *key=new QKeySequenceEdit(actionsGroup);key->setObjectName("preferencesShortcutEdit");actionLayout->addWidget(key);
     auto *setKey=translatedButton("Assign shortcut",actionsGroup),*resetKey=translatedButton("Reset action shortcut",actionsGroup);
@@ -90,6 +95,7 @@ void showPreferences(Window &window) {
             auto *item=new QTreeWidgetItem(actions,{action->text(),keys.join(", "),id});
             if(id==selected)actions->setCurrentItem(item);
         }
+        actionCount->setText(uiText("%n action(s)",actions->topLevelItemCount()));
     };refreshActions();
     QObject::connect(actions,&QTreeWidget::currentItemChanged,&dialog,[&](QTreeWidgetItem *item) {
         key->setKeySequence(item?QKeySequence::fromString(item->text(1).section(", ",0,0),QKeySequence::PortableText):QKeySequence());
@@ -98,7 +104,7 @@ void showPreferences(Window &window) {
         if(!actions->currentItem())return;auto shortcuts=draft.toJson()["shortcuts"].toObject();
         shortcuts[actions->currentItem()->text(2)]=key->keySequence().toString(QKeySequence::PortableText);
         auto next=draft;QString error;
-        if(!next.patch({{"shortcuts",shortcuts}},error) || !registry.validate(next,error)) {status->setText(error);return;}
+        if(!next.patch({{"shortcuts",shortcuts}},error) || !registry.validate(next,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return;}
         draft=next;refreshActions();status->setText(uiText("Shortcut assigned."));
     });
     QObject::connect(resetKey,&QPushButton::clicked,&dialog,[&] {
@@ -120,7 +126,7 @@ void showPreferences(Window &window) {
                 auto value=values[layoutList->currentText()].toString();if(value.isEmpty())return;
                 if(!window.restoreState(QByteArray::fromBase64(value.toLatin1())))status->setText(uiText("Cannot restore this layout."));return;
             } else values.remove(layoutList->currentText());
-            if(!draft.patch({{"layouts",values}},error))status->setText(error);refreshLayouts();
+            if(!draft.patch({{"layouts",values}},error))bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});refreshLayouts();
         });
     }
     layouts->addRow(layoutButtons);groups->addStretch();scroll->setWidget(body);layout->addWidget(scroll,1);layout->addWidget(status);
@@ -135,28 +141,28 @@ void showPreferences(Window &window) {
         }
         refreshActions();refreshLayouts();refreshing=false;
     };
-    auto *fileRow=new QHBoxLayout;layout->addLayout(fileRow);
+    auto *fileRow=new QGridLayout;layout->addLayout(fileRow);
     auto *importButton=translatedButton("Import preferences",&dialog),*exportButton=translatedButton("Export preferences",&dialog),*reset=translatedButton("Reset all preferences",&dialog),*preview=translatedButton("Preview",&dialog);
     preview->setObjectName("preferencesPreview");
-    fileRow->addWidget(importButton);fileRow->addWidget(exportButton);fileRow->addWidget(reset);fileRow->addWidget(preview);
+    fileRow->addWidget(importButton,0,0);fileRow->addWidget(exportButton,0,1);fileRow->addWidget(reset,1,0);fileRow->addWidget(preview,1,1);
     QObject::connect(importButton,&QPushButton::clicked,&dialog,[&] {
-        auto path=QFileDialog::getOpenFileName(&dialog,uiText("Import preferences"),{},"Jester preferences (*.json)");if(path.isEmpty())return;
-        EditorPreferences next;QString error;if(!EditorPreferences::load(path,next,error) || !registry.validate(next,error)) {status->setText(error);return;}
+        auto path=QFileDialog::getOpenFileName(&dialog,uiText("Import preferences"),{},uiText("Jester preferences (*.json)"));if(path.isEmpty())return;
+        EditorPreferences next;QString error;if(!EditorPreferences::load(path,next,error) || !registry.validate(next,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return;}
         draft=next;refreshFields();
     });
     QObject::connect(exportButton,&QPushButton::clicked,&dialog,[&] {
-        auto path=QFileDialog::getSaveFileName(&dialog,uiText("Export preferences"),"jester-preferences.json","Jester preferences (*.json)");if(path.isEmpty())return;
-        QString error;if(!draft.save(path,error))status->setText(error);
+        auto path=QFileDialog::getSaveFileName(&dialog,uiText("Export preferences"),"jester-preferences.json",uiText("Jester preferences (*.json)"));if(path.isEmpty())return;
+        QString error;if(!draft.save(path,error))bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});
     });
     QObject::connect(reset,&QPushButton::clicked,&dialog,[&] {draft=EditorPreferences();refreshFields();});
     auto applyPreview=[&] {
-        QString error;if(!registry.validate(draft,error)) {status->setText(error);return false;}
-        if(!service.preview(draft,error)) {status->setText(error);return false;}
+        QString error;if(!registry.validate(draft,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return false;}
+        if(!service.preview(draft,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return false;}
         registry.apply(draft);return true;
     };
-    QObject::connect(preview,&QPushButton::clicked,&dialog,[&]{if(applyPreview())status->setText(uiText("Preview active. Cancel restores your previous settings."));});
+    QObject::connect(preview,&QPushButton::clicked,&dialog,[&]{if(applyPreview())bindUiTextFactory(status,"text",[] {return uiText("Preview active. Cancel restores your previous settings.");});});
     auto *buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Apply|QDialogButtonBox::Cancel,&dialog);layout->addWidget(buttons);
-    auto applyDraft=[&] {if(!applyPreview())return false;QString error;if(!service.apply(draft,error)) {status->setText(error);return false;}baseline=draft;return true;};
+    auto applyDraft=[&] {if(!applyPreview())return false;QString error;if(!service.apply(draft,error)) {bindUiTextFactory(status,"text",[error] {return translatedDiagnostic(error);});return false;}baseline=draft;originalLayout=window.saveState();originalGeometry=window.saveGeometry();return true;};
     QObject::connect(buttons->button(QDialogButtonBox::Apply),&QPushButton::clicked,&dialog,[&]{applyDraft();});
     QObject::connect(buttons,&QDialogButtonBox::accepted,&dialog,[&]{if(applyDraft())dialog.accept();});
     QObject::connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
@@ -175,6 +181,9 @@ void showPreferences(Window &window) {
         }
         actionsGroup->setVisible(any || text.isEmpty());
     });
+    QObject::connect(&LocalizationService::instance(),&LocalizationService::languageChanged,&dialog,[&]{const QSignalBlocker preservePendingShortcut(actions);refreshActions();});
+    const auto available=window.screen()->availableGeometry().size()-QSize(24,48);
+    dialog.setMaximumSize(available);dialog.resize(QSize(760,680).boundedTo(available));
     dialog.exec();QString ignored;service.preview(baseline,ignored);registry.apply(baseline);
     if(dialog.result()!=QDialog::Accepted) {window.restoreGeometry(originalGeometry);window.restoreState(originalLayout);}
 }

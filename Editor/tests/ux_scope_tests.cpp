@@ -10,8 +10,10 @@
 #include <QDockWidget>
 #include <QJsonDocument>
 #include <QLabel>
+#include <QLayout>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QStatusBar>
 #include <QScrollBar>
 #include <QSettings>
 #include <QSurfaceFormat>
@@ -122,7 +124,7 @@ class ScopeTests : public QObject {
         QCOMPARE(neutral.morphOffsets, old.morphOffsets);
         QCOMPARE(neutral.offsets[12].r, old.offsets[12].r);
         QVERIFY(w.timeline->selectTrack(8));
-        w.timeline->findChild<QScrollBar *>("timelineTrackScroll")->setValue(22);
+        QVERIFY(w.timeline->ensureTrackVisible(6,2));
         int parentRotation = w.timeline->trackCenter(6, 2);
         QVERIFY(parentRotation >= 64 && parentRotation < w.timeline->height() - 22);
         QTest::mouseClick(w.timeline, Qt::LeftButton, Qt::NoModifier, QPoint(25, parentRotation));
@@ -366,7 +368,7 @@ class ScopeTests : public QObject {
         QVERIFY2(saveProject(tmp.path() + "/channels.jst", d.scene, error), qPrintable(error));
         Scene loaded;
         QVERIFY2(loadProject(tmp.path() + "/channels.jst", loaded, error), qPrintable(error));
-        QCOMPARE(sceneToJson(loaded)["version"].toInt(), 8);
+        QCOMPARE(sceneToJson(loaded)["version"].toInt(), 9);
         for (float f : {0.f, 7.5f, 10.f, 15.f, 20.f, 30.f}) {
             auto a = d.scene, b = loaded;
             a.evaluate(f);
@@ -656,8 +658,14 @@ class ScopeTests : public QObject {
                  qPrintable(QString("Window width %1 at scale %2").arg(w.width()).arg(scale)));
         QVERIFY2(w.height() * scale <= 722,
                  qPrintable(QString("Window height %1 at scale %2").arg(w.height()).arg(scale)));
-        QVERIFY2(w.timeline->mapTo(&w, QPoint(0, w.timeline->height())).y() <= w.height() - 18,
-                 "Timeline extends below the client area");
+        qInfo()<<"Compact timeline/status geometry"<<w.size()<<w.timeline->mapTo(&w,QPoint())<<w.timeline->size()<<w.statusBar()->geometry();
+        auto *timelineBody=w.timeline->parentWidget();qInfo()<<"Timeline body minimum/hint"<<timelineBody->minimumSize()<<timelineBody->minimumSizeHint();
+        auto *animationDock=w.findChild<QDockWidget*>("animationDock");qInfo()<<"Animation dock geometry/minimum/hint"<<animationDock->geometry()<<animationDock->minimumSize()<<animationDock->minimumSizeHint()<<timelineBody->geometry()<<timelineBody->layout()->geometry();
+        for(int item=0;item<timelineBody->layout()->count();++item)qInfo()<<"Timeline row minimum/hint"<<item<<timelineBody->layout()->itemAt(item)->minimumSize()<<timelineBody->layout()->itemAt(item)->sizeHint();
+        w.grab().save(qEnvironmentVariable("JESTER_VISUAL_TEST_OUTPUT","artifacts")+"/scope-layout-widgets.png");
+        QVERIFY2(w.timeline->mapTo(&w, QPoint(0, w.timeline->height())).y() <= w.statusBar()->geometry().top(),
+                 "Timeline overlaps the actual status bar");
+        QTRY_VERIFY2_WITH_TIMEOUT(w.timeline->mapTo(&w,QPoint(w.timeline->width(),0)).x()<=w.width(),"Timeline extends beyond the client width",2000);
         QVERIFY(w.timeline->visibleRegion().boundingRect().height() >= w.timeline->height() - 2);
         auto inspectorScroll = w.findChild<QScrollArea *>("inspectorScroll");
         QVERIFY(inspectorScroll);

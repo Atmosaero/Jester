@@ -1,3 +1,6 @@
+#include "ui/widgets/localized_ui.h"
+#include "settings/editor_appearance.h"
+#include "settings/preferences_service.h"
 #include "ui/viewport/viewport.h"
 #include <QCryptographicHash>
 #include <QElapsedTimer>
@@ -83,6 +86,8 @@ class ViewOverlay : public QWidget {
     }
 };
 Viewport::Viewport(Document* d, QWidget* parent) : QWidget(parent), doc(nullptr) {
+    connect(&PreferencesService::instance(),&PreferencesService::changed,this,[this]{update();});
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,[this]{update();});
     setObjectName("viewport");
     setFocusPolicy(Qt::StrongFocus);
     setMinimumSize(320,110);
@@ -104,7 +109,7 @@ Viewport::Viewport(Document* d, QWidget* parent) : QWidget(parent), doc(nullptr)
         if(overlayDirty) {overlay->update();overlayDirty=false;}
     });
     timer->start(16);
-    setToolTip("Right drag or Alt+Left: orbit | Middle or Shift+Right: pan | Wheel: zoom\nLeft: select / pose / IK | W/E: move/rotate | F: frame | Escape: cancel");
+    bindUiText(this,"toolTip","Right drag or Alt+Left: orbit | Middle or Shift+Right: pan | Wheel: zoom\nLeft: select / pose / IK | W/E: move/rotate | F: frame | Escape: cancel");
 }
 Viewport::~Viewport() {
     renderSyncTimer->stop();
@@ -260,8 +265,17 @@ void Viewport::fit() {
     distance = std::max(
         .2f,
         std::max(halfY, halfX / std::max(.1f, aspect)) / (std::tan(qDegreesToRadians(float(doc->scene.visuals.value("camera.fovDegrees").toDouble())*.5f)) * .88f) + depth);
+    setProperty("fittedOrthographicHeight",std::max(.01f,2*std::max(halfY,halfX/std::max(.1f,aspect))/.88f));
     matrices();
     update();
+}
+void Viewport::frameCharacter() {
+    fit();
+    if(doc->scene.visuals.value("camera.projection")=="orthographic") {
+        auto settings=doc->scene.visuals;QString error;
+        if(settings.setValue("camera.orthographicHeight",property("fittedOrthographicHeight").toDouble(),error))doc->editVisual("Frame character",settings);
+        matrices();update();
+    }
 }
 void Viewport::viewPreset(int n) {
     yaw = n == 1 ? 0 : n == 2 ? 90 : 24;
@@ -282,7 +296,7 @@ void Viewport::drawOverlay(QPainter &painter) {
             if (par >= 0) {
                 painter.setPen(QPen(ghost ? color : QColor(16, 25, 35), ghost ? 2 : 5));
                 painter.drawLine(project(ps[par]), project(ps[i]));
-                painter.setPen(QPen(ghost ? color : QColor(211, 223, 232), ghost ? 1 : 2));
+                painter.setPen(QPen(ghost ? color : overlayColor("bones"), ghost ? 1 : 2));
                 painter.drawLine(project(ps[par]), project(ps[i]));
             }
             if (!ghost) {
@@ -291,10 +305,10 @@ void Viewport::drawOverlay(QPainter &painter) {
                     if (c.node == i && doc->frame >= c.first && doc->frame <= c.last)
                         contact = true;
                 painter.setPen(QPen(QColor(16, 25, 35), 2));
-                painter.setBrush(sel                               ? QColor(255, 193, 79)
+                painter.setBrush(sel                               ? overlayColor("selection")
                                  : (s.pins.contains(i) || contact) ? QColor(78, 222, 164)
                                  : eff                             ? QColor(93, 194, 231)
-                                                                   : QColor(220, 229, 238));
+                                                                   : overlayColor("bones"));
                 float r = sel ? 7 : eff ? 5.5f : 3.5f;
                 bool partner = s.mirrorPartner(doc->selected) == i;
                 if (partner) {
@@ -305,10 +319,10 @@ void Viewport::drawOverlay(QPainter &painter) {
                 bool pelvis = s.profile.roles.value("pelvis", -1) == i ||
                               s.nodes[i].name.contains("pelvis", Qt::CaseInsensitive) ||
                               s.nodes[i].name.contains("hips", Qt::CaseInsensitive);
-                painter.setBrush(sel                  ? QColor(255, 193, 79)
+                painter.setBrush(sel                  ? overlayColor("selection")
                                  : s.pins.contains(i) ? QColor(78, 222, 164)
                                  : eff                ? QColor(93, 194, 231)
-                                                      : QColor(220, 229, 238));
+                                                      : overlayColor("bones"));
                 painter.setPen(
                     QPen(i == hovered ? QColor(255, 255, 255) : QColor(16, 25, 35), i == hovered ? 3 : 2));
                 auto pt = project(ps[i]);
@@ -375,15 +389,15 @@ void Viewport::drawOverlay(QPainter &painter) {
         if (!diagnostics.isEmpty()) {
             if (!trajectory.empty()) {
                 painter.setPen(QColor(238, 169, 83));
-                painter.drawText(16, 65, "COM: source / ");
+                painter.drawText(16, 65, uiText("COM: source / "));
                 painter.setPen(QColor(99, 235, 174));
-                painter.drawText(16 + painter.fontMetrics().horizontalAdvance("COM: source / "), 65,
-                                 "result");
+                painter.drawText(16 + painter.fontMetrics().horizontalAdvance(uiText("COM: source / ")), 65,
+                                 uiText("result"));
             }
             painter.setPen(diagnostics["status"] == "solved" ? QColor(99, 235, 174) : QColor(238, 169, 83));
             painter.drawText(16, trajectory.empty() ? 65 : 85,
                              diagnostics["status"].toString() +
-                                 (diagnostics["staticHintOnly"].toBool() ? " (static)" : ""));
+                                 (diagnostics["staticHintOnly"].toBool() ? uiText(" (static)") : ""));
         }
     }
     if (showPhysicsModel) {
@@ -393,7 +407,7 @@ void Viewport::drawOverlay(QPainter &painter) {
             auto start = globals[body.node].map(QVector3D{}), end = globals[body.node].map(body.end),
                  com = globals[body.node].map(body.center);
             float radius = body.radius * globals[body.node].mapVector({1, 0, 0}).length();
-            painter.setPen(QPen(QColor(128, 185, 234, 110), std::max(1.f, 2 * radius / scaleAt(start)),
+            painter.setPen(QPen(overlayColor("trajectory",110), std::max(1.f, 2 * radius / scaleAt(start)),
                                 Qt::SolidLine, Qt::RoundCap));
             painter.drawLine(project(start), project(end));
             if (body.footHalfSize.lengthSquared() > 0) {
@@ -404,7 +418,7 @@ void Viewport::drawOverlay(QPainter &painter) {
                         p[k] = ((bits & (1 << k)) ? 1 : -1) * body.footHalfSize[k];
                     corners[bits] = globals[body.node].map(body.center + body.shapeRotation.rotatedVector(p));
                 }
-                painter.setPen(QPen(QColor(128, 185, 234), 1.5));
+                painter.setPen(QPen(overlayColor("trajectory"), 1.5));
                 for (int bits = 0; bits < 8; ++bits)
                     for (int k = 0; k < 3; ++k)
                         if (!(bits & (1 << k)))
@@ -469,9 +483,9 @@ void Viewport::drawOverlay(QPainter &painter) {
         painter.drawEllipse(project(b.center), 5, 5);
         painter.drawEllipse(project(ground), 4, 4);
         painter.drawText(16, 46,
-                         b.support.empty() ? "Static estimate · no foot contacts"
-                         : b.supported     ? "Static estimate · COM over support"
-                                           : "Static estimate · COM outside support");
+                         b.support.empty() ? uiText("Static estimate · no foot contacts")
+                         : b.supported     ? uiText("Static estimate · COM over support")
+                                           : uiText("Static estimate · COM outside support"));
         painter.setPen(QColor(170, 183, 198));
     }
     if (doc->selected >= 0) {
@@ -479,7 +493,7 @@ void Viewport::drawOverlay(QPainter &painter) {
         QVector3D origin = positions[n];
         QPointF o = project(origin);
         float len = scaleAt(origin) * std::min(75.f, height() * .22f);
-        QColor colors[] = {QColor(241, 103, 105), QColor(115, 216, 142), QColor(105, 160, 247)};
+        QColor colors[] = {overlayColor("manipulatorX"), overlayColor("manipulatorY"), overlayColor("manipulatorZ")};
         for (int a = 0; tool != Select && a < 3; ++a) {
             painter.setPen(QPen(colors[a], axis == a ? 4 : 2.5));
             if (tool == Move) {
@@ -487,7 +501,7 @@ void Viewport::drawOverlay(QPainter &painter) {
                 painter.drawLine(o, end);
                 painter.setBrush(colors[a]);
                 painter.drawEllipse(end, 4, 4);
-                painter.drawText(end + QPointF(6, -4), QString("XYZ")[a]);
+                painter.drawText(end + QPointF(6, -4), QString(uiText("XYZ"))[a]);
             } else {
                 QVector3D u = axisVector((a + 1) % 3), v = axisVector((a + 2) % 3);
                 QPolygonF ring;
@@ -507,7 +521,7 @@ void Viewport::drawOverlay(QPainter &painter) {
             auto p = project(pole);
             painter.drawPolygon(
                 QPolygonF{p + QPointF(0, -7), p + QPointF(7, 0), p + QPointF(0, 7), p + QPointF(-7, 0)});
-            painter.drawText(p + QPointF(10, 4), "Pole");
+            painter.drawText(p + QPointF(10, 4), uiText("Pole"));
         }
         painter.setPen(QColor(255, 205, 107));
         painter.drawText(o + QPointF(10, -12), s.nodes[n].name);
@@ -519,9 +533,9 @@ void Viewport::drawOverlay(QPainter &painter) {
             painter.setPen(stale ? QColor(150, 150, 150) : QColor(220, 225, 235));
             painter.drawText(
                 12, legend,
-                QString("%1 / %2").arg(
+                uiText("%1 / %2").arg(
                     it.key() < int(s.nodes.size()) ? s.nodes[it.key()].name : QString::number(it.key()),
-                    stale ? "stale — update path" : "past red / future green / " + motionPathReferenceLabel));
+                    stale ? uiText("stale — update path") : uiText("past red / future green / ") + motionPathReferenceLabel));
             legend += 16;
             auto &points = it.value();
             double now = double(doc->frame) / s.fps;
@@ -626,10 +640,10 @@ void Viewport::drawOverlay(QPainter &painter) {
             }
         }
         painter.drawText(12, height() - 48,
-                         QString("%1 / %2 / %3")
+                         uiText("%1 / %2 / %3")
                              .arg(selectedMotionProblem["kind"].toString(),
                                   selectedMotionProblem["status"].toString(),
-                                  stale ? "stale" : "sampled geometric diagnostic"));
+                                  stale ? uiText("stale") : uiText("sampled geometric diagnostic")));
     }
     if (selectingNodes) {
         painter.setPen(QPen(QColor(80, 180, 240), 1));
@@ -637,25 +651,25 @@ void Viewport::drawOverlay(QPainter &painter) {
         painter.drawRect(selectionRect.normalized());
     }
     painter.setPen(QColor(178, 185, 195));
-    painter.drawText(width() - 100, 24, readOnly ? "Preview" : local ? "Local" : "World");
+    painter.drawText(width() - 100, 24, readOnly ? uiText("Preview") : local ? uiText("Local") : uiText("World"));
     painter.setPen(QColor(220, 226, 234));
-    QString context = physicsPreview && showPhysicsPreview ? "View: calculated result"
-                      : s.compareOriginal                  ? "View: source animation"
-                      : s.correction().present             ? "View: correction / " + s.correction().name
-                      : s.sourceClip >= 0                  ? "View: source animation"
-                                                           : "View: posed keys";
+    QString context = physicsPreview && showPhysicsPreview ? uiText("View: calculated result")
+                      : s.compareOriginal                  ? uiText("View: source animation")
+                      : s.correction().present             ? uiText("View: correction / ") + s.correction().name
+                      : s.sourceClip >= 0                  ? uiText("View: source animation")
+                                                           : uiText("View: posed keys");
     painter.drawText(12, height() - 12,
                      QFontMetrics(painter.font()).elidedText(context, Qt::ElideRight, width() - 24));
     if (doc->selected >= 0) {
         QString info =
-            (doc->selection().size() > 1 ? QString("%1 selected | Active: ").arg(doc->selection().size())
+            (doc->selection().size() > 1 ? uiText("%1 selected | Active: ").arg(doc->selection().size())
                                          : QString()) +
             s.nodes[doc->selected].name + " | " +
-            (tool == Move && s.isEffector(doc->selected) ? "IK" : "FK") + " | " + (local ? "Local" : "World");
+            (tool == Move && s.isEffector(doc->selected) ? "IK" : "FK") + " | " + (local ? uiText("Local") : uiText("World"));
         if (doc->symmetryEditing)
             info += s.mirrorPartner(doc->selected) >= 0
-                        ? " | Mirror: " + s.nodes[s.mirrorPartner(doc->selected)].name
-                        : " | No mirror pair";
+                        ? uiText(" | Mirror: ") + s.nodes[s.mirrorPartner(doc->selected)].name
+                        : uiText(" | No mirror pair");
         painter.drawText(12, height() - 32,
                          QFontMetrics(painter.font()).elidedText(info, Qt::ElideRight, width() - 24));
     }
@@ -672,7 +686,7 @@ void Viewport::contextMenuEvent(QContextMenuEvent *e) {
     if(readOnly || QLineF(pressMouse,lastMouse).length()>5 || dragging)return;
     auto candidates=pickCandidates(e->pos());
     if(!candidates.empty() && !doc->selection().contains(candidates.front()))doc->select(candidates.front());
-    QMenu menu(this);auto add=menu.addAction("Add note");add->setShortcut(QKeySequence("Ctrl+Alt+N"));
+    QMenu menu(this);auto add=addTranslatedAction(&menu,"Add note");add->setShortcut(QKeySequence("Ctrl+Alt+N"));
     if(menu.exec(e->globalPos())==add)emit addNoteRequested();
 }
 std::vector<int> Viewport::pickCandidates(QPointF point) const {
@@ -724,18 +738,18 @@ void Viewport::mousePressEvent(QMouseEvent *e) {
         for (size_t i = 0; i < std::min(size_t(20), hits.size()); ++i) {
             auto hit = hits[i];
             auto action = menu.addAction(
-                QString("Path %1 / %2 s")
+                uiText("Path %1 / %2 s")
                     .arg(hit.node < int(s.nodes.size()) ? s.nodes[hit.node].name : QString::number(hit.node))
                     .arg(hit.seconds, 0, 'g', 8));
             action->setData(QVariantMap{{"node", hit.node}, {"seconds", hit.seconds}});
         }
         if (hits.size() > 20)
-            menu.addAction("More coincident times: inspect the numerical table")->setEnabled(false);
+            addTranslatedAction(&menu,"More coincident times: inspect the numerical table")->setEnabled(false);
         if (!hits.empty() && !candidates.empty())
             menu.addSeparator();
         for (int n : candidates) {
             auto action =
-                menu.addAction(s.nodes[n].name + (s.isEffector(n) ? " [IK controller]" : " [FK joint]"));
+                menu.addAction(s.nodes[n].name + (s.isEffector(n) ? uiText(" [IK controller]") : uiText(" [FK joint]")));
             action->setData(n);
         }
         if (!candidates.empty() || !hits.empty())
@@ -947,8 +961,8 @@ void Viewport::mouseMoveEvent(QMouseEvent *e) {
         }
         if (hovered >= 0)
             setToolTip(doc->scene.nodes[hovered].name +
-                       (doc->scene.isEffector(hovered) ? " / Move: IK chain" : " / Move: FK joint") +
-                       " / Ctrl+click: choose overlapping bone");
+                       (doc->scene.isEffector(hovered) ? uiText(" / Move: IK chain") : uiText(" / Move: FK joint")) +
+                       uiText(" / Ctrl+click: choose overlapping bone"));
     }
     if (e->buttons() & Qt::MiddleButton ||
         ((e->buttons() & Qt::RightButton) && (e->modifiers() & Qt::ShiftModifier))) {
@@ -984,7 +998,7 @@ void Viewport::mouseReleaseEvent(QMouseEvent *e) {
                          : tool == Move ? "Move "
                                         : "Rotate ") +
                         (dragNodes.size() > 1 && !poleDrag
-                             ? QString("%1 selected controllers").arg(dragNodes.size())
+                             ? uiText("%1 selected controllers").arg(dragNodes.size())
                              : doc->scene.nodes[doc->selected].name));
         else
             doc->cancel();
@@ -994,6 +1008,12 @@ void Viewport::mouseReleaseEvent(QMouseEvent *e) {
 }
 void Viewport::wheelEvent(QWheelEvent *e) {
     autoFramed = false;
+    if(doc->scene.visuals.value("camera.projection")=="orthographic") {
+        auto settings=doc->scene.visuals;QString error;
+        const auto next=std::clamp(settings.value("camera.orthographicHeight").toDouble()*std::exp(-e->angleDelta().y()*.001),.01,1000.);
+        if(settings.setValue("camera.orthographicHeight",next,error))doc->editVisual("Camera zoom",settings);
+        matrices();update();return;
+    }
     distance = std::clamp(distance * std::exp(-e->angleDelta().y() * .001f), sceneHeight() * .05f,
                           sceneHeight() * 100);
     update();
@@ -1038,13 +1058,13 @@ void Viewport::keyPressEvent(QKeyEvent *e) {
 }
 } // namespace trickster
 
-QImage trickster::captureEditorWidget(QWidget* widget) {
-    auto composeViewport=[](Viewport* view) {
+QImage trickster::captureEditorWidget(QWidget* widget,bool overlays) {
+    auto composeViewport=[overlays](Viewport* view) {
         auto frame=view->grabFramebuffer();
         if(frame.isNull()) return frame;
         frame.setDevicePixelRatio(view->devicePixelRatioF());
         QPainter painter(&frame);
-        painter.drawImage(QPoint(),view->captureOverlay());
+        if(overlays)painter.drawImage(QPoint(),view->captureOverlay());
         return frame;
     };
     if(auto* view=qobject_cast<Viewport*>(widget)) return composeViewport(view);

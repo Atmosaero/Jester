@@ -1,3 +1,5 @@
+#include "ui/widgets/localized_ui.h"
+#include "settings/preferences_service.h"
 #include "core/scene/runtime_error.h"
 #include "ui/notes/notes_card.h"
 #include "ui/notes/notes_ui.h"
@@ -27,7 +29,8 @@ NotesCard::NotesCard(Window *w, NotesController *c, Document *d, QJsonObject val
     setObjectName("noteCard");
     setFrameShape(QFrame::StyledPanel);
     setAutoFillBackground(true);
-    setStyleSheet("#noteCard { border: 1px solid #e7b74f; border-radius: 6px; background: #292d35; }");
+    auto appearance=[this] {setStyleSheet("#noteCard { border: 1px solid "+PreferencesService::instance().current().value("overlays.notes").toString()+"; border-radius: 6px; background: palette(window); }");};
+    connect(&PreferencesService::instance(),&PreferencesService::changed,this,appearance);appearance();
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(10, 8, 10, 8);
     layout->setSpacing(5);
@@ -42,11 +45,11 @@ NotesCard::NotesCard(Window *w, NotesController *c, Document *d, QJsonObject val
     content->addWidget(address);
     text = new QTextEdit;
     text->setObjectName("noteText"); text->setAcceptRichText(false);
-    text->setPlaceholderText("Write a note...  Ctrl+Enter to save");
+    bindUiText(text,"placeholderText","Write a note...  Ctrl+Enter to save");
     text->setMinimumHeight(64); text->setMaximumHeight(112);
     text->setPlainText(original["description"].toString(original["name"].toString()));
     content->addWidget(text);
-    auto more = new QToolButton; more->setText("Advanced"); more->setCheckable(true);
+    auto more = new QToolButton; bindUiText(more,"text","Advanced"); more->setCheckable(true);
     more->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); more->setArrowType(Qt::RightArrow);
     content->addWidget(more);
     advanced = new QWidget; advanced->hide();
@@ -59,42 +62,44 @@ NotesCard::NotesCard(Window *w, NotesController *c, Document *d, QJsonObject val
     initialStart=start->value();initialEnd=end->value();
     connect(start,&QDoubleSpinBox::valueChanged,this,[this]{refreshAddress();});
     connect(end,&QDoubleSpinBox::valueChanged,this,[this]{refreshAddress();});
-    form->addRow("Start (seconds)",start); form->addRow("End (seconds)",end);
-    origin=new QComboBox; origin->addItems({"intention","observation","hypothesis"}); origin->setCurrentText(original["provenance"].toString("intention"));
-    type=new QComboBox; type->setEditable(true); type->addItems({"event","phase","contact","allowed-contact","pose","diagnostic"}); type->setCurrentText(original["type"].toString("event"));
-    form->addRow("Origin",origin); form->addRow("Type",type);
+    addTranslatedRow(form,"Start (seconds)",start); addTranslatedRow(form,"End (seconds)",end);
+    origin=new QComboBox;origin->setObjectName("noteOrigin"); addTranslatedItems(origin,{"intention","observation","hypothesis"}); setChoiceText(origin,original["provenance"].toString("intention"));
+    type=new QComboBox; type->setObjectName("noteType"); type->setEditable(true); addTranslatedItems(type,{"event","phase","contact","allowed-contact","pose","diagnostic"}); setChoiceText(type,original["type"].toString("event"));
+    addTranslatedRow(form,"Origin",origin); addTranslatedRow(form,"Type",type);
     bindings=new QListWidget;bindings->setObjectName("noteBindings");bindings->setMaximumHeight(96);
     for(int n=0;n<int(d->scene.nodes.size());++n){auto item=new QListWidgetItem(d->scene.nodes[n].name,bindings);item->setData(Qt::UserRole,n);item->setFlags(item->flags()|Qt::ItemIsUserCheckable);item->setCheckState(original["nodes"].toArray().contains(n)?Qt::Checked:Qt::Unchecked);}
-    for(auto n:original["nodes"].toArray())if(n.toInt()>=int(d->scene.nodes.size())){auto item=new QListWidgetItem(QString("Missing bone #%1").arg(n.toInt()),bindings);item->setData(Qt::UserRole,n.toInt());item->setFlags(item->flags()|Qt::ItemIsUserCheckable);item->setCheckState(Qt::Checked);}
-    form->addRow("Related bones (none = character)",bindings);
+    for(auto n:original["nodes"].toArray())if(n.toInt()>=int(d->scene.nodes.size())){auto item=new QListWidgetItem(uiText("Missing bone #%1").arg(n.toInt()),bindings);item->setData(Qt::UserRole,n.toInt());item->setFlags(item->flags()|Qt::ItemIsUserCheckable);item->setCheckState(Qt::Checked);}
+    addTranslatedRow(form,"Related bones (none = character)",bindings);
     connect(bindings,&QListWidget::itemChanged,this,[this]{bindingsEdited=true;refreshAddress();});
     tags=new QLineEdit; QStringList tagNames; for(auto v:original["tags"].toArray())tagNames<<v.toString(); tags->setText(tagNames.join(", "));
-    form->addRow("Tags (comma separated)",tags);
+    addTranslatedRow(form,"Tags (comma separated)",tags);
     expectations=new QPlainTextEdit; expectations->setMaximumHeight(90);
     expectations->setPlainText(QString::fromUtf8(QJsonDocument(original["expectations"].toArray()).toJson(QJsonDocument::Compact)));
     expectations->document()->setModified(false);tags->setModified(false);
-    form->addRow("Authored expectations (JSON)",expectations);
-    auto disclaimer=new QLabel("Authored context only. Text does not create constraints or certify a contact."); disclaimer->setWordWrap(true); form->addRow(disclaimer);
+    addTranslatedRow(form,"Authored expectations (JSON)",expectations);
+    auto disclaimer=translatedWidget<QLabel>("Authored context only. Text does not create constraints or certify a contact."); disclaimer->setWordWrap(true); form->addRow(disclaimer);
     if(original.contains("attachment")) {
         auto attachment=original["attachment"].toObject();
-        auto status=new QLabel("Key attachment: "+attachment["status"].toString()+" / frame "+QString::number(attachment["frame"].toInt()));status->setWordWrap(true);form->addRow(status);
+        auto status=new QLabel;
+        bindUiTextFactory(status,"text",[attachment] {return uiText("Key attachment: %1 / frame %2").arg(ownedValueLabel(attachment["status"].toString())).arg(attachment["frame"].toInt());});
+        status->setWordWrap(true);form->addRow(status);
     }
-    attach=new QPushButton("Attach to key at captured frame");
+    attach=translatedWidget<QPushButton>("Attach to key at captured frame");
     attachFrame=annotationFrame(original["start"].toDouble(),d->scene.fps);
     attachLayer=d->scene.correction().present?d->scene.correction().id:QString();
     form->addRow(attach);
-    auto detach=new QPushButton("Detach from key"); form->addRow(detach);
-    connect(attach,&QPushButton::clicked,this,[this]{attachRequested=true;detachRequested=false;attach->setText("Will attach when saved");});
-    connect(detach,&QPushButton::clicked,this,[this]{detachRequested=true;attachRequested=false;attach->setText("Will detach when saved");});
+    auto detach=translatedWidget<QPushButton>("Detach from key"); form->addRow(detach);
+    connect(attach,&QPushButton::clicked,this,[this]{attachRequested=true;detachRequested=false;bindUiText(attach,"text","Will attach when saved");});
+    connect(detach,&QPushButton::clicked,this,[this]{detachRequested=true;attachRequested=false;bindUiText(attach,"text","Will detach when saved");});
     content->addWidget(advanced);
     content->addStretch();
     connect(more,&QToolButton::toggled,this,[this,more](bool on){advanced->setVisible(on);setProperty("notesExpanded",on);more->setArrowType(on?Qt::DownArrow:Qt::RightArrow);controller->placeCard(this);});
-    error=new QLabel; error->setObjectName("noteError"); error->setWordWrap(true); error->setStyleSheet("color:#ffb58a");error->hide();
+    error=new QLabel; error->setObjectName("noteError"); error->setWordWrap(true); error->setStyleSheet("color:palette(text);font-weight:600;");error->hide();
     layout->addWidget(error);
     auto buttons=new QHBoxLayout;
-    auto saveButton=new QPushButton("Save"); saveButton->setObjectName("noteSave");saveButton->setToolTip("Save note (Ctrl+Enter)");
-    auto cancel=new QPushButton("Cancel"); cancel->setObjectName("noteCancel");
-    auto removeButton=new QToolButton;removeButton->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));removeButton->setToolTip("Delete note (Undo available)");removeButton->setAccessibleName("Delete note");removeButton->setObjectName("noteDelete");removeButton->setVisible(!fresh);
+    auto saveButton=translatedWidget<QPushButton>("Save"); saveButton->setObjectName("noteSave");bindUiText(saveButton,"toolTip","Save note (Ctrl+Enter)");
+    auto cancel=translatedWidget<QPushButton>("Cancel"); cancel->setObjectName("noteCancel");
+    auto removeButton=new QToolButton;removeButton->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));bindUiText(removeButton,"toolTip","Delete note (Undo available)");bindUiText(removeButton,"accessibleName","Delete note");removeButton->setObjectName("noteDelete");removeButton->setVisible(!fresh);
     buttons->addWidget(removeButton); buttons->addStretch();buttons->addWidget(cancel);buttons->addWidget(saveButton);layout->addLayout(buttons);
     connect(saveButton,&QPushButton::clicked,this,[this]{save();});
     connect(cancel,&QPushButton::clicked,this,[this]{hide();deleteLater();window->activateWindow();window->viewport->setFocus();});
@@ -104,11 +109,12 @@ NotesCard::NotesCard(Window *w, NotesController *c, Document *d, QJsonObject val
     for(auto widget:findChildren<QWidget*>())widget->installEventFilter(this);
     installEventFilter(this);
     refreshAddress();
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,[this]{refreshAddress();});
 }
 bool NotesCard::dirty() const {
     return fresh || text->toPlainText()!=original["description"].toString(original["name"].toString()) ||
            start->value()!=initialStart || end->value()!=initialEnd ||
-           origin->currentText()!=original["provenance"].toString() || type->currentText()!=original["type"].toString() || attachRequested || detachRequested ||
+           choiceText(origin)!=original["provenance"].toString() || choiceText(type)!=original["type"].toString() || attachRequested || detachRequested ||
            bindingsEdited || tags->isModified() || expectations->document()->isModified();
 }
 QJsonArray NotesCard::editedBindings() const {
@@ -130,14 +136,15 @@ void NotesCard::refreshAddress(){
     QString status;
     if(summary["outsideClip"].toBool())status+=" | Outside clip";
     if(summary["missingBindings"].toBool())status+=" | Missing binding";
-    address->setText(annotationBindings(document->scene,display)+" | "+annotationTimeLabel(display,document->scene.fps)+status);
-    address->setToolTip(QString("%1 | %2 seconds; address captured when opened").arg(start->value(),0,'g',15).arg(end->value(),0,'g',15));
+    address->setText(noteBindingText(document->scene,display)+" | "+noteTimeLabel(display,document->scene.fps)+status);
+    address->setToolTip(uiText("%1 | %2 seconds; address captured when opened").arg(start->value(),0,'g',15).arg(end->value(),0,'g',15));
 }
 bool NotesCard::eventFilter(QObject *object,QEvent *event){
     if(event->type()==QEvent::ShortcutOverride){
         auto key=static_cast<QKeyEvent*>(event);
         // Text and animation shortcuts belong to the editor field while typing.
-        if(key->key()!=Qt::Key_Control && key->key()!=Qt::Key_Shift && key->key()!=Qt::Key_Alt){event->accept();return true;}
+        const bool global=key->modifiers().testFlag(Qt::ControlModifier) && (key->key()==Qt::Key_S || key->key()==Qt::Key_O || key->key()==Qt::Key_Comma);
+        if(!global && key->key()!=Qt::Key_Control && key->key()!=Qt::Key_Shift && key->key()!=Qt::Key_Alt){event->accept();return true;}
     }
     if(event->type()==QEvent::KeyPress){auto key=static_cast<QKeyEvent*>(event);
         if(key->key()==Qt::Key_Escape){hide();deleteLater();window->activateWindow();window->viewport->setFocus();return true;}
@@ -146,33 +153,33 @@ bool NotesCard::eventFilter(QObject *object,QEvent *event){
     return QFrame::eventFilter(object,event);
 }
 void NotesCard::save(){
-    auto fail=[&](QString message){error->setText(message);error->show();};
-    if(!document || &window->document()!=document || document->structureRevision!=structure){fail("The original scene is no longer available. Cancel this draft.");return;}
-    if(document->inTransaction() || window->viewport->isDragging()){fail("Finish the current pose edit first.");return;}
+    auto fail=[&](QString message){bindUiTextFactory(error,"text",[message] {return translatedDiagnostic(message);});error->show();};
+    if(!document || &window->document()!=document || document->structureRevision!=structure){fail(QString("The original scene is no longer available. Cancel this draft."));return;}
+    if(document->inTransaction() || window->viewport->isDragging()){fail(QString("Finish the current pose edit first."));return;}
     QString fullText=text->toPlainText();
-    if(fullText.trimmed().isEmpty()){fail("Write a note before saving.");text->setFocus();return;}
-    if(!fresh){bool found=false;for(auto v:document->scene.annotations)if(v.toObject()["id"]==original["id"]){found=true;if(v.toObject()!=original){fail("This note changed outside the card. Cancel and reopen it to keep those changes.");return;}}
-        if(!found){fail("This note was deleted. Cancel this draft.");return;}}
+    if(fullText.trimmed().isEmpty()){fail(QString("Write a note before saving."));text->setFocus();return;}
+    if(!fresh){bool found=false;for(auto v:document->scene.annotations)if(v.toObject()["id"]==original["id"]){found=true;if(v.toObject()!=original){fail(QString("This note changed outside the card. Cancel and reopen it to keep those changes."));return;}}
+        if(!found){fail(QString("This note was deleted. Cancel this draft."));return;}}
     if(!fresh && !dirty()){hide();deleteLater();window->activateWindow();window->viewport->setFocus();return;}
     QJsonObject patch{{"description",fullText},{"name",fullText.section('\n',0,0).trimmed().left(72)}};
     if(patch["name"].toString().isEmpty())patch["name"]=fullText.trimmed().section('\n',0,0).left(72);
     // Patch only fields that changed: preserve unknown fields, expectations and attachments byte-for-byte.
     if(fresh || start->value()!=initialStart)patch["start"]=start->value();
     if(fresh || end->value()!=initialEnd)patch["end"]=end->value();
-    if(fresh){patch["nodes"]=original["nodes"];patch["provenance"]=origin->currentText();patch["type"]=type->currentText();}
-    if(origin->currentText()!=original["provenance"].toString())patch["provenance"]=origin->currentText();
-    if(type->currentText()!=original["type"].toString())patch["type"]=type->currentText();
+    if(fresh){patch["nodes"]=original["nodes"];patch["provenance"]=choiceText(origin);patch["type"]=choiceText(type);}
+    if(choiceText(origin)!=original["provenance"].toString())patch["provenance"]=choiceText(origin);
+    if(choiceText(type)!=original["type"].toString())patch["type"]=choiceText(type);
     if(bindingsEdited)patch["nodes"]=editedBindings();
     if(tags->isModified()){QJsonArray values;for(auto tag:tags->text().split(',',Qt::SkipEmptyParts))values.append(tag.trimmed());patch["tags"]=values;}
     if(expectations->document()->isModified()){
         QJsonParseError parse;auto json=QJsonDocument::fromJson(expectations->toPlainText().toUtf8(),&parse);
-        if(parse.error!=QJsonParseError::NoError || !json.isArray()){fail("Expectations must be a JSON array.");return;}patch["expectations"]=json.array();
+        if(parse.error!=QJsonParseError::NoError || !json.isArray()){fail(QString("Expectations must be a JSON array."));return;}patch["expectations"]=json.array();
     }
     try {
         if(!attachRequested && !detachRequested){
             auto result=EditService::execute(*document,"motion_annotations",{{"operation",fresh?"add":"set"},{"id",original["id"]},{"annotation",patch}},fresh?"Add note":"Edit note");
             document->activeAnnotation=result["annotation"].toObject()["id"].toString();
-            hide();deleteLater();window->viewport->setFocus();window->report("Note saved");controller->refresh();return;
+            hide();deleteLater();window->viewport->setFocus();window->report(QString("Note saved"));controller->refresh();return;
         }
         Scene staged=document->scene;
         auto result=editAnnotations(staged,{{"operation",fresh?"add":"set"},{"id",original["id"]},{"annotation",patch}});
@@ -185,7 +192,7 @@ void NotesCard::save(){
         document->edit(fresh?"Add note":"Edit note",[&](Scene &s){s.annotations=notes;if(attachRequested){s.keys=keys;s.layers=layers;}},false,true);
         document->activeAnnotation=id;
         hide();deleteLater();window->activateWindow();window->viewport->setFocus();
-        window->report("Note saved");controller->refresh();
+        window->report(QString("Note saved"));controller->refresh();
     }catch(const std::exception &e){fail(QString::fromUtf8(e.what()));}
 }
 void NotesCard::remove(){

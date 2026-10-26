@@ -1636,6 +1636,11 @@
           "minimum": 320,
           "maximum": 3840,
           "default": 1440
+        },
+        "overlays": {
+          "type": "boolean",
+          "default": true,
+          "description": "Composite viewport bones, markers and manipulators after native scene effects."
         }
       },
       "required": [],
@@ -1690,6 +1695,11 @@
         "overwrite": {
           "type": "boolean",
           "default": false
+        },
+        "overlays": {
+          "type": "boolean",
+          "default": true,
+          "description": "Composite viewport bones, markers and manipulators after native scene effects."
         }
       },
       "required": [

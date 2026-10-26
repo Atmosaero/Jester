@@ -8,7 +8,7 @@
 namespace trickster {
 class AnalysisTableModel : public QAbstractTableModel {
   public:
-    using QAbstractTableModel::QAbstractTableModel;
+    explicit AnalysisTableModel(QObject *parent=nullptr);
     void setReport(QJsonObject);
     int rowCount(const QModelIndex &parent = {}) const override;
     int columnCount(const QModelIndex &parent = {}) const override;

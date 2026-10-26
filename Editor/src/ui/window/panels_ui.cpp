@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/widgets/icons.h"
 #include "ui/window/window.h"
 #include <QApplication>
@@ -16,17 +17,17 @@
 #include <cmath>
 namespace trickster {
 void Window::buildAdvancedPanels() {
-    auto shapes = new QDockWidget("Blend shapes", this);
+    auto shapes = translatedWidget<QDockWidget>("Blend shapes", this);
     shapes->setObjectName("shapesDock");
     shapeTree = new QTreeWidget(shapes);
     shapeTree->setObjectName("shapeTree");
     shapeTree->setColumnCount(2);
-    shapeTree->setHeaderLabels({"Shape", "Weight"});
+    bindHeaders(shapeTree,{"Shape", "Weight"});
     shapeTree->setRootIsDecorated(false);
     shapeTree->setColumnWidth(0, 130);
     shapes->setWidget(shapeTree);
     addDockWidget(Qt::RightDockWidgetArea, shapes);
-    auto physicsDock = new QDockWidget("Physics", this);
+    auto physicsDock = translatedWidget<QDockWidget>("Physics", this);
     physicsDock->setObjectName("physicsDock");
     auto scroll = new QScrollArea(physicsDock);
     scroll->setObjectName("physicsScroll");
@@ -36,7 +37,7 @@ void Window::buildAdvancedPanels() {
     auto l = new QVBoxLayout(body);
     l->setContentsMargins(10, 8, 10, 8);
     l->setSpacing(8);
-    auto world = new QGroupBox("World", body);
+    auto world = translatedWidget<QGroupBox>("World", body);
     auto form = new QFormLayout(world);
     form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     form->setRowWrapPolicy(QFormLayout::WrapAllRows);
@@ -57,11 +58,11 @@ void Window::buildAdvancedPanels() {
     unitEdit->setDecimals(5);
     groundEdit = field("physicsGround", 0, -100000, 100000, " u");
     frictionEdit = field("physicsFriction", .8f, 0, 10);
-    form->addRow("Gravity", gravityEdit);
-    form->addRow("Scale", unitEdit);
-    form->addRow("Ground Y", groundEdit);
-    form->addRow("Friction", frictionEdit);
-    auto selfCollision = new QCheckBox("Self collisions", world);
+    addTranslatedRow(form,"Gravity", gravityEdit);
+    addTranslatedRow(form,"Scale", unitEdit);
+    addTranslatedRow(form,"Ground Y", groundEdit);
+    addTranslatedRow(form,"Friction", frictionEdit);
+    auto selfCollision = translatedWidget<QCheckBox>("Self collisions", world);
     selfCollision->setObjectName("selfCollisionCheck");
     form->addRow(selfCollision);
     connect(selfCollision, &QCheckBox::toggled, this, [this](bool on) {
@@ -90,14 +91,14 @@ void Window::buildAdvancedPanels() {
     };
     for (auto box : {gravityEdit, unitEdit, groundEdit, frictionEdit})
         connect(box, &QDoubleSpinBox::editingFinished, this, settingsChanged);
-    auto segment = new QGroupBox("Selected body", body);
+    auto segment = translatedWidget<QGroupBox>("Selected body", body);
     auto sf = new QFormLayout(segment);
     massEdit = field("bodyMass", 1, .000001f, 100000, " kg");
     massEdit->setDecimals(5);
     radiusEdit = field("bodyRadius", .04f, .000001f, 10000, " u");
     radiusEdit->setDecimals(5);
-    sf->addRow("Mass", massEdit);
-    sf->addRow("Radius", radiusEdit);
+    addTranslatedRow(sf,"Mass", massEdit);
+    addTranslatedRow(sf,"Radius", radiusEdit);
     auto vector = [&](std::array<QDoubleSpinBox *, 3> &boxes, QString prefix) {
         auto row = new QWidget;
         auto layout = new QHBoxLayout(row);
@@ -105,14 +106,14 @@ void Window::buildAdvancedPanels() {
         layout->setSpacing(3);
         for (int i = 0; i < 3; ++i) {
             boxes[i] = field(prefix + QString("XYZ")[i], 0, -100000, 100000);
-            boxes[i]->setPrefix(QString("XYZ")[i] + QString(" "));
+            boxes[i]->setPrefix(QString("XYZ")[i] + uiText(" "));
             boxes[i]->setMinimumWidth(60);
             layout->addWidget(boxes[i]);
         }
         return row;
     };
-    sf->addRow("COM", vector(bodyCenter, "bodyCenter"));
-    sf->addRow("Tip", vector(bodyEnd, "bodyEnd"));
+    addTranslatedRow(sf,"COM", vector(bodyCenter, "bodyCenter"));
+    addTranslatedRow(sf,"Tip", vector(bodyEnd, "bodyEnd"));
     sf->setRowWrapPolicy(QFormLayout::WrapAllRows);
     l->addWidget(segment);
     auto bodyChanged = [this] {
@@ -154,15 +155,15 @@ void Window::buildAdvancedPanels() {
         connect(bodyCenter[i], &QDoubleSpinBox::editingFinished, this, bodyChanged);
         connect(bodyEnd[i], &QDoubleSpinBox::editingFinished, this, bodyChanged);
     }
-    auto fit = new QPushButton(icon(Glyph::Settings), "Fit capsules · 70 kg", body);
+    auto fit = translatedIconWidget<QPushButton>(icon(Glyph::Settings),"Fit capsules · 70 kg", body);
     fit->setObjectName("fitPhysicsButton");
-    fit->setToolTip("Create a starting capsule rig from the skeleton. Adjust masses, centers and sizes for "
+    bindUiText(fit,"toolTip","Create a starting capsule rig from the skeleton. Adjust masses, centers and sizes for "
                     "your character.");
     auto massProfile = new QComboBox(body);
     massProfile->setObjectName("physicsMassProfile");
-    massProfile->addItems({"Geometry estimate", "Human mass estimate"});
-    form->addRow("Mass preset", massProfile);
-    massProfile->setToolTip("Both presets are estimates. The human preset uses major-role mass fractions; "
+    addTranslatedItems(massProfile,{"Geometry estimate", "Human mass estimate"});
+    addTranslatedRow(form,"Mass preset", massProfile);
+    bindUiText(massProfile,"toolTip","Both presets are estimates. The human preset uses major-role mass fractions; "
                             "review actual segment dimensions/inertias.");
     connect(fit, &QPushButton::clicked, this, [this, massProfile] {
         applyOperation("physics_body",
@@ -171,35 +172,35 @@ void Window::buildAdvancedPanels() {
                         {"massProfile", massProfile->currentIndex() == 1 ? "human" : "geometry"}},
                        "Fit estimated physical model");
     });
-    auto interval = new QGroupBox("Interval", body);
+    auto interval = translatedWidget<QGroupBox>("Interval", body);
     auto range = new QHBoxLayout(interval);
     range->setContentsMargins(5, 3, 5, 3);
     physicsFrom = new QSpinBox(body);
     physicsFrom->setObjectName("physicsFrom");
     physicsTo = new QSpinBox(body);
     physicsTo->setObjectName("physicsTo");
-    range->addWidget(new QLabel("In"));
+    range->addWidget(translatedWidget<QLabel>("In"));
     range->addWidget(physicsFrom);
-    range->addWidget(new QLabel("Out"));
+    range->addWidget(translatedWidget<QLabel>("Out"));
     range->addWidget(physicsTo);
     l->addWidget(interval);
-    auto follow = new QCheckBox("Follow animation", body);
+    auto follow = translatedWidget<QCheckBox>("Follow animation", body);
     follow->setObjectName("physicsFollowAnimation");
-    follow->setToolTip("Apply limited internal joint torques on every substep. No root/world stabilizer; "
+    bindUiText(follow,"toolTip","Apply limited internal joint torques on every substep. No root/world stabilizer; "
                        "balance is not guaranteed.");
     auto kp = field("physicsStiffness", 80, 0, 10000, " Nm/rad"),
          kd = field("physicsDamping", 8, 0, 1000, " Nms/rad"),
          torque = field("physicsMaxTorque", 100, 0, 10000, " Nm");
-    form->addRow("Stiffness", kp);
-    form->addRow("Damping", kd);
-    form->addRow("Torque limit", torque);
+    addTranslatedRow(form,"Stiffness", kp);
+    addTranslatedRow(form,"Damping", kd);
+    addTranslatedRow(form,"Torque limit", torque);
     auto substeps = new QSpinBox(body), solverIterations = new QSpinBox(body);
     substeps->setObjectName("physicsSubsteps");
     substeps->setRange(1, 512);
     solverIterations->setObjectName("physicsSolverIterations");
     solverIterations->setRange(1, 1000);
-    form->addRow("Substeps / frame", substeps);
-    form->addRow("Contact iterations", solverIterations);
+    addTranslatedRow(form,"Substeps / frame", substeps);
+    addTranslatedRow(form,"Contact iterations", solverIterations);
     for (auto spin : {substeps, solverIterations})
         connect(spin, &QSpinBox::editingFinished, this, [this, substeps, solverIterations] {
             if (!refreshing && (document().scene.physics.substeps != substeps->value() ||
@@ -212,11 +213,11 @@ void Window::buildAdvancedPanels() {
     auto contactTime = field("physicsContactTime", .01f, .0001f, 1, " s"),
          contactDamping = field("physicsContactDamping", 1, .01f, 10);
     contactTime->setDecimals(5);
-    form->addRow("Contact time", contactTime);
-    form->addRow("Contact damping", contactDamping);
-    auto anchors = new QCheckBox("External anchors (preview)", body);
+    addTranslatedRow(form,"Contact time", contactTime);
+    addTranslatedRow(form,"Contact damping", contactDamping);
+    auto anchors = translatedWidget<QCheckBox>("External anchors (preview)", body);
     anchors->setObjectName("physicsExternalAnchors");
-    anchors->setToolTip("Legacy pin/contact constraints with reported external forces. Dynamics correction "
+    bindUiText(anchors,"toolTip","Legacy pin/contact constraints with reported external forces. Dynamics correction "
                         "always uses real geom contacts.");
     form->addRow(anchors);
     for (auto box : {contactTime, contactDamping})
@@ -258,20 +259,20 @@ void Window::buildAdvancedPanels() {
     for (auto box : {kp, kd, torque})
         connect(box, &QDoubleSpinBox::editingFinished, this, pdChanged);
     auto buttons = new QHBoxLayout;
-    auto dynamics = new QPushButton(icon(Glyph::Physics), "Simulate interval", body),
-         ballistic = new QPushButton(icon(Glyph::Ballistic), "Correct flight", body);
+    auto dynamics = translatedIconWidget<QPushButton>(icon(Glyph::Physics),"Simulate interval", body),
+         ballistic = translatedIconWidget<QPushButton>(icon(Glyph::Ballistic),"Correct flight", body);
     dynamics->setObjectName("simulatePhysicsButton");
     ballistic->setObjectName("ballisticPhysicsButton");
-    dynamics->setToolTip("MuJoCo native CPU simulation: gravity, capsule/ground collisions, joint "
+    bindUiText(dynamics,"toolTip","MuJoCo native CPU simulation: gravity, capsule/ground collisions, joint "
                          "constraints and planted contacts. Initial velocity comes from the animation.");
-    ballistic->setToolTip("Correct COM over a free-flight interval using gravity and endpoint times. Release "
+    bindUiText(ballistic,"toolTip","Correct COM over a free-flight interval using gravity and endpoint times. Release "
                           "world pins and keep planted contacts outside the interval.");
     buttons->addWidget(dynamics);
     buttons->addWidget(ballistic);
     l->addLayout(buttons);
     connect(dynamics, &QPushButton::clicked, this, [this] { previewPhysics(false); });
     connect(ballistic, &QPushButton::clicked, this, [this] { previewPhysics(true); });
-    auto ghost = new QCheckBox("Show calculated result", body);
+    auto ghost = translatedWidget<QCheckBox>("Show calculated result", body);
     ghost->setObjectName("physicsPreviewCheck");
     ghost->setChecked(true);
     connect(ghost, &QCheckBox::toggled, this, [this](bool on) {
@@ -279,7 +280,7 @@ void Window::buildAdvancedPanels() {
         viewport->update();
     });
     l->addWidget(ghost);
-    physicsStats = new QLabel("No preview", body);
+    physicsStats = translatedWidget<QLabel>("No preview", body);
     physicsStats->setObjectName("physicsStats");
     physicsStats->setWordWrap(true);
     physicsStats->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -289,7 +290,7 @@ void Window::buildAdvancedPanels() {
     physicsProgress->setRange(0, 100);
     physicsProgress->hide();
     l->addWidget(physicsProgress);
-    cancelPhysics = new QPushButton("Cancel", body);
+    cancelPhysics = translatedWidget<QPushButton>("Cancel", body);
     cancelPhysics->setObjectName("cancelPhysicsButton");
     cancelPhysics->hide();
     l->addWidget(cancelPhysics);
@@ -304,7 +305,7 @@ void Window::buildAdvancedPanels() {
             pollPhysicsTask();
     });
     connect(&workspace, &Workspace::historyChanged, this, [this] { pollPhysicsTask(); });
-    applyPhysics = new QPushButton(icon(Glyph::Bake), "Open result as scene", body);
+    applyPhysics = translatedIconWidget<QPushButton>(icon(Glyph::Bake),"Open result as scene", body);
     applyPhysics->setObjectName("applyPhysicsButton");
     applyPhysics->setEnabled(false);
     connect(applyPhysics, &QPushButton::clicked, this, [this] {
@@ -314,7 +315,7 @@ void Window::buildAdvancedPanels() {
             auto result = *preview;
             appendScene(std::move(result));
             document().edit("Physics result", [](Scene &) {}, false);
-            report("Physics result opened. Ctrl+S saves the project; Ctrl+Shift+E exports.");
+            report(QString("Physics result opened. Ctrl+S saves the project; Ctrl+Shift+E exports."));
         }
     });
     l->addWidget(applyPhysics);
@@ -324,16 +325,15 @@ void Window::buildAdvancedPanels() {
     l->removeItem(buttons);
     buttons->setParent(nullptr);
     auto assistant = new QGridLayout;
-    auto whole = new QPushButton(icon(Glyph::Move), "Pose targets", body),
-         model = new QPushButton(icon(Glyph::Bones), "Model", body),
-         optimize = new QPushButton(icon(Glyph::Physics), "Correct motion", body);
+    auto whole = translatedIconWidget<QPushButton>(icon(Glyph::Move),"Pose targets", body),
+         model = translatedIconWidget<QPushButton>(icon(Glyph::Bones),"Model", body),
+         optimize = translatedIconWidget<QPushButton>(icon(Glyph::Physics),"Correct motion", body);
     whole->setObjectName("wholeBodyButton");
     model->setObjectName("physicsModelButton");
     optimize->setObjectName("optimizeDynamicsButton");
-    whole->setToolTip("Whole-body targets and COM projection (kinematic)");
-    model->setToolTip("Validate mass, inertia, shapes and export MJCF");
-    optimize->setToolTip(
-        "Optimize internal controls on the interval; real contacts, independent forward replay");
+    bindUiText(whole,"toolTip","Whole-body targets and COM projection (kinematic)");
+    bindUiText(model,"toolTip","Validate mass, inertia, shapes and export MJCF");
+    bindToolTip(optimize,"Optimize internal controls on the interval; real contacts, independent forward replay");
     assistant->addWidget(whole, 0, 0);
     assistant->addWidget(model, 0, 1);
     assistant->addWidget(optimize, 1, 0, 1, 2);
@@ -341,7 +341,7 @@ void Window::buildAdvancedPanels() {
     connect(model, &QPushButton::clicked, this, &Window::physicsModelDialog);
     connect(optimize, &QPushButton::clicked, this, [this] { physicsCalculationDialog("optimize"); });
     l->addLayout(assistant);
-    auto overlays = new QCheckBox("Bodies / forces", body);
+    auto overlays = translatedWidget<QCheckBox>("Bodies / forces", body);
     overlays->setObjectName("physicsOverlaysCheck");
     connect(overlays, &QCheckBox::toggled, this, [this](bool on) {
         viewport->showPhysicsModel = on;
@@ -355,7 +355,7 @@ void Window::buildAdvancedPanels() {
     auto reportButton = new QToolButton(body);
     reportButton->setObjectName("physicsReportButton");
     reportButton->setIcon(icon(Glyph::Settings));
-    reportButton->setToolTip("Before/after metrics and acceptance tolerances");
+    bindUiText(reportButton,"toolTip","Before/after metrics and acceptance tolerances");
     connect(reportButton, &QToolButton::clicked, this, &Window::physicsReportDialog);
     previewRow->addWidget(reportButton);
     previewRow->addStretch();
@@ -366,7 +366,7 @@ void Window::buildAdvancedPanels() {
     auto details = [&](QString name, QWidget *content) {
         auto toggle = new QToolButton(body);
         toggle->setObjectName(name == "World settings" ? "worldSettingsButton" : "rigidBodyDetailsButton");
-        toggle->setText(name);
+        bindUiText(toggle,"text",name);
         toggle->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
         toggle->setArrowType(Qt::RightArrow);
         toggle->setCheckable(true);
@@ -385,24 +385,24 @@ void Window::buildAdvancedPanels() {
     scroll->setWidget(body);
     physicsDock->setWidget(scroll);
     addDockWidget(Qt::RightDockWidgetArea, physicsDock);
-    auto menu = menuBar()->addMenu("P&hysics");
+    auto menu = addTranslatedMenu(menuBar(),"P&hysics");
     auto wholeAction =
-        menu->addAction(icon(Glyph::Move), "Whole-body pose…", this, &Window::showWholeBodyDialog);
+        addTranslatedIconAction(menu,icon(Glyph::Move),"Whole-body pose…", this, &Window::showWholeBodyDialog);
     wholeAction->setObjectName("wholeBodyAction");
     wholeAction->setShortcut(QKeySequence("Ctrl+Shift+W"));
     auto modelAction =
-        menu->addAction(icon(Glyph::Bones), "Physical model…", this, &Window::physicsModelDialog);
+        addTranslatedIconAction(menu,icon(Glyph::Bones),"Physical model…", this, &Window::physicsModelDialog);
     modelAction->setObjectName("physicsModelAction");
     auto proxyAction =
-        menu->addAction(icon(Glyph::Bones), "Prepare rigid proxy...", this, &Window::physicsProxyDialog);
+        addTranslatedIconAction(menu,icon(Glyph::Bones),"Prepare rigid proxy...", this, &Window::physicsProxyDialog);
     proxyAction->setObjectName("physicsProxyAction");
-    auto solveAction = menu->addAction(icon(Glyph::Physics), "Correct dynamics…", this,
+    auto solveAction = addTranslatedIconAction(menu,icon(Glyph::Physics),"Correct dynamics…", this,
                                        [this] { physicsCalculationDialog("optimize"); });
     solveAction->setObjectName("optimizeDynamicsAction");
-    auto conditionsAction = menu->addAction(icon(Glyph::Ballistic), "Flight conditions…", this,
+    auto conditionsAction = addTranslatedIconAction(menu,icon(Glyph::Ballistic),"Flight conditions…", this,
                                             [this] { physicsCalculationDialog("flight"); });
     conditionsAction->setObjectName("flightConditionsAction");
-    auto dynamicsAction = menu->addAction(icon(Glyph::Physics), "Simulate interval");
+    auto dynamicsAction = addTranslatedIconAction(menu,icon(Glyph::Physics),"Simulate interval");
     dynamicsAction->setObjectName("simulatePhysicsAction");
     dynamicsAction->setShortcut(QKeySequence("Ctrl+Shift+P"));
     connect(dynamicsAction, &QAction::triggered, this, [this] {
@@ -411,7 +411,7 @@ void Window::buildAdvancedPanels() {
         dock->raise();
         previewPhysics(false);
     });
-    auto flightAction = menu->addAction(icon(Glyph::Ballistic), "Correct flight");
+    auto flightAction = addTranslatedIconAction(menu,icon(Glyph::Ballistic),"Correct flight");
     flightAction->setObjectName("correctFlightAction");
     connect(flightAction, &QAction::triggered, this, [this] {
         auto dock = findChild<QDockWidget *>("physicsDock");
@@ -466,7 +466,7 @@ void Window::rebuildShapes() {
             auto spin = new QDoubleSpinBox(row);
             spin->setRange(-10000, 10000);
             spin->setDecimals(1);
-            spin->setSuffix(" %");
+            bindUiText(spin,"suffix"," %");
             spin->setKeyboardTracking(false);
             spin->setObjectName(QString("morphWeight_%1_%2").arg(node).arg(shapeIndex));
             spin->setFixedWidth(80);
@@ -508,7 +508,7 @@ void Window::rebuildShapes() {
         }
     }
     if (morphBindings.empty()) {
-        auto item = new QTreeWidgetItem(shapeTree, {"No blend shapes"});
+        auto item = new QTreeWidgetItem(shapeTree, {uiText("No blend shapes")});
         item->setFlags(Qt::NoItemFlags);
     }
     refreshing = previous;
@@ -554,8 +554,8 @@ void Window::refreshPanels() {
     massEdit->parentWidget()->setEnabled(valid);
     if (!s.physicsResult.isEmpty() && !hasPhysicsResult()) {
         auto r = s.physicsResult;
-        physicsStats->setText(r["status"].toString() + (r["validationStale"].toBool() ? " · stale" : "") +
-                              "\n" + r["stopReason"].toString());
+        physicsStats->setText(r["status"].toString() + (r["validationStale"].toBool() ? uiText(" · stale") : "") +
+                              uiText("\n") + r["stopReason"].toString());
     }
     if (valid) {
         massEdit->setValue(found->mass);

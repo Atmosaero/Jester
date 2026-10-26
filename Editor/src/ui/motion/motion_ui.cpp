@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/widgets/icons.h"
 #include "ui/window/window.h"
 #include <QDockWidget>
@@ -13,32 +14,31 @@
 #include <QVBoxLayout>
 namespace trickster {
 void Window::buildMotionPanel() {
-    auto dock = new QDockWidget("Motion", this);
+    auto dock = translatedWidget<QDockWidget>("Motion", this);
     dock->setObjectName("motionDock");
     auto body = new QWidget(dock);
     auto layout = new QVBoxLayout(body);
     layout->setContentsMargins(6, 6, 6, 6);
     layout->setSpacing(4);
-    auto profileButton = new QPushButton(icon(Glyph::Settings), "Profile", body);
+    auto profileButton = translatedIconWidget<QPushButton>(icon(Glyph::Settings),"Profile", body);
     profileButton->setObjectName("characterProfileButton");
-    profileButton->setToolTip(
-        "Assign humanoid roles and explicit IK chains, including helper/twist ancestors.");
+    bindToolTip(profileButton,"Assign humanoid roles and explicit IK chains, including helper/twist ancestors.");
     auto setupRow = new QHBoxLayout;
     setupRow->addWidget(profileButton);
     connect(profileButton, &QPushButton::clicked, this, &Window::characterProfileDialog);
-    auto limitButton = new QPushButton(icon(Glyph::Rotate), "Joint limit", body);
+    auto limitButton = translatedIconWidget<QPushButton>(icon(Glyph::Rotate),"Joint limit", body);
     limitButton->setObjectName("jointLimitButton");
     setupRow->addWidget(limitButton);
     auto contacts = new QToolButton(body);
     contacts->setIcon(icon(Glyph::Feet));
     contacts->setObjectName("motionContactsButton");
-    contacts->setToolTip("Edit contacts and ground support");
+    bindUiText(contacts,"toolTip","Edit contacts and ground support");
     setupRow->addWidget(contacts);
     connect(contacts, &QToolButton::clicked, this, &Window::contactDialog);
     auto physics = new QToolButton(body);
     physics->setIcon(icon(Glyph::Physics));
     physics->setObjectName("motionPhysicsButton");
-    physics->setToolTip("Passive / Follow preview and independent results");
+    bindUiText(physics,"toolTip","Passive / Follow preview and independent results");
     setupRow->addWidget(physics);
     connect(physics, &QToolButton::clicked, this, [this] {
         auto dock = findChild<QDockWidget *>("physicsDock");
@@ -52,14 +52,13 @@ void Window::buildMotionPanel() {
     motionClip->setObjectName("motionClip");
     motionClip->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     motionClip->setMinimumContentsLength(12);
-    motionClip->setToolTip("Open another imported clip in a separate scene, preserving this scene's edits.");
-    sourceForm->addRow("Clip", motionClip);
+    bindUiText(motionClip,"toolTip","Open another imported clip in a separate scene, preserving this scene's edits.");
+    addTranslatedRow(sourceForm,"Clip", motionClip);
     motionBakeFps = new QSpinBox(body);
     motionBakeFps->setObjectName("motionBakeFps");
     motionBakeFps->setRange(1, 240);
     motionBakeFps->setValue(30);
-    motionBakeFps->setToolTip(
-        "Explicit sampling rate for Bake as new scene; glTF source times remain in seconds.");
+    bindToolTip(motionBakeFps,"Explicit sampling rate for Bake as new scene; glTF source times remain in seconds.");
     motionBakeFps->setMaximumWidth(70);
     layout->addLayout(sourceForm);
     connect(motionClip, &QComboBox::currentIndexChanged, this, [this](int index) {
@@ -82,43 +81,42 @@ void Window::buildMotionPanel() {
     layers->setObjectName("motionLayers");
     layers->setMinimumContentsLength(12);
     layers->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
-    layers->setToolTip("Selected recording layer. Layers are evaluated from top to bottom in this list.");
+    bindUiText(layers,"toolTip","Selected recording layer. Layers are evaluated from top to bottom in this list.");
     layerRow->addWidget(layers, 1);
     auto duplicate = new QToolButton(body);
     duplicate->setObjectName("duplicateLayerButton");
-    duplicate->setText("⧉");
-    duplicate->setToolTip("Duplicate selected layer");
+    bindUiText(duplicate,"text","⧉");
+    bindUiText(duplicate,"toolTip","Duplicate selected layer");
     layerRow->addWidget(duplicate);
     auto up = new QToolButton(body);
     up->setObjectName("layerUpButton");
-    up->setText("↑");
-    up->setToolTip("Evaluate selected layer earlier");
+    bindUiText(up,"text","↑");
+    bindUiText(up,"toolTip","Evaluate selected layer earlier");
     layerRow->addWidget(up);
     auto down = new QToolButton(body);
     down->setObjectName("layerDownButton");
-    down->setText("↓");
-    down->setToolTip("Evaluate selected layer later");
+    bindUiText(down,"text","↓");
+    bindUiText(down,"toolTip","Evaluate selected layer later");
     layerRow->addWidget(down);
     layout->addLayout(layerRow);
     layers->setEditable(true);
     layers->setInsertPolicy(QComboBox::NoInsert);
     auto layerName = layers->lineEdit();
     layerName->setObjectName("motionLayerName");
-    layerName->setPlaceholderText("Layer name");
+    bindUiText(layerName,"placeholderText","Layer name");
     layerName->setMaxLength(128);
-    auto original = new QCheckBox("Original", body);
+    auto original = translatedWidget<QCheckBox>("Original", body);
     original->setObjectName("compareOriginalCheck");
-    original->setToolTip("Show the uncorrected source before added layers, contacts and limits. Export/bake "
+    bindUiText(original,"toolTip","Show the uncorrected source before added layers, contacts and limits. Export/bake "
                          "still use the enabled result.");
     auto keysRow = new QHBoxLayout;
-    auto key = new QPushButton(icon(Glyph::Key), "Key", body);
+    auto key = translatedIconWidget<QPushButton>(icon(Glyph::Key),"Key", body);
     key->setObjectName("correctionKeyButton");
-    key->setToolTip("Record current selected-layer offsets (I)");
+    bindUiText(key,"toolTip","Record current selected-layer offsets (I)");
     keysRow->addWidget(key);
-    auto neutral = new QPushButton("Neutral key", body);
+    auto neutral = translatedWidget<QPushButton>("Neutral key", body);
     neutral->setObjectName("neutralCorrectionKeyButton");
-    neutral->setToolTip(
-        "Return existing correction channels and selected FK/IK chain to zero offsets at the playhead");
+    bindToolTip(neutral,"Return existing correction channels and selected FK/IK chain to zero offsets at the playhead");
     keysRow->addWidget(neutral);
     layout->addLayout(keysRow);
     connect(layers, &QComboBox::currentIndexChanged, this, [this](int index) {
@@ -162,11 +160,11 @@ void Window::buildMotionPanel() {
     envelope->setObjectName("correctionEnvelope");
     auto envelopeToggle = new QToolButton(body);
     envelopeToggle->setObjectName("correctionEnvelopeToggle");
-    envelopeToggle->setText("Envelope");
+    bindUiText(envelopeToggle,"text","Envelope");
     envelopeToggle->setIcon(icon(Glyph::Expand));
     envelopeToggle->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     envelopeToggle->setCheckable(true);
-    envelopeToggle->setToolTip("Edit interval, fades and strength");
+    bindUiText(envelopeToggle,"toolTip","Edit interval, fades and strength");
     layout->addWidget(envelopeToggle);
     connect(envelopeToggle, &QToolButton::toggled, this, [envelope, envelopeToggle](bool on) {
         envelope->setVisible(on);
@@ -183,7 +181,7 @@ void Window::buildMotionPanel() {
     correctionTo->setObjectName("correctionTo");
     range->addWidget(correctionFrom);
     range->addWidget(correctionTo);
-    form->addRow("Interval", row);
+    addTranslatedRow(form,"Interval", row);
     auto fades = new QWidget(body);
     auto fl = new QHBoxLayout(fades);
     fl->setContentsMargins(0, 0, 0, 0);
@@ -196,29 +194,27 @@ void Window::buildMotionPanel() {
         f->setValue(5);
         fl->addWidget(f);
     }
-    form->addRow("Fade in / out", fades);
-    auto create = new QPushButton(icon(Glyph::Key), "New layer", body);
+    addTranslatedRow(form,"Fade in / out", fades);
+    auto create = translatedIconWidget<QPushButton>(icon(Glyph::Key),"New layer", body);
     create->setObjectName("createCorrectionButton");
-    create->setToolTip("Create an additive local-space correction. Pose with FK/IK inside the interval; "
+    bindUiText(create,"toolTip","Create an additive local-space correction. Pose with FK/IK inside the interval; "
                        "source keys stay intact.");
     layout->addWidget(envelope);
     envelope->hide();
     keysRow->insertWidget(0, create);
-    correctionEnabled = new QCheckBox("Layer", body);
+    correctionEnabled = translatedWidget<QCheckBox>("Layer", body);
     correctionEnabled->setObjectName("correctionEnabled");
-    correctionEnabled->setToolTip(
-        "Enable or bypass this layer. Original compares the whole result with the source.");
-    correctionEditing = new QCheckBox("Record", body);
+    bindToolTip(correctionEnabled,"Enable or bypass this layer. Original compares the whole result with the source.");
+    correctionEditing = translatedWidget<QCheckBox>("Record", body);
     correctionEditing->setObjectName("correctionEditing");
-    correctionEditing->setToolTip(
-        "Pose edits affect this layer; turning this off locks posing. Bake a copy to edit "
+    bindToolTip(correctionEditing,"Pose edits affect this layer; turning this off locks posing. Bake a copy to edit "
         "source pose keys at the timeline FPS.");
     correctionStrength = new QDoubleSpinBox(body);
     correctionStrength->setObjectName("correctionStrength");
     correctionStrength->setRange(0, 1);
     correctionStrength->setSingleStep(.1);
     correctionStrength->setDecimals(2);
-    form->addRow("Strength", correctionStrength);
+    addTranslatedRow(form,"Strength", correctionStrength);
     auto controls = new QHBoxLayout;
     controls->addWidget(correctionEnabled);
     controls->addWidget(correctionEditing);
@@ -226,7 +222,7 @@ void Window::buildMotionPanel() {
     auto remove = new QToolButton(body);
     remove->setObjectName("removeCorrectionButton");
     remove->setIcon(icon(Glyph::Undo));
-    remove->setToolTip("Remove selected layer (undoable); other layers remain active.");
+    bindUiText(remove,"toolTip","Remove selected layer (undoable); other layers remain active.");
     controls->addWidget(remove);
     connect(remove, &QToolButton::clicked, this, [this] {
         commitPendingEditor();
@@ -237,15 +233,14 @@ void Window::buildMotionPanel() {
     correctionStatus->setObjectName("correctionStatus");
     correctionStatus->setWordWrap(true);
     layout->addWidget(correctionStatus);
-    auto bake = new QPushButton(icon(Glyph::Bake), "Bake copy", body);
+    auto bake = translatedIconWidget<QPushButton>(icon(Glyph::Bake),"Bake copy", body);
     bake->setObjectName("bakeCorrectionButton");
-    bake->setToolTip(
-        "Bake the final motion, including constraints. Keep this source scene and correction editable.");
+    bindToolTip(bake,"Bake the final motion, including constraints. Keep this source scene and correction editable.");
     auto footer = new QWidget(dock);
     auto bakeRow = new QHBoxLayout(footer);
     bakeRow->setContentsMargins(6, 4, 6, 4);
     bakeRow->addWidget(bake, 1);
-    bakeRow->addWidget(new QLabel("fps", body));
+    bakeRow->addWidget(translatedWidget<QLabel>("fps", body));
     bakeRow->addWidget(motionBakeFps);
 
     layout->addStretch(1);
@@ -279,7 +274,7 @@ void Window::buildMotionPanel() {
             return;
         const auto &c = document().scene.correction();
         document().seek((c.first + c.fadeIn + c.last - c.fadeOut) / 2);
-        report("Correction active. Pose with W / E; toggle Correction to compare with the source.");
+        report(QString("Correction active. Pose with W / E; toggle Correction to compare with the source."));
     });
     auto updateParameters = [this] {
         if (refreshing || !document().scene.correction().present)
@@ -340,7 +335,7 @@ void Window::buildMotionPanel() {
         int rate = motionBakeFps->value();
         if (qint64(source.last - source.first + 1) * rate / source.fps * source.nodes.size() > 5000000 ||
             float(source.last) * rate / source.fps > 100000) {
-            report("Shorten the range or lower Bake FPS.");
+            report(QString("Shorten the range or lower Bake FPS."));
             return;
         }
         auto result = source.resampledCopy(rate);
@@ -372,7 +367,7 @@ void Window::buildMotionPanel() {
     toggle->setObjectName("motionDockToggleAction");
     toggle->setShortcut(QKeySequence("Ctrl+Alt+M"));
     for (auto menu : menuBar()->findChildren<QMenu *>())
-        if (menu->title().remove('&') == "View") {
+        if (uiSourceText(menu).remove('&') == "View") {
             menu->addAction(toggle);
             break;
         }
@@ -449,17 +444,17 @@ void Window::refreshMotionPanel() {
         create->setEnabled(!s.nodes.empty() && s.layers.size() < 32);
         findChild<QPushButton *>("bakeCorrectionButton")->setEnabled(!s.nodes.empty());
     }
-    correctionStatus->setText(s.compareOriginal ? "Original comparison · recording paused"
-                              : !c.present      ? "Select an interval, then pose with FK / IK."
+    correctionStatus->setText(s.compareOriginal ? uiText("Original comparison · recording paused")
+                              : !c.present      ? uiText("Select an interval, then pose with FK / IK.")
                               : !c.enabled
-                                  ? "Selected layer disabled"
-                                  : QString("%1 · %2 bones · %3%")
-                                        .arg(c.world ? "World offsets" : "Local offsets")
+                                  ? uiText("Selected layer disabled")
+                                  : uiText("%1 · %2 bones · %3%")
+                                        .arg(c.world ? uiText("World offsets") : uiText("Local offsets"))
                                         .arg(s.sampleLayer(c, float(document().frame)).offsets.size())
                                         .arg(qRound(s.correctionWeight(float(document().frame)) * 100)));
-    correctionStatus->setToolTip(!c.enabled  ? "Source motion"
-                                 : c.editing ? "Editing correction; source keys preserved"
-                                             : "Pose editing locked");
+    correctionStatus->setToolTip(!c.enabled  ? uiText("Source motion")
+                                 : c.editing ? uiText("Editing correction; source keys preserved")
+                                             : uiText("Pose editing locked"));
     refreshing = old;
 }
 } // namespace trickster

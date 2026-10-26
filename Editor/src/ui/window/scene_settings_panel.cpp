@@ -35,7 +35,7 @@ SceneSettingsPanel::SceneSettingsPanel(Workspace &source,std::function<void()> f
         SceneVisualSettings next;QString error;
         if(presets->currentData().typeId()==QMetaType::QString)next=SceneVisualSettings::preset(presets->currentData().toString());
         else if(!SceneVisualSettings::fromJson(QJsonObject::fromVariantMap(presets->currentData().toMap()),next,error)) {emit workspace.feedback(error);return;}
-        workspace.active().editVisual(uiText("Scene preset"),next);
+        workspace.active().editVisual("Scene preset",next);
     });
     connect(save,&QPushButton::clicked,this,[this,presets] {
         bool ok=false;auto name=QInputDialog::getText(this,uiText("Save scene preset"),uiText("Name"),QLineEdit::Normal,{},&ok).trimmed();
@@ -104,10 +104,10 @@ SceneSettingsPanel::SceneSettingsPanel(Workspace &source,std::function<void()> f
     auto *resetPost=translatedButton("Reset post-processing",body);groups->addWidget(resetPost);
     connect(resetPost,&QPushButton::clicked,this,[this] {
         auto next=workspace.active().scene.visuals;QString error;
-        next.patch({{"post",SceneVisualSettings().toJson()["post"]}},error);workspace.active().editVisual(uiText("Reset post-processing"),next);
+        next.patch({{"post",SceneVisualSettings().toJson()["post"]}},error);workspace.active().editVisual("Reset post-processing",next);
     });
     auto *reset=translatedButton("Reset scene settings",body);groups->addWidget(reset);
-    connect(reset,&QPushButton::clicked,this,[this] {workspace.active().editVisual(uiText("Reset scene settings"),SceneVisualSettings());});
+    connect(reset,&QPushButton::clicked,this,[this] {workspace.active().editVisual("Reset scene settings",SceneVisualSettings());});
     groups->addStretch();scroll->setWidget(body);layout->addWidget(scroll,1);
     connect(search,&QLineEdit::textChanged,this,[forms](const QString &text) {
         for(auto *form:forms) {
@@ -127,9 +127,12 @@ void SceneSettingsPanel::change(const QString &path,const QJsonValue &value,int 
     if(refreshing)return;
     auto settings=workspace.active().scene.visuals;QString error;
     if(!settings.setValue(path,value,error)) {emit workspace.feedback(error);return;}
-    workspace.active().editVisual(uiText("Scene settings"),settings,token);
+    workspace.active().editVisual("Scene settings",settings,token);
 }
 void SceneSettingsPanel::refresh() {
+    const auto &document=workspace.active();
+    if(displayedDocument==document.id && displayedRevision==document.visualRevision)return;
+    displayedDocument=document.id;displayedRevision=document.visualRevision;
     refreshing=true;const auto &settings=workspace.active().scene.visuals;
     for(auto it=controls.begin();it!=controls.end();++it) {
         const QSignalBlocker blocker(it.value());auto value=settings.value(it.key());
@@ -142,6 +145,27 @@ void SceneSettingsPanel::refresh() {
         QSignalBlocker blocker(slider);const auto low=slider->property("minimumValue").toDouble(),high=slider->property("maximumValue").toDouble();
         slider->setValue(qRound((settings.value(slider->property("visualPath").toString()).toDouble()-low)/(high-low)*1000));
     }
+    const bool lit=settings.value("mode")=="lit",post=lit && settings.value("post.enabled").toBool();
+    auto available=[&](const QString &path) {
+        if(path=="lighting.fill.shadows")return false;
+        if(path.startsWith("lighting.main.") && path!="lighting.main.enabled")
+            return lit && settings.value("lighting.main.enabled").toBool() && (!path.endsWith("shadowQuality") || settings.value("lighting.main.shadows").toBool());
+        if(path.startsWith("lighting.fill.") && path!="lighting.fill.enabled")return lit && settings.value("lighting.fill.enabled").toBool();
+        if(path.startsWith("lighting.") || path=="environment.enabled")return lit;
+        if(path.startsWith("environment."))return lit && settings.value("environment.enabled").toBool();
+        if(path=="post.enabled")return lit;
+        if(path.startsWith("post.bloom.") && path!="post.bloom.enabled")return post && settings.value("post.bloom.enabled").toBool();
+        if(path.startsWith("post."))return post;
+        if(path=="camera.fovDegrees")return settings.value("camera.projection")=="perspective";
+        if(path=="camera.orthographicHeight")return settings.value("camera.projection")=="orthographic";
+        if(path=="background.bottomColor")return settings.value("background.mode")=="gradient";
+        if(path.startsWith("wireframe."))return settings.value("mode")=="wireframe";
+        if(path=="grid.step" || path=="grid.intensity")return settings.value("grid.enabled").toBool();
+        if(path.startsWith("floor.") && path!="floor.enabled")return settings.value("floor.enabled").toBool() && (path!="floor.height" || !settings.value("floor.followPhysicsGround").toBool());
+        return true;
+    };
+    for(auto it=controls.begin();it!=controls.end();++it)it.value()->setEnabled(available(it.key()));
+    for(auto *slider:findChildren<QSlider*>())slider->setEnabled(available(slider->property("visualPath").toString()));
     refreshing=false;
 }
 }

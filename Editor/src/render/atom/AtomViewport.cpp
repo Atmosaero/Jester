@@ -52,7 +52,9 @@ AtomViewport::AtomViewport(QWidget* parent, bool createDemo) : RenderViewportWid
 {
     SetInputProcessingEnabled(false);
     setFocusPolicy(Qt::StrongFocus);
-    setMinimumSize(320, 160);
+    // The editor parent owns its minimum size. A larger native child silently
+    // renders beyond that parent and misaligns picking/overlays at compact DPI.
+    setMinimumSize(320, createDemo?160:1);
     m_entities = AZStd::make_shared<AzFramework::EntityContext>();
     m_entities->InitContext();
     AZ::RPI::SceneDescriptor sceneDescriptor;

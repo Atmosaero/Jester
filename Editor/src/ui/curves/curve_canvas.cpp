@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/curves/curve_canvas.h"
 #include "core/scene/edit_service.h"
 #include <QKeyEvent>
@@ -61,10 +62,10 @@ void CurveCanvas::fit() {
     }
 void CurveCanvas::paintEvent(QPaintEvent *)  {
         QPainter p(this);
-        p.fillRect(rect(), QColor(28, 31, 36));
+        p.fillRect(rect(), palette().color(QPalette::Base));
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QColor(90, 95, 105));
-        p.drawText(8, 16, "Author local channel / seconds");
+        p.setPen(palette().color(QPalette::Text));
+        p.drawText(8, 16, uiText("Author local channel / seconds"));
         p.drawLine(point(first, 0), point(last, 0));
         auto c = curve();
         if (!c)
@@ -98,11 +99,11 @@ void CurveCanvas::paintEvent(QPaintEvent *)  {
             else
                 path.moveTo(q);
         }
-        p.setPen(QPen(QColor(100, 205, 230), 2));
+        p.setPen(QPen(palette().color(QPalette::Link), 2));
         p.drawPath(path);
         int keyIndex = 0;
         for (auto &k : c->keys) {
-            p.setPen(QColor(130, 140, 150));
+            p.setPen(palette().color(QPalette::Mid));
             auto a = keyPoint(*c,k);
             if (c->path != "rotationQuaternion" && (k.handles == "Free" || k.handles == "Aligned")) {
                 auto b = point(k.time + k.outTime, k.value + k.outValue),
@@ -112,7 +113,7 @@ void CurveCanvas::paintEvent(QPaintEvent *)  {
                 p.drawEllipse(b, 3, 3);
                 p.drawEllipse(d, 3, 3);
             }
-            p.setBrush(selected.contains(keyIndex++) ? QColor(255, 250, 220) : QColor(245, 194, 65));
+            p.setBrush(selected.contains(keyIndex++) ? palette().color(QPalette::Text) : palette().color(QPalette::Highlight));
             p.drawEllipse(a, 4, 4);
         }
         if (boxing) {

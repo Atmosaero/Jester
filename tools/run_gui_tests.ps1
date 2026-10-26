@@ -1,5 +1,5 @@
 param(
-    [string[]]$Suites=@('Ui','Mvp','Automation','Notes','PhysicsUi','Motion','Media','UxScope'),
+    [string[]]$Suites=@('Ui','Mvp','Visual','Automation','Notes','PhysicsUi','Motion','Media','UxScope'),
     [ValidateSet('1','1.5')][string]$Scale='1',
     [string]$Character
 )

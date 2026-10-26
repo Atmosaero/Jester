@@ -1,3 +1,5 @@
+#include "settings/editor_appearance.h"
+#include "ui/widgets/localized_ui.h"
 #include "core/scene/runtime_error.h"
 #include "ui/timeline/timeline.h"
 #include "core/scene/edit_service.h"
@@ -16,13 +18,14 @@
 #include <cmath>
 namespace trickster {
 Timeline::Timeline(Document *d, QWidget *p) : QWidget(p), doc(d) {
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,[this] {rowCacheMotion=~quint64(0);update();});
     setMinimumHeight(130);
     setFocusPolicy(Qt::StrongFocus);
     setObjectName("timeline");
     scroll = new QScrollBar(Qt::Vertical, this);
     scroll->setObjectName("timelineTrackScroll");
     connect(scroll, &QScrollBar::valueChanged, this, QOverload<>::of(&Timeline::update));
-    setToolTip("Click a track label to select its bone. Expand for Position / Rotation / Scale. Source "
+    bindUiText(this,"toolTip","Click a track label to select its bone. Expand for Position / Rotation / Scale. Source "
                "tracks are read-only. Drag a green key; Ctrl-drag copies. Alt-wheel pans time; wheel scrolls "
                "tracks; Ctrl-wheel zooms.");
     setDocument(d);
@@ -41,11 +44,11 @@ void Timeline::setDocument(Document *d) {
     connect(d, &Document::selectionChanged, this, &Timeline::syncSelection);
     connect(d, &Document::annotationSelected, this, [this](QString id) {
         auto model=rows();
-        scroll->setRange(0,std::max(0,int(model.size()-2)*22-std::max(1,height()-86)));
+        scroll->setRange(0,std::max(0,int(model.size()-2)*rowHeight()-std::max(1,height()-bodyTop()-footerHeight())));
         for(int i=0;i<int(model.size());++i)if(model[i].kind==ContextTrack && model[i].reference==id){
             int y=rowY(i);
-            if(y<76)scroll->setValue(std::max(0,scroll->value()+y-76));
-            else if(y>height()-38)scroll->setValue(scroll->value()+y-height()+38);
+            if(y<bodyTop()+rowHeight()/2)scroll->setValue(std::max(0,scroll->value()+y-bodyTop()-rowHeight()/2));
+            else if(y>height()-footerHeight()-rowHeight()/2)scroll->setValue(scroll->value()+y-height()+footerHeight()+rowHeight()/2);
             update();break;
         }
     });
@@ -98,13 +101,13 @@ void Timeline::syncSelection() {
     if (onlySelected)
         scroll->setValue(0);
     else {
-        int page = std::max(1, height() - 86);
-        scroll->setRange(0, std::max(0, int(model.size() - 2) * 22 - page));
-        int top = std::max(0, (selectedRow - 2) * 22);
+        int page = std::max(1, height()-bodyTop()-footerHeight());
+        scroll->setRange(0, std::max(0, int(model.size() - 2) * rowHeight() - page));
+        int top = std::max(0, (selectedRow - 2) * rowHeight());
         if (top < scroll->value())
             scroll->setValue(top);
-        else if (top + 22 > scroll->value() + page)
-            scroll->setValue(top + 22 - page);
+        else if (top + rowHeight() > scroll->value() + page)
+            scroll->setValue(top + rowHeight() - page);
     }
     update();
 }
@@ -132,13 +135,13 @@ std::vector<Timeline::Row> Timeline::rows() const {
         return rowCache;
     const auto &s = doc->scene;
     std::vector<Row> result;
-    QString clip = s.sourceClip >= 0 && s.clips ? (*s.clips)[s.sourceClip].name : "Pose keys";
-    result.push_back({Source, -1, 7, 0, (s.sourceClip >= 0 ? "Source: " : "Pose bundle: ") + clip, {}});
+    QString clip = s.sourceClip >= 0 && s.clips ? (*s.clips)[s.sourceClip].name : uiText("Pose keys");
+    result.push_back({Source, -1, 7, 0, (s.sourceClip >= 0 ? uiText("Source: ") : uiText("Pose bundle: ")) + clip, {}});
     result.push_back({Layer,
                       -1,
                       7,
                       0,
-                      s.correction().present ? "Layer: " + s.correction().name : "No correction layer",
+                      s.correction().present ? uiText("Layer: ") + s.correction().name : uiText("No correction layer"),
                       {}});
     std::set<int> shown;
     if (onlySelected) {
@@ -162,7 +165,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
         }
         std::vector<int> bones(group.begin(), group.end());
         Row r{s.correction().present ? Controller : SourceController,       -2,   7, 0,
-              QString("Selected (%1) [IK/FK TRS]").arg(filterNodes.size()), bones};
+              uiText("Selected (%1) [IK/FK TRS]").arg(filterNodes.size()), bones};
         result.push_back(r);
         if (expanded.contains(expansionId(r)))
             for (int n : bones)
@@ -172,7 +175,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                                       n,
                                       entry.first,
                                       1,
-                                      s.nodes[n].name + " / " + entry.second,
+                                      s.nodes[n].name + " / " + uiText(entry.second),
                                       {n}});
     }
     for (int n : shown) {
@@ -183,7 +186,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                    n,
                    7,
                    0,
-                   s.nodes[n].name + (ik ? " [IK source]" : " [source]"),
+                   s.nodes[n].name + (ik ? uiText(" [IK source]") : uiText(" [source]")),
                    affected};
         if (!s.correction().present) {
             result.push_back(source);
@@ -195,7 +198,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                                           bone,
                                           entry.first,
                                           1,
-                                          (ik ? s.nodes[bone].name + " / " : QString()) + entry.second,
+                                          (ik ? s.nodes[bone].name + " / " : QString()) + uiText(entry.second),
                                           {bone}});
             continue;
         }
@@ -203,7 +206,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                 n,
                 7,
                 0,
-                s.nodes[n].name + (ik ? " [IK chain TRS]" : " [TRS]"),
+                s.nodes[n].name + (ik ? uiText(" [IK chain TRS]") : " [TRS]"),
                 affected};
         result.push_back(row);
         if (expanded.contains(expansionId(row)))
@@ -214,7 +217,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                                       bone,
                                       entry.first,
                                       1,
-                                      (ik ? s.nodes[bone].name + " / " : QString()) + entry.second,
+                                      (ik ? s.nodes[bone].name + " / " : QString()) + uiText(entry.second),
                                       {bone}});
         if (sourceDetails)
             result.push_back(source);
@@ -226,12 +229,12 @@ std::vector<Timeline::Row> Timeline::rows() const {
                                       bone,
                                       entry.first,
                                       1,
-                                      (ik ? s.nodes[bone].name + " / " : QString()) + entry.second,
+                                      (ik ? s.nodes[bone].name + " / " : QString()) + uiText(entry.second),
                                       {bone}});
     }
     for (const auto &c : s.contacts)
         if (!onlySelected || filterNodes.contains(c.node))
-            result.push_back({ContactTrack, c.node, 7, 0, "Contact: " + s.nodes[c.node].name, {}});
+            result.push_back({ContactTrack, c.node, 7, 0, uiText("Contact: ") + s.nodes[c.node].name, {}});
     for (auto value : s.annotations) {
         auto a = value.toObject();
         bool shown = !onlySelected || a["nodes"].toArray().isEmpty();
@@ -240,7 +243,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                 shown = true;
         if (shown)
             result.push_back(
-                {ContextTrack, -1, 0, 0, "Context: " + a["name"].toString(), {}, a["id"].toString()});
+                {ContextTrack, -1, 0, 0, uiText("Context: ") + a["name"].toString(), {}, a["id"].toString()});
     }
     for (auto &curve : s.curves)
         if (!onlySelected || filterNodes.contains(curve.node))
@@ -249,7 +252,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
                  curve.node,
                  0,
                  0,
-                 QString("Curve: %1 / %2 %3").arg(s.nodes[curve.node].name, curve.path).arg(curve.component),
+                 uiText("Curve: %1 / %2 %3").arg(s.nodes[curve.node].name, curve.path).arg(curve.component),
                  {},
                  curve.id});
     for (auto entry : doc->motionProblems) {
@@ -257,7 +260,7 @@ std::vector<Timeline::Row> Timeline::rows() const {
         bool stale = doc->analysisMotionRevision != doc->motionRevision ||
                      doc->analysisMetadataRevision != doc->metadataRevision;
         result.push_back({DiagnosticTrack, -1, 0, 0,
-                          QString("%1%2").arg(stale ? "Stale: " : "Issue: ", problem["kind"].toString()),
+                          uiText("%1%2").arg(stale ? "Stale: " : "Issue: ", problem["kind"].toString()),
                           {}, problem["problemId"].toString()});
     }
     rowCacheAnalysis = doc->analysisRevision;
@@ -271,16 +274,28 @@ std::vector<Timeline::Row> Timeline::rows() const {
     return result;
 }
 int Timeline::rowY(int i) const {
-    return i == 0 ? 32 : i == 1 ? 52 : 75 + (i - 2) * 22 - scroll->value();
+    return i<2?headerHeight()+i*rowHeight()+rowHeight()/2:bodyTop()+(i-2)*rowHeight()+rowHeight()/2-scroll->value();
+}
+int Timeline::rowHeight() const {return std::max(22,fontMetrics().height()+6);}
+int Timeline::headerHeight() const {return std::max(24,fontMetrics().height()+8);}
+int Timeline::footerHeight() const {return headerHeight();}
+int Timeline::bodyTop() const {return headerHeight()+2*rowHeight();}
+void Timeline::ensureRowVisible(int row) {
+    if(row<2)return;
+    const auto model=rows();const int page=std::max(1,height()-bodyTop()-footerHeight());
+    scroll->setRange(0,std::max(0,int(model.size()-2)*rowHeight()-page));
+    const int top=(row-2)*rowHeight();
+    if(top<scroll->value())scroll->setValue(top);
+    else if(top+rowHeight()>scroll->value()+page)scroll->setValue(top+rowHeight()-page);
+}
+void Timeline::changeEvent(QEvent *event) {
+    QWidget::changeEvent(event);
+    if(event->type()==QEvent::FontChange) {setMinimumHeight(std::max(130,bodyTop()+footerHeight()+rowHeight()));updateGeometry();update();}
 }
 int Timeline::rowAt(float y) const {
-    if (y >= 22 && y < 42)
-        return 0;
-    if (y >= 42 && y < 62)
-        return 1;
-    if (y < 64 || y >= height() - 22)
-        return -1;
-    int row = 2 + int((y - 64 + scroll->value()) / 22);
+    if(y<headerHeight() || y>=height()-footerHeight())return -1;
+    if(y<bodyTop())return int((y-headerHeight())/rowHeight());
+    int row = 2 + int((y - bodyTop() + scroll->value()) / rowHeight());
     return row < int(rows().size()) ? row : -1;
 }
 int Timeline::contextTrackCenter(const QString &id) const {
@@ -300,6 +315,14 @@ int Timeline::trackCenter(int node, int channel, bool source) const {
     }
     return -1;
 }
+bool Timeline::ensureTrackVisible(int node,int channel,bool source) {
+    const auto model=rows();
+    for(int row=2;row<int(model.size());++row) {
+        const auto &track=model[row];const bool isSource=track.kind==SourceBone || track.kind==SourceController;
+        if(track.node==node && track.channels==channel && isSource==source && track.kind!=ContactTrack) {ensureRowVisible(row);update();return true;}
+    }
+    return false;
+}
 bool Timeline::editable(const Row &r) const {
     const auto &s = doc->scene;
     if (s.compareOriginal)
@@ -312,7 +335,7 @@ bool Timeline::editable(const Row &r) const {
 QList<float> Timeline::times(const Row &r) const {
     const auto &s = doc->scene;
     if(timeCacheRevision!=doc->motionRevision){timeCache.clear();timeCacheRevision=doc->motionRevision;}
-    QString cacheKey=QString("%1:%2:%3:%4").arg(r.kind).arg(r.node).arg(r.channels).arg(r.reference);
+    QString cacheKey=uiText("%1:%2:%3:%4").arg(r.kind).arg(r.node).arg(r.channels).arg(r.reference);
     for(int n:r.nodes)cacheKey+=":"+QString::number(n);
     auto cached=timeCache.constFind(cacheKey);if(cached!=timeCache.cend())return cached.value();
     QSet<float> out;
@@ -394,22 +417,22 @@ QString Timeline::scopeName(const Row &r) const {
     if (r.kind == Source) {
         if (doc->scene.sourceClip >= 0 && doc->scene.clips) {
             const auto &c = (*doc->scene.clips)[doc->scene.sourceClip];
-            return "Read-only source: " + c.name +
-                   (c.channels.empty() ? QString(" / samples at %1 fps").arg(c.sampleFps)
-                                       : " / channel key times");
+            return uiText("Read-only source: ") + c.name +
+                   (c.channels.empty() ? uiText(" / samples at %1 fps").arg(c.sampleFps)
+                                       : uiText(" / channel key times"));
         }
-        return "Whole pose: all bones, pins and morphs";
+        return uiText("Whole pose: all bones, pins and morphs");
     }
     if (r.kind == Layer)
-        return "Whole layer key: all keyed bones and morphs";
+        return uiText("Whole layer key: all keyed bones and morphs");
     QStringList names;
     for (int n : r.nodes)
         names << doc->scene.nodes[n].name;
     return names.join(", ") + " / " +
-           (r.channels == 7   ? "Position + Rotation + Scale"
-            : r.channels == 1 ? "Position"
-            : r.channels == 2 ? "Rotation"
-                              : "Scale");
+           (r.channels == 7   ? uiText("Position + Rotation + Scale")
+            : r.channels == 1 ? uiText("Position")
+            : r.channels == 2 ? uiText("Rotation")
+                              : uiText("Scale"));
 }
 void Timeline::paintEvent(QPaintEvent *) {
     QElapsedTimer timer;
@@ -421,24 +444,24 @@ void Timeline::paintEvent(QPaintEvent *) {
                 std::max(1, doc->scene.last - doc->scene.first + 1);
     }
     auto model = rows();
-    scroll->setGeometry(width() - 14, 64, 14, std::max(0, height() - 86));
-    scroll->setPageStep(std::max(1, height() - 86));
-    scroll->setRange(0, std::max(0, int(model.size() - 2) * 22 - (height() - 86)));
+    scroll->setGeometry(width() - 14, bodyTop(), 14, std::max(0, height()-bodyTop()-footerHeight()));
+    scroll->setPageStep(std::max(1, height()-bodyTop()-footerHeight()));
+    scroll->setRange(0, std::max(0, int(model.size() - 2) * rowHeight() - (height()-bodyTop()-footerHeight())));
     scroll->setVisible(scroll->maximum() > 0);
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    p.fillRect(rect(), QColor(32, 34, 38));
+    p.fillRect(rect(), palette().color(QPalette::Base));
     int step = 1;
     while (step * scale < 45)
         step = step == 1 ? 5 : step * 2;
     for (int f = std::max(doc->scene.first, int(std::floor(start / step)) * step);
          f <= doc->scene.last && x(f) < width(); f += step) {
-        p.setPen(QColor(55, 62, 73));
-        p.drawLine(QPointF(x(f), 25), QPointF(x(f), height() - 22));
-        p.setPen(QColor(180, 192, 205));
-        p.drawText(QPointF(x(f) + 3, 18), QString::number(f));
+        p.setPen(palette().color(QPalette::Mid));
+        p.drawLine(QPointF(x(f), headerHeight()), QPointF(x(f), height()-footerHeight()));
+        p.setPen(palette().color(QPalette::Text));
+        p.drawText(QPointF(x(f) + 3, fontMetrics().ascent()+3), QString::number(f));
     }
-    p.setPen(QColor(235, 185, 80));
+    p.setPen(palette().color(QPalette::Highlight));
     for (auto item : doc->scene.annotations) {
         auto v = item.toObject();
         float a = x(v["start"].toDouble() * doc->scene.fps), b = x(v["end"].toDouble() * doc->scene.fps);
@@ -447,32 +470,32 @@ void Timeline::paintEvent(QPaintEvent *) {
         p.drawLine(QPointF(std::max(float(trackWidth), a), 24), QPointF(std::max(a + 3, b), 24));
         p.drawLine(QPointF(a, 20), QPointF(a, 30));
     }
-    p.fillRect(QRect(0, 0, trackWidth, height()), QColor(39, 42, 47));
-    p.setPen(QColor(205, 215, 225));
-    p.drawText(10, 21, "Tracks / operation scope");
+    p.fillRect(QRect(0, 0, trackWidth, height()), palette().color(QPalette::Window));
+    p.setPen(palette().color(QPalette::Text));
+    p.drawText(QRect(8,0,trackWidth-16,headerHeight()),Qt::AlignVCenter,fontMetrics().elidedText(uiText("Tracks / operation scope"),Qt::ElideRight,trackWidth-16));
     for (int i = 0; i < int(model.size()); i++) {
         auto &r = model[i];
         int y = rowY(i);
-        if (i >= 2 && (y < 64 || y > height() - 23))
+        if (i >= 2 && (y < bodyTop() || y > height()-footerHeight()-1))
             continue;
         p.save();
-        p.setClipRect(i < 2 ? QRect(0, i ? 42 : 22, width() - 14, 20)
-                            : QRect(0, 64, width() - 14, height() - 86));
+        p.setClipRect(i < 2 ? QRect(0,headerHeight()+i*rowHeight(),width()-14,rowHeight())
+                            : QRect(0,bodyTop(),width()-14, height()-bodyTop()-footerHeight()));
         bool selected = i == selectedRow || doc->selection().contains(r.node);
         if (selected)
-            p.fillRect(QRect(0, y - 10, width() - 14, 21), QColor(69, 85, 103, 95));
-        p.setPen(editable(r) ? QColor(110, 220, 180) : QColor(151, 170, 187));
+            p.fillRect(QRect(0,y-rowHeight()/2,width()-14,rowHeight()-1), QColor(69, 85, 103, 95));
+        p.setPen(palette().color(editable(r)?QPalette::Link:QPalette::PlaceholderText));
         QString label = r.label;
         if (i == 0 && doc->scene.sourceClip >= 0 && doc->scene.clips)
-            label += " [read-only]";
+            label += uiText(" [read-only]");
         if (i == 1 && doc->scene.correction().present)
-            label += editable(r) ? " [REC]" : " [locked]";
+            label += editable(r) ? uiText(" [REC]") : uiText(" [locked]");
         if (i >= 2 && r.channels == 7 && r.kind != ContactTrack)
             label = (expanded.contains(expansionId(r)) ? "v " : "> ") + label;
-        p.drawText(8 + r.depth * 12, y + 4,
+        p.drawText(QRect(8+r.depth*12,y-rowHeight()/2,trackWidth-15-r.depth*12,rowHeight()),Qt::AlignVCenter,
                    QFontMetrics(p.font()).elidedText(label, Qt::ElideRight, trackWidth - 15 - r.depth * 12));
-        p.setPen(QColor(59, 65, 74));
-        p.drawLine(0, y + 12, width() - 14, y + 12);
+        p.setPen(palette().color(QPalette::Mid));
+        p.drawLine(0, y+rowHeight()/2, width() - 14, y+rowHeight()/2);
         p.setClipRect(QRect(trackWidth, y - 10, width() - trackWidth - 15, 21));
         if (r.kind == ContextTrack)
             for (auto value : doc->scene.annotations) {
@@ -485,7 +508,7 @@ void Timeline::paintEvent(QPaintEvent *) {
                     QRectF(x(float(from * doc->scene.fps)), y - 6,
                            std::max(4.f, x(float(to * doc->scene.fps)) - x(float(from * doc->scene.fps))),
                            12),
-                    r.reference==doc->activeAnnotation ? QColor(255,213,100) : QColor(230,180,70,180));
+                    r.reference==doc->activeAnnotation ? overlayColor("notes") : overlayColor("notes",180));
             }
         if (r.kind == DiagnosticTrack)
             for (auto entry : doc->motionProblems) {
@@ -522,7 +545,7 @@ void Timeline::paintEvent(QPaintEvent *) {
                     continue;
                 if (editable(r)) {
                     p.setPen(Qt::NoPen);
-                    p.setBrush(marked(r, qRound(frame)) ? QColor(255, 199, 88) : QColor(80, 205, 160));
+                    p.setBrush(marked(r, qRound(frame)) ? overlayColor("selection") : QColor(80, 205, 160));
                     p.drawPolygon(QPolygonF{
                         {px, float(y - 6)}, {px + 6, float(y)}, {px, float(y + 6)}, {px - 6, float(y)}});
                 } else {
@@ -539,19 +562,19 @@ void Timeline::paintEvent(QPaintEvent *) {
     }
     if (doc->timeSelection) {
         auto a = doc->timeSelection->first * doc->scene.fps, b = doc->timeSelection->second * doc->scene.fps;
-        p.fillRect(QRectF(x(float(a)), 0, x(float(b)) - x(float(a)), height() - 22),
+        p.fillRect(QRectF(x(float(a)), 0, x(float(b)) - x(float(a)), height()-footerHeight()),
                    QColor(80, 145, 220, 40));
     }
-    p.setPen(QPen(QColor(243, 181, 75), 2));
-    p.drawLine(QPointF(x(doc->frame), 23), QPointF(x(doc->frame), height() - 23));
-    p.fillRect(QRect(0, height() - 22, width(), 22), QColor(39, 42, 47));
-    p.setPen(QColor(210, 218, 226));
+    p.setPen(QPen(palette().color(QPalette::Highlight), 2));
+    p.drawLine(QPointF(x(doc->frame), headerHeight()-1), QPointF(x(doc->frame), height()-footerHeight()-1));
+    p.fillRect(QRect(0, height()-footerHeight(), width(),footerHeight()), palette().color(QPalette::Window));
+    p.setPen(palette().color(QPalette::Text));
     QString hint =
-        dragKey ? (copyDrag ? "Copy " : "Move ") + scopeName(dragScope) + " -> " + QString::number(dragTo)
+        dragKey ? (copyDrag ? uiText("Copy ") : uiText("Move ")) + scopeName(dragScope) + " -> " + QString::number(dragTo)
         : selectedRow < int(model.size()) ? scopeName(model[selectedRow])
-                                          : "Select a track";
+                                          : uiText("Select a track");
     if (marks.size() > 1)
-        hint = QString("%1 selected key scopes | ").arg(marks.size()) + hint;
+        hint = uiText("%1 selected key scopes | ").arg(marks.size()) + hint;
     p.drawText(8, height() - 7, QFontMetrics(p.font()).elidedText(hint, Qt::ElideRight, width() - 20));
 }
 void Timeline::mousePressEvent(QMouseEvent *e) {
@@ -569,7 +592,7 @@ void Timeline::mousePressEvent(QMouseEvent *e) {
     }
     int row = rowAt(e->position().y());
     if (row < 0) {
-        if (e->position().y() >= 22 || e->position().x() < trackWidth)
+        if (e->position().y() >= headerHeight() || e->position().x() < trackWidth)
             return;
         scrubbing = true;
         doc->play(false);
@@ -654,7 +677,7 @@ void Timeline::mousePressEvent(QMouseEvent *e) {
                 expanded.insert(id);
         }
         setToolTip(scopeName(scope) +
-                   (editable(scope) ? " | Editable" : " | Read-only; create/record a correction to edit"));
+                   (editable(scope) ? uiText(" | Editable") : uiText(" | Read-only; create/record a correction to edit")));
         update();
         return;
     }
@@ -732,7 +755,7 @@ void Timeline::mouseMoveEvent(QMouseEvent *e) {
         auto model = rows();
         int row = rowAt(e->position().y());
         if (row >= 0)
-            setToolTip(scopeName(model[row]) + (editable(model[row]) ? " | Editable" : " | Read-only"));
+            setToolTip(scopeName(model[row]) + (editable(model[row]) ? uiText(" | Editable") : uiText(" | Read-only")));
     }
 }
 void Timeline::mouseReleaseEvent(QMouseEvent *e) {
@@ -765,7 +788,7 @@ void Timeline::mouseReleaseEvent(QMouseEvent *e) {
         auto rect = keyRect.normalized();
         auto model = rows();
         for (int i = 0; i < int(model.size()); i++)
-            if (editable(model[i]) && rowY(i) >= (i < 2 ? 22 : 64) && rowY(i) < height() - 22)
+            if (editable(model[i]) && rowY(i) >= (i < 2 ? headerHeight() : bodyTop()) && rowY(i) < height()-footerHeight())
                 for (float time : times(model[i]))
                     if (rect.contains(QPointF(x(time), rowY(i))) && !marked(model[i], qRound(time)))
                         marks.push_back({model[i], qRound(time)});
@@ -855,7 +878,7 @@ bool Timeline::transformSelection(int delta, bool copy, bool remove) {
         selectionRevision = doc->revision;
         return true;
     } catch (const std::exception &e) {
-        emit doc->feedback(QString::fromUtf8(e.what()));
+        emit doc->feedback(translatedDiagnostic(QString::fromUtf8(e.what())));
         return false;
     }
 }
@@ -892,10 +915,10 @@ bool Timeline::selectTrack(int node, int channels, bool source) {
             selectedRow = i;
             marks.clear();
             selectedKey = -1;
-            int page = std::max(1, height() - 86);
-            scroll->setRange(0, std::max(0, int(model.size() - 2) * 22 - page));
-            int top = std::max(0, (i - 2) * 22);
-            if (top < scroll->value() || top + 22 > scroll->value() + page)
+            int page = std::max(1, height()-bodyTop()-footerHeight());
+            scroll->setRange(0, std::max(0, int(model.size() - 2) * rowHeight() - page));
+            int top = std::max(0, (i - 2) * rowHeight());
+            if (top < scroll->value() || top + rowHeight() > scroll->value() + page)
                 scroll->setValue(top);
             emit scopeChanged(insertionScope());
             update();
@@ -957,17 +980,17 @@ void Timeline::insertKey(bool neutral) {
                     selectedRow = i;
                     break;
                 }
-        int page = std::max(1, height() - 86);
-        scroll->setRange(0, std::max(0, int(updated.size() - 2) * 22 - page));
-        int top = std::max(0, (selectedRow - 2) * 22);
+        int page = std::max(1, height()-bodyTop()-footerHeight());
+        scroll->setRange(0, std::max(0, int(updated.size() - 2) * rowHeight() - page));
+        int top = std::max(0, (selectedRow - 2) * rowHeight());
         if (top < scroll->value())
             scroll->setValue(top);
-        else if (top + 22 > scroll->value() + page)
-            scroll->setValue(top + 22 - page);
+        else if (top + rowHeight() > scroll->value() + page)
+            scroll->setValue(top + rowHeight() - page);
         emit doc->feedback((neutral ? "Neutral: " : "Key: ") + scopeName(scope));
         update();
     } catch (const std::exception &e) {
-        emit doc->feedback(QString::fromUtf8(e.what()));
+        emit doc->feedback(translatedDiagnostic(QString::fromUtf8(e.what())));
     }
 }
 void Timeline::copy() {
@@ -998,10 +1021,10 @@ void Timeline::copy() {
             clipboardWorld = doc->scene.correction().world;
         }
         emit doc->feedback(
-            QString("Copied %1 key scopes; paste retains their bones/channels and relative times.")
+            uiText("Copied %1 key scopes; paste retains their bones/channels and relative times.")
                 .arg(marks.size()));
     } catch (const std::exception &e) {
-        emit doc->feedback(QString::fromUtf8(e.what()));
+        emit doc->feedback(translatedDiagnostic(QString::fromUtf8(e.what())));
     }
 }
 void Timeline::paste() {
@@ -1041,7 +1064,7 @@ void Timeline::paste() {
         selectionRevision = doc->revision;
         update();
     } catch (const std::exception &e) {
-        emit doc->feedback(QString::fromUtf8(e.what()));
+        emit doc->feedback(translatedDiagnostic(QString::fromUtf8(e.what())));
     }
 }
 void Timeline::keyPressEvent(QKeyEvent *e) {
@@ -1074,29 +1097,29 @@ void Timeline::contextMenuEvent(QContextMenuEvent *e) {
         selectionRevision = doc->revision;
     }
     QMenu menu;
-    auto addNote = menu.addAction("Add note");
-    auto context = menu.addAction("Notes panel");
-    QAction *editNote = scope.kind==ContextTrack ? menu.addAction("Edit note") : nullptr;
+    auto addNote = addTranslatedAction(&menu,"Add note");
+    auto context = addTranslatedAction(&menu,"Notes panel");
+    QAction *editNote = scope.kind==ContextTrack ? addTranslatedAction(&menu,"Edit note") : nullptr;
     auto title = menu.addAction(scopeName(scope));
     title->setEnabled(false);
-    auto cp = menu.addAction("Copy selected key");
+    auto cp = addTranslatedAction(&menu,"Copy selected key");
     cp->setEnabled(selectedKey >= 0);
-    auto ps = menu.addAction("Paste at playhead");
+    auto ps = addTranslatedAction(&menu,"Paste at playhead");
     ps->setEnabled(editable(scope) && (!copiedPoses.isEmpty() || !copiedLayers.isEmpty()));
-    auto del = menu.addAction("Delete selected key");
+    auto del = addTranslatedAction(&menu,"Delete selected key");
     del->setEnabled(selectedKey >= 0);
     if (!editable(scope)) {
-        auto readonly = menu.addAction("Read-only source / locked layer");
+        auto readonly = addTranslatedAction(&menu,"Read-only source / locked layer");
         readonly->setEnabled(false);
     }
     auto interpolation=menu.addMenu("Selected interpolation");
     interpolation->setEnabled(editable(scope)&&!marks.empty());
     for(QString mode:{"Step","Linear","Bezier","Hermite","Bounce","Elastic","Back"})
         interpolation->addAction(mode)->setData("interpolation:"+mode);
-    auto details = menu.addAction("Show source detail tracks");
+    auto details = addTranslatedAction(&menu,"Show source detail tracks");
     details->setCheckable(true);
     details->setChecked(sourceDetails);
-    auto fitAction = menu.addAction("Fit time range");
+    auto fitAction = addTranslatedAction(&menu,"Fit time range");
     auto chosen = menu.exec(e->globalPos());
     if(chosen && chosen->data().toString().startsWith("interpolation:")) {
         try{EditService::execute(*doc,"animation_curves",{{"operation","interpolation"},{"selection",keyRequests()},

@@ -40,4 +40,5 @@ enum class Glyph {
     Note
 };
 QIcon icon(Glyph glyph);
+void refreshEditorIcons();
 } // namespace trickster

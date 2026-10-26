@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/motion/analysis_views.h"
 #include <QJsonArray>
 #include <QMouseEvent>
@@ -7,9 +8,15 @@
 namespace trickster {
 namespace {
 QString numeric(QJsonValue v) {
-    return v.isDouble() ? QString::number(v.toDouble(), 'g', 10) : QString("undefined");
+    return v.isDouble() ? QString::number(v.toDouble(), 'g', 10) : uiText("Undefined");
 }
 } // namespace
+AnalysisTableModel::AnalysisTableModel(QObject *parent):QAbstractTableModel(parent) {
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,[this] {
+        emit headerDataChanged(Qt::Horizontal,0,std::max(0,columnCount()-1));
+        if(rowCount())emit dataChanged(index(0,0),index(rowCount()-1,columnCount()-1));
+    });
+}
 void AnalysisTableModel::setReport(QJsonObject value) {
     beginResetModel();
     report = std::move(value);
@@ -68,7 +75,7 @@ int AnalysisTableModel::columnCount(const QModelIndex &parent) const {
 QVariant AnalysisTableModel::headerData(int section, Qt::Orientation orientation, int role) const {
     if (role != Qt::DisplayRole)
         return {};
-    return orientation == Qt::Horizontal && section < columns.size() ? QVariant(columns[section])
+    return orientation == Qt::Horizontal && section < columns.size() ? QVariant(uiText(columns[section]))
                                                                      : QVariant(section + 1);
 }
 double AnalysisTableModel::seconds(int row) const {
@@ -94,37 +101,39 @@ QVariant AnalysisTableModel::data(const QModelIndex &index, int role) const {
          item = row[mode == 2 ? "issues" : "bones"].toArray()[pair.second].toObject();
     int c = index.column();
     if (role == Qt::ToolTipRole)
-        return mode == 2 ? item["uncertainty"].toString() + " " +
-                               item["measurement"].toObject()["reason"].toString()
-                         : report["method"].toString() + " " + report["referenceMeaning"].toString();
+        return mode == 2 ? translatedDiagnostic(item["uncertainty"].toString()) + " " +
+                               translatedDiagnostic(item["measurement"].toObject()["reason"].toString())
+                         : translatedDiagnostic(report["method"].toString()) + " " + translatedDiagnostic(report["referenceMeaning"].toString());
     if (c == 0)
         return numeric(row[mode == 1 ? "leftSeconds" : "seconds"]);
     if (mode == 2) {
         if (c == 1)
-            return item["kind"].toString();
+            return ownedValueLabel(item["kind"].toString());
         if (c == 2) {
             QStringList names;
             for (auto v : item["nodes"].toArray())
-                names << QString("bone %1").arg(v.toInt());
+                names << uiText("bone %1").arg(v.toInt());
             for (auto v : item["meshes"].toArray())
-                names << QString("mesh %1").arg(v.toInt());
+                names << uiText("mesh %1").arg(v.toInt());
             return names.join(", ");
         }
         if (c == 3)
-            return item["status"].toString();
+            return ownedValueLabel(item["status"].toString());
         if (c == 4)
             return item.contains("measurement")
                        ? numeric(item["measurement"].toObject()["error"])
                        : numeric(item.contains("angleDegrees") ? item["angleDegrees"] : item["depthMetres"]);
         if (c == 5)
-            return item["method"].toString();
-        return item["uncertainty"].toString();
+            return ownedValueLabel(item["method"].toString());
+        return ownedValueLabel(item["uncertainty"].toString());
     }
     if (mode == 1) {
         if (c == 1)
             return numeric(row["rightSeconds"]);
-        if (c == 2)
-            return item["role"].toString();
+        if (c == 2) {
+            const auto id=item["role"].toString(),source=roleSourceName(id);
+            return source==id?id:uiText(source);
+        }
         if (c == 3)
             return item["left"].toInt();
         if (c == 4)
@@ -134,7 +143,7 @@ QVariant AnalysisTableModel::data(const QModelIndex &index, int role) const {
         if (c == 6)
             return numeric(item["orientationErrorDegrees"]);
         if (c == 7)
-            return report["positionUnits"].toString();
+            return ownedValueLabel(report["positionUnits"].toString());
         if (c == 8)
             return numeric(item["linearVelocityError"]);
         if (c == 9)
@@ -143,23 +152,23 @@ QVariant AnalysisTableModel::data(const QModelIndex &index, int role) const {
             return numeric(item["swingErrorDegrees"]);
         if (c == 11)
             return numeric(item["twistErrorDegrees"]);
-        return item["anatomyStatus"].toString();
+        return ownedValueLabel(item["anatomyStatus"].toString());
     }
     if (c == 1)
         return item["node"].toInt();
     if (c >= 2 && c <= 13) {
         QStringList quantities{"position", "velocity", "acceleration", "angularVelocity"};
         auto values = item[quantities[(c - 2) / 3]].toArray();
-        return values.size() == 3 ? numeric(values[(c - 2) % 3]) : QString("undefined");
+        return values.size() == 3 ? numeric(values[(c - 2) % 3]) : uiText("Undefined");
     }
     if (c == 14)
         return numeric(item["speed"]);
     if (c == 15)
         return numeric(item["distanceFromPrevious"]);
     if (c == 16)
-        return item["derivativeStatus"].toString();
+        return ownedValueLabel(item["derivativeStatus"].toString());
     if (c == 17)
-        return report["positionUnits"].toString();
+        return ownedValueLabel(report["positionUnits"].toString());
     if (c == 18)
         return numeric(item["contactErrorMetres"]);
     if (c == 19)
@@ -168,7 +177,7 @@ QVariant AnalysisTableModel::data(const QModelIndex &index, int role) const {
 }
 ComputedMotionPlot::ComputedMotionPlot(QWidget *parent) : QWidget(parent) {
     setMinimumSize(240, 120);
-    setToolTip("Read-only snapshot graph; click to seek. Edit authored curves in Graph Editor.");
+    bindUiText(this,"toolTip","Read-only snapshot graph; click to seek. Edit authored curves in Graph Editor.");
 }
 void ComputedMotionPlot::setReport(QJsonObject value) {
     report = std::move(value);
@@ -224,9 +233,9 @@ void ComputedMotionPlot::rebuild() {
 }
 void ComputedMotionPlot::paintEvent(QPaintEvent *) {
     QPainter p(this);
-    p.fillRect(rect(), QColor(28, 32, 38));
+    p.fillRect(rect(), palette().color(QPalette::Base));
     p.setRenderHint(QPainter::Antialiasing);
-    p.setPen(QColor(200, 215, 225));
+    p.setPen(palette().color(QPalette::Text));
     QString units =
         metric.contains("Degrees") ? "degrees"
         : metric.startsWith("angularVelocity")
@@ -236,14 +245,14 @@ void ComputedMotionPlot::paintEvent(QPaintEvent *) {
                    : metric == "acceleration"                                                   ? "/s^2"
                                                                                                 : "");
     p.drawText(8, 17,
-               QString("Computed snapshot: %1[%2] / %3 / seconds").arg(metric).arg(component).arg(units));
+               uiText("Computed snapshot: %1[%2] / %3 / seconds").arg(metric).arg(component).arg(units));
     p.drawText(8, height() - 5, QString::number(first, 'g', 6));
     p.drawText(width() - 70, height() - 5, QString::number(last, 'g', 6));
     auto point = [&](Sample s) {
         return QPointF(45 + (s.t - first) / (last - first) * std::max(1, width() - 60),
                        height() - 24 - (s.value - low) / (high - low) * std::max(1, height() - 50));
     };
-    p.setPen(QPen(QColor(105, 205, 180), 1.5));
+    p.setPen(QPen(palette().color(QPalette::Link), 1.5));
     size_t stride = std::max(size_t(1), samples.size() / 5000);
     bool gap = true;
     QPointF previous;
@@ -261,7 +270,7 @@ void ComputedMotionPlot::paintEvent(QPaintEvent *) {
         previous = q;
         gap = false;
     }
-    p.setPen(QColor(160, 175, 190));
+    p.setPen(palette().color(QPalette::PlaceholderText));
     p.drawText(2, 36, QString::number(high, 'g', 4));
     p.drawText(2, height() - 28, QString::number(low, 'g', 4));
 }

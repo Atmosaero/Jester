@@ -27,13 +27,13 @@ Profiling queries were OFF. CPU values average cumulative deltas after warmup. B
 | VULKAN | multi-mesh (8,424) | cpu | 0.437 | 0.005 | 0.552 | 61.65 | 33.05 | 1235 | 136.50 |
 | VULKAN | multi-mesh (8,424) | gpu | 0.001 | 0.027 | 0.049 | 45.89 | 32.89 | 1216 | 152.94 |
 
-Heavy has two authored morph targets; multi-mesh has four meshes. Current CPU/GPU rows use identical lighting, IBL, floor and post settings. Baseline uses its original simpler pipeline. At the same 1280 ? 800 outer window, new controls reduce the viewport from 927 ? 375 to 869 ? 335 pixels: CPU per-vertex comparison is meaningful, but whole-scene/capture/memory numbers include this and the pipeline difference. Memory is process private commit, not VRAM. Readback is excluded from playback/seek CPU measurements.
+Heavy has two authored morph targets; multi-mesh has four meshes. Current CPU/GPU rows use identical lighting, IBL, floor and post settings. Baseline uses its original simpler pipeline. At the same 1280 x 800 outer window, new controls reduce the viewport from 927 x 375 to 869 x 335 pixels: CPU per-vertex comparison is meaningful, but whole-scene/capture/memory numbers include this and the pipeline difference. Memory is process private commit, not VRAM. Readback is excluded from playback/seek CPU measurements.
 
-Heavy deformation moves roughly 16 ms of CPU skinning/preparation/upload to about 0.03?0.05 ms of CPU palette/upload work. This does **not** imply a corresponding FPS increase: callback pacing remains around 30 ms p95, and DX12 seek p95 changes little.
+Heavy deformation moves roughly 16 ms of CPU skinning/preparation/upload to about 0.03 to 0.05 ms of CPU palette/upload work. This does **not** imply a corresponding FPS increase: callback pacing remains around 30 ms p95, and DX12 seek p95 changes little.
 
 ## Optional native GPU timestamps
 
-`--gpu-timing` sums actual enabled leaf-pass queries for parent effects. Values are the latest buffered query, not a frame-wide GPU timer, and include query overhead. Heavy fixture, 869 ? 335 pixels:
+`--gpu-timing` sums actual enabled leaf-pass queries for parent effects. Values are the latest buffered query, not a frame-wide GPU timer, and include query overhead. Heavy fixture, 869 x 335 pixels:
 
 | API | Default ACES/display (ms) | Bypass sRGB/display (ms) | Grading (ms) | Bloom, 16 scopes (ms) |
 |---|---:|---:|---:|---:|

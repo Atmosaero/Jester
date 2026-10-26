@@ -14,6 +14,8 @@ class SceneSettingsPanel final:public QWidget {
     Workspace &workspace;
     QMap<QString,QWidget*> controls;
     bool refreshing=false;
+    QString displayedDocument;
+    quint64 displayedRevision=~quint64(0);
     int gesture=0;
     void change(const QString &path,const QJsonValue &value,int token=0);
 };

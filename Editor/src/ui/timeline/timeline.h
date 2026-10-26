@@ -34,6 +34,7 @@ class Timeline : public QWidget {
         return rowY(layer ? 1 : 0);
     }
     int trackCenter(int node, int channel = 7, bool source = false) const;
+    bool ensureTrackVisible(int node,int channel=7,bool source=false);
     int contextTrackCenter(const QString &id) const;
     static constexpr int trackWidth = 190;
 
@@ -45,6 +46,7 @@ class Timeline : public QWidget {
     void wheelEvent(QWheelEvent *) override;
     void keyPressEvent(QKeyEvent *) override;
     void contextMenuEvent(QContextMenuEvent *) override;
+    void changeEvent(QEvent *) override;
 
   private:
     enum Kind {
@@ -108,6 +110,11 @@ class Timeline : public QWidget {
     int frameAt(float position) const;
     int rowAt(float y) const;
     int rowY(int index) const;
+    int rowHeight() const;
+    int headerHeight() const;
+    int footerHeight() const;
+    int bodyTop() const;
+    void ensureRowVisible(int row);
     bool editable(const Row &) const;
     mutable QMap<QString, QList<float>> timeCache;
     mutable quint64 timeCacheRevision = ~quint64(0);

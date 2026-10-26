@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "core/scene/runtime_error.h"
 #include "core/animation/retarget.h"
 #include "ui/window/window.h"
@@ -20,11 +21,11 @@ namespace trickster {
 void Window::showRetarget() {
     auto &targetDocument = document();
     if (targetDocument.inTransaction()) {
-        report("Finish the current edit first.");
+        report(QString("Finish the current edit first."));
         return;
     }
     QDialog dialog(this);
-    dialog.setWindowTitle("Humanoid retarget / Source - Target");
+    bindUiText(&dialog,"windowTitle","Humanoid retarget / Source - Target");
     dialog.resize(1060, 850);
     auto available = screen()->availableGeometry();
     available.setSize(available.size().boundedTo(size()));
@@ -38,24 +39,24 @@ void Window::showRetarget() {
     for (int i = 0; i < int(workspace.documents.size()); ++i)
         if (workspace.documents[i].get() != &targetDocument)
             source->addItem(workspace.documents[i]->scene.name, i);
-    form->addRow("Source", source);
-    form->addRow("Target", new QLabel(targetDocument.scene.name));
+    addTranslatedRow(form,"Source", source);
+    addTranslatedRow(form,"Target", new QLabel(targetDocument.scene.name));
     auto root = new QComboBox;
-    root->addItems({"scale", "preserve", "inPlace"});
+    addTranslatedItems(root,{"scale", "preserve", "inPlace"});
     auto rate = new QSpinBox;
     rate->setRange(1, 240);
     rate->setValue(targetDocument.scene.fps);
     auto policies = new QHBoxLayout;
     policies->addWidget(root);
-    policies->addWidget(new QLabel("FPS"));
+    policies->addWidget(translatedWidget<QLabel>("FPS"));
     policies->addWidget(rate);
-    auto ik = new QCheckBox("IK hands/feet");
+    auto ik = translatedWidget<QCheckBox>("IK hands/feet");
     ik->setChecked(true);
     policies->addWidget(ik);
-    auto contacts = new QCheckBox("Authored contacts");
+    auto contacts = translatedWidget<QCheckBox>("Authored contacts");
     contacts->setChecked(true);
     policies->addWidget(contacts);
-    form->addRow("Root translation (yaw preserved)", policies);
+    addTranslatedRow(form,"Root translation (yaw preserved)", policies);
     auto basisRow = new QHBoxLayout;
     std::array<QDoubleSpinBox *, 3> basisAngles;
     for (int c = 0; c < 3; ++c) {
@@ -65,37 +66,36 @@ void Window::showRetarget() {
         basisAngles[c] = edit;
         basisRow->addWidget(edit);
     }
-    form->addRow("Source to target basis (YXZ degrees)", basisRow);
+    addTranslatedRow(form,"Source to target basis (YXZ degrees)", basisRow);
     auto tabs = new QTabWidget;
     layout->addWidget(tabs, 1);
     auto table = new QTableWidget;
     table->setColumnCount(5);
-    table->setHorizontalHeaderLabels({"Role", "Source bone", "Target bone", "Orientation weight", "IK"});
+    bindHeaders(table,{"Role", "Source bone", "Target bone", "Orientation weight", "IK"});
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    tabs->addTab(table, "Mapping");
+    addTranslatedTab(tabs,table,"Mapping");
     auto calibration = new QTableWidget;
     calibration->setColumnCount(7);
-    calibration->setHorizontalHeaderLabels(
+    bindHeaders(calibration,
         {"Role", "Source X", "Source Y", "Source Z", "Target X", "Target Y", "Target Z"});
     calibration->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    tabs->addTab(calibration, "Calibration (local YXZ degrees)");
+    addTranslatedTab(tabs,calibration,"Calibration (local YXZ degrees)");
     auto solePage = new QWidget;
     auto soleLayout = new QVBoxLayout(solePage);
     auto soleTable = new QTableWidget;
     soleTable->setColumnCount(7);
-    soleTable->setHorizontalHeaderLabels(
+    bindHeaders(soleTable,
         {"Foot role", "Source X", "Source Y", "Source Z", "Target X", "Target Y", "Target Z"});
     soleTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
     soleLayout->addWidget(soleTable, 1);
-    auto adaptPelvis = new QCheckBox("Adjust pelvis for contact reach (bounded projection)");
+    auto adaptPelvis = translatedWidget<QCheckBox>("Adjust pelvis for contact reach (bounded projection)");
     adaptPelvis->setChecked(true);
     soleLayout->addWidget(adaptPelvis);
-    auto soleNote = new QLabel(
-        "Local sole points use scene units. Defaults project the rest ankle onto the ground; review them "
+    auto soleNote = translatedWidget<QLabel>("Local sole points use scene units. Defaults project the rest ankle onto the ground; review them "
         "against the actual foot mesh. Shared root/pelvis allows vertical reach adjustment only.");
     soleNote->setWordWrap(true);
     soleLayout->addWidget(soleNote);
-    tabs->addTab(solePage, "Soles / contacts");
+    addTranslatedTab(tabs,solePage,"Soles / contacts");
     auto previewWidget = new QWidget;
     auto previewLayout = new QVBoxLayout(previewWidget);
     auto split = new QSplitter;
@@ -108,7 +108,7 @@ void Window::showRetarget() {
     split->addWidget(targetView);
     auto frame = new QSlider(Qt::Horizontal);
     previewLayout->addWidget(frame);
-    tabs->addTab(previewWidget, "Source / result preview");
+    addTranslatedTab(tabs,previewWidget,"Source / result preview");
     auto status = new QTextEdit;
     status->setReadOnly(true);
     status->setMaximumHeight(110);
@@ -118,9 +118,9 @@ void Window::showRetarget() {
     layout->addWidget(progress);
     auto buttons = new QHBoxLayout;
     layout->addLayout(buttons);
-    auto suggest = new QPushButton("Suggest"), load = new QPushButton("Load profile"),
-         save = new QPushButton("Save profile"), calculate = new QPushButton("Calculate preview"),
-         cancel = new QPushButton("Cancel"), create = new QPushButton("Create result");
+    auto suggest = translatedWidget<QPushButton>("Suggest"), load = translatedWidget<QPushButton>("Load profile"),
+         save = translatedWidget<QPushButton>("Save profile"), calculate = translatedWidget<QPushButton>("Calculate preview"),
+         cancel = translatedWidget<QPushButton>("Cancel"), create = translatedWidget<QPushButton>("Create result");
     for (auto b : {suggest, load, save, calculate, cancel, create})
         buttons->addWidget(b);
     create->setEnabled(false);
@@ -135,7 +135,7 @@ void Window::showRetarget() {
             if (a->currentIndex() < 0 || b->currentIndex() < 0)
                 continue;
             mapping.append(QJsonObject{
-                {"role", table->item(row, 0)->text()},
+                {"role", table->item(row, 0)->data(Qt::UserRole).toString()},
                 {"source", a->currentIndex()},
                 {"target", b->currentIndex()},
                 {"orientationWeight", qobject_cast<QDoubleSpinBox *>(table->cellWidget(row, 3))->value()},
@@ -156,10 +156,10 @@ void Window::showRetarget() {
                            {"fps", rate->value()},
                            {"ik", ik->isChecked()},
                            {"contacts", contacts->isChecked()},
-                           {"rootMotion", root->currentText()}};
+                           {"rootMotion", choiceText(root)}};
         QJsonArray sourceSoles, targetSoles;
         for (int row = 0; row < soleTable->rowCount(); ++row) {
-            QString role = soleTable->item(row, 0)->text();
+            QString role = soleTable->item(row, 0)->data(Qt::UserRole).toString();
             for (auto entry : mapping) {
                 auto pair = entry.toObject();
                 if (pair["role"] != role)
@@ -187,7 +187,7 @@ void Window::showRetarget() {
     };
     auto populate = [&](QJsonObject profile) {
         if (source->currentIndex() < 0) {
-            status->setText("Open a separate source document first.");
+            bindUiText(status,"text","Open a separate source document first.");
             return;
         }
         auto &s = workspace.documents[source->currentData().toInt()]->scene;
@@ -200,8 +200,8 @@ void Window::showRetarget() {
             int row = table->rowCount();
             table->insertRow(row);
             calibration->insertRow(row);
-            table->setItem(row, 0, new QTableWidgetItem(pair["role"].toString()));
-            calibration->setItem(row, 0, new QTableWidgetItem(pair["role"].toString()));
+            setRoleItem(table,row,pair["role"].toString());
+            setRoleItem(calibration,row,pair["role"].toString());
             auto a = new QComboBox, b = new QComboBox;
             for (auto &n : s.nodes)
                 a->addItem(n.name);
@@ -265,7 +265,7 @@ void Window::showRetarget() {
                 continue;
             int row = soleTable->rowCount();
             soleTable->insertRow(row);
-            soleTable->setItem(row, 0, new QTableWidgetItem(role));
+            setRoleItem(soleTable,row,role);
             for (int side = 0; side < 2; ++side) {
                 int n = side ? b : a;
                 auto &scene = side ? t : s;
@@ -295,7 +295,7 @@ void Window::showRetarget() {
         for (int c = 0; c < 3; ++c)
             basisAngles[c]->setValue(c < basisValues.size() ? basisValues[c].toDouble() : 0);
         if (profile.contains("rootMotion"))
-            root->setCurrentText(profile["rootMotion"].toString());
+            setChoiceText(root,profile["rootMotion"].toString());
         if (profile.contains("fps"))
             rate->setValue(profile["fps"].toInt());
         if (profile.contains("ik"))
@@ -307,7 +307,7 @@ void Window::showRetarget() {
     };
     auto suggestMapping = [&] {
         if (source->currentIndex() < 0) {
-            status->setText("Open a separate source document first.");
+            bindUiText(status,"text","Open a separate source document first.");
             return;
         }
         populate(
@@ -325,10 +325,10 @@ void Window::showRetarget() {
             jobId = state["id"].toString();
             create->setEnabled(false);
             calculate->setEnabled(false);
-            status->setText("Calculating immutable snapshots...");
+            bindUiText(status,"text","Calculating immutable snapshots...");
             poll.start(50);
         } catch (const std::exception &e) {
-            QMessageBox::warning(&dialog, "Retarget", e.what());
+            showUiMessage(QMessageBox::Warning,&dialog,[&] {return uiText("Retarget");},[&] {return translatedDiagnostic(translatedDiagnostic(QString::fromUtf8(e.what())));});
         }
     });
     connect(&poll, &QTimer::timeout, &dialog, [&] {
@@ -340,26 +340,26 @@ void Window::showRetarget() {
         poll.stop();
         calculate->setEnabled(true);
         if (state["status"] != "ready") {
-            status->setText(state["status"].toString() + ": " + state["error"].toString());
+            bindUiTextFactory(status,"text",[state] {return ownedValueLabel(state["status"].toString()) + ": " + translatedDiagnostic(state["error"].toString());});
             return;
         }
         try {
             auto report = analysisJobs.result(jobId, 0, 1);
-            status->setPlainText(
-                QString("%1 / %2 keys / IK residual %3 mm / %4 unreachable samples\nSole error %5 mm; "
+            bindUiTextFactory(status,"text",[report,metersPerUnit=targetDocument.scene.physics.metersPerUnit] {return
+                uiText("%1 / %2 keys / IK residual %3 mm / %4 unreachable samples\nSole error %5 mm; "
                         "maximum slip per sample %6 mm; sole penetration %7 mm.\nReview mapping, calibration "
                         "and sole points. Full verification/settings are retained in the result profile.")
-                    .arg(report["status"].toString())
+                    .arg(ownedValueLabel(report["status"].toString()))
                     .arg(report["frames"].toInt())
                     .arg(report["maximumIkResidualSceneUnits"].toDouble() *
-                             targetDocument.scene.physics.metersPerUnit * 1000,
+                             metersPerUnit * 1000,
                          0, 'g', 5)
                     .arg(report["unreachableSamples"].toInt())
                     .arg(report["maximumFootGoalResidualSceneUnits"].toDouble() *
-                             targetDocument.scene.physics.metersPerUnit * 1000,
+                             metersPerUnit * 1000,
                          0, 'g', 5)
                     .arg(report["maximumTangentialSlipPerSampleMetres"].toDouble() * 1000, 0, 'g', 5)
-                    .arg(report["maximumSolePointPenetrationMetres"].toDouble() * 1000, 0, 'g', 5));
+                    .arg(report["maximumSolePointPenetrationMetres"].toDouble() * 1000, 0, 'g', 5);});
             sourceViewDocument.replace(workspace.documents[source->currentData().toInt()]->scene);
             targetViewDocument.replace(analysisJobs.resultScene(jobId, targetDocument));
             sourceView->fit();
@@ -372,7 +372,7 @@ void Window::showRetarget() {
             create->setEnabled(settings() == calculatedSettings);
             tabs->setCurrentWidget(previewWidget);
         } catch (const std::exception &e) {
-            status->setText(e.what());
+            status->setText(translatedDiagnostic(QString::fromUtf8(e.what())));
         }
     });
     connect(frame, &QSlider::valueChanged, &dialog, [&](int value) {
@@ -392,11 +392,11 @@ void Window::showRetarget() {
             dialog.accept();
             workspace.append(std::move(result), {}, false);
         } catch (const std::exception &e) {
-            QMessageBox::warning(&dialog, "Retarget", e.what());
+            showUiMessage(QMessageBox::Warning,&dialog,[&] {return uiText("Retarget");},[&] {return translatedDiagnostic(translatedDiagnostic(QString::fromUtf8(e.what())));});
         }
     });
     connect(save, &QPushButton::clicked, &dialog, [&] {
-        auto path = QFileDialog::getSaveFileName(&dialog, "Save retarget profile", {}, "JSON (*.json)");
+        auto path = QFileDialog::getSaveFileName(&dialog, uiText("Save retarget profile"), {}, uiText("JSON (*.json)"));
         if (path.isEmpty())
             return;
         QSaveFile file(path);
@@ -409,7 +409,7 @@ void Window::showRetarget() {
             status->setText(file.errorString());
     });
     connect(load, &QPushButton::clicked, &dialog, [&] {
-        auto path = QFileDialog::getOpenFileName(&dialog, "Load retarget profile", {}, "JSON (*.json)");
+        auto path = QFileDialog::getOpenFileName(&dialog, uiText("Load retarget profile"), {}, uiText("JSON (*.json)"));
         if (path.isEmpty())
             return;
         QFile file(path);
@@ -423,7 +423,7 @@ void Window::showRetarget() {
             object["sourceFingerprint"] !=
                 retargetFingerprint(workspace.documents[source->currentData().toInt()]->scene) ||
             object["targetFingerprint"] != retargetFingerprint(targetDocument.scene)) {
-            status->setText("Invalid JSON or profile skeleton fingerprints differ. Review a new mapping.");
+            bindUiText(status,"text","Invalid JSON or profile skeleton fingerprints differ. Review a new mapping.");
             return;
         }
         populate(object);
@@ -431,7 +431,7 @@ void Window::showRetarget() {
     table->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(table, &QWidget::customContextMenuRequested, &dialog, [&](QPoint point) {
         QMenu menu;
-        auto add = menu.addAction("Add custom bone mapping"), remove = menu.addAction("Remove selected role");
+        auto add = addTranslatedAction(&menu,"Add custom bone mapping"), remove = addTranslatedAction(&menu,"Remove selected role");
         auto chosen = menu.exec(table->viewport()->mapToGlobal(point));
         if (chosen == add) {
             auto profile = settings();
@@ -446,7 +446,7 @@ void Window::showRetarget() {
         } else if (chosen == remove && table->currentRow() >= 0) {
             auto profile = settings();
             auto pairs = profile["mapping"].toArray();
-            QString role = table->item(table->currentRow(), 0)->text();
+            QString role = table->item(table->currentRow(), 0)->data(Qt::UserRole).toString();
             for (int row = pairs.size() - 1; row >= 0; --row)
                 if (pairs[row].toObject()["role"] == role)
                     pairs.removeAt(row);

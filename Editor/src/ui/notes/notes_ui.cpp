@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/notes/notes_ui.h"
 #include "ui/notes/notes_card.h"
 #include "ui/notes/notes_overlay.h"
@@ -17,23 +18,35 @@
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 namespace trickster {
+QString noteTimeLabel(const QJsonObject &note,int fps) {
+    const auto first=annotationFrame(note["start"].toDouble(),fps),last=annotationFrame(note["end"].toDouble(),fps);
+    return first==last?uiText("Frame %1").arg(first):uiText("Frames %1-%2").arg(first).arg(last);
+}
+QString noteBindingText(const Scene &scene,const QJsonObject &note) {
+    QStringList names;
+    for(const auto &node:note["nodes"].toArray()) {
+        const int index=node.toInt(-1);
+        names<<((index>=0 && index<int(scene.nodes.size()))?scene.nodes[index].name:uiText("Missing bone #%1").arg(index));
+    }
+    return names.isEmpty()?uiText("Character"):names.join(", ");
+}
 NotesController::NotesController(Window *w):QObject(w),window(w){
     setObjectName("notesController");
-    dock=new QDockWidget("Notes",w);dock->setObjectName("notesDock");
+    dock=translatedWidget<QDockWidget>("Notes",w);dock->setObjectName("notesDock");
     dock->setMinimumWidth(200);dock->setWindowIcon(icon(Glyph::Note));
     auto body=new QWidget;auto layout=new QVBoxLayout(body);layout->setContentsMargins(6,4,6,4);layout->setSpacing(4);
     auto toolbar=new QHBoxLayout;
-    auto add=new QPushButton("+ Note");add->setObjectName("addNoteButton");add->setToolTip("Add note at selected bones and current frame (Ctrl+Alt+N)");
-    auto remove=new QPushButton("Delete");remove->setObjectName("deleteNoteButton");
+    auto add=translatedWidget<QPushButton>("+ Note");add->setObjectName("addNoteButton");bindUiText(add,"toolTip","Add note at selected bones and current frame (Ctrl+Alt+N)");
+    auto remove=translatedWidget<QPushButton>("Delete");remove->setObjectName("deleteNoteButton");
     toolbar->addWidget(add);toolbar->addStretch();toolbar->addWidget(remove);layout->addLayout(toolbar);
-    search=new QLineEdit;search->setObjectName("notesSearch");search->setPlaceholderText("Search notes");layout->addWidget(search);
-    filter=new QComboBox;filter->setObjectName("notesFilter");filter->addItems({"All notes","Selected bones","Current moment"});layout->addWidget(filter);
+    search=new QLineEdit;search->setObjectName("notesSearch");bindUiText(search,"placeholderText","Search notes");layout->addWidget(search);
+    filter=new QComboBox;filter->setObjectName("notesFilter");addTranslatedItems(filter,{"All notes","Selected bones","Current moment"});layout->addWidget(filter);
     list=new QListWidget;list->setObjectName("notesList");list->setWordWrap(true);list->setSpacing(3);list->setMinimumHeight(42);layout->addWidget(list,1);
-    list->setToolTip("Select a note to visit its frame and edit. Ctrl+Enter saves the card; Esc cancels.");
+    bindUiText(list,"toolTip","Select a note to visit its frame and edit. Ctrl+Enter saves the card; Esc cancels.");
     dock->setWidget(body);w->addDockWidget(Qt::RightDockWidgetArea,dock);
     if(auto outliner=w->findChild<QDockWidget*>("skeletonDock"))w->tabifyDockWidget(outliner,dock);
     dock->hide();
-    auto addAction=new QAction("Add note",w);addAction->setObjectName("addNoteAction");addAction->setIcon(icon(Glyph::Note));addAction->setShortcut(QKeySequence("Ctrl+Alt+N"));w->addAction(addAction);
+    auto addAction=translatedWidget<QAction>("Add note",w);addAction->setObjectName("addNoteAction");addAction->setIcon(icon(Glyph::Note));addAction->setShortcut(QKeySequence("Ctrl+Alt+N"));w->addAction(addAction);
     connect(addAction,&QAction::triggered,this,&NotesController::addNote);
     connect(add,&QPushButton::clicked,this,&NotesController::addNote);
     connect(remove,&QPushButton::clicked,this,&NotesController::removeSelected);
@@ -43,10 +56,10 @@ NotesController::NotesController(Window *w):QObject(w),window(w){
     connect(list,&QListWidget::currentItemChanged,this,[this](QListWidgetItem *item){if(item && !rebuilding)window->document().selectAnnotation(item->data(Qt::UserRole).toString());});
     connect(list,&QListWidget::itemActivated,this,[this](QListWidgetItem *item){window->document().selectAnnotation(item->data(Qt::UserRole).toString());});
     for(auto action:w->menuBar()->actions())if(action->menu()){
-        if(action->text().remove('&')=="Edit")action->menu()->addAction(addAction);
-        if(action->text().remove('&')=="View"){
+        if(uiSourceText(action).remove('&')=="Edit")action->menu()->addAction(addAction);
+        if(uiSourceText(action).remove('&')=="View"){
             action->menu()->addAction(dock->toggleViewAction());
-            auto markers=action->menu()->addAction("Note markers");markers->setObjectName("noteMarkersAction");markers->setCheckable(true);markers->setChecked(true);
+            auto markers=addTranslatedAction(action->menu(),"Note markers");markers->setObjectName("noteMarkersAction");markers->setCheckable(true);markers->setChecked(true);
             connect(markers,&QAction::toggled,this,[this](bool on){window->viewport->showNotes=on;window->viewport->update();});
         }
     }
@@ -57,6 +70,7 @@ NotesController::NotesController(Window *w):QObject(w),window(w){
     connect(&w->workspace,&Workspace::changed,this,&NotesController::refresh);
     connect(&w->workspace,&Workspace::selectionChanged,this,&NotesController::refresh);
     bind();
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,[this]{listSignature.clear();refresh();});
 }
 NotesController::~NotesController(){for(auto card:cards)if(card)delete card;}
 void NotesController::bind(){
@@ -73,10 +87,10 @@ void NotesController::bind(){
 void NotesController::showPanel(){dock->show();dock->raise();refresh();}
 void NotesController::addNote(){
     auto &d=window->document();
-    if(window->viewport->isDragging() || d.inTransaction()){window->report("Finish the current pose edit before adding a note.");return;}
+    if(window->viewport->isDragging() || d.inTransaction()){window->report(QString("Finish the current pose edit before adding a note."));return;}
     d.play(false);
     if(auto card=cards.value(d.id)){
-        if(card->dirty()){card->focusText();window->report("Save or cancel the open note first.");return;}
+        if(card->dirty()){card->focusText();window->report(QString("Save or cancel the open note first."));return;}
         delete card;
     }
     QJsonArray nodes;auto selected=d.selection().values();std::sort(selected.begin(),selected.end());
@@ -91,7 +105,7 @@ void NotesController::openNote(const QString &id){
     auto &d=window->document();
     if(auto card=cards.value(d.id)){
         if(card->original["id"]==id){card->focusText();return;}
-        if(card->dirty()){card->focusText();window->report("Save or cancel the open note before editing another.");return;}
+        if(card->dirty()){card->focusText();window->report(QString("Save or cancel the open note before editing another."));return;}
         delete card;
     }
     for(auto value:d.scene.annotations){auto v=value.toObject();if(v["id"]!=id)continue;
@@ -135,10 +149,10 @@ void NotesController::refresh(){
             if(filter->currentIndex()==1){bool hit=false;for(auto n:v["nodes"].toArray())hit|=d.selection().contains(n.toInt());if(!hit)continue;}
             if(filter->currentIndex()==2 && !annotationActive(v,double(d.frame)/d.scene.fps,d.scene.fps))continue;
             auto summary=annotationSummary(d.scene,v);QString warnings;
-            if(summary["outsideClip"].toBool())warnings+=" [Outside clip]";
-            if(summary["missingBindings"].toBool())warnings+=" [Missing bone]";
-            if(v.contains("attachment") && v["attachment"].toObject()["status"]!="attached")warnings+=" [Key unavailable]";
-            auto item=new QListWidgetItem(annotationTimeLabel(v,d.scene.fps)+" | "+annotationBindings(d.scene,v)+warnings+"\n"+text.simplified().left(110),list);
+            if(summary["outsideClip"].toBool())warnings+=uiText(" [Outside clip]");
+            if(summary["missingBindings"].toBool())warnings+=uiText(" [Missing bone]");
+            if(v.contains("attachment") && v["attachment"].toObject()["status"]!="attached")warnings+=uiText(" [Key unavailable]");
+            auto item=new QListWidgetItem(noteTimeLabel(v,d.scene.fps)+" | "+noteBindingText(d.scene,v)+warnings+"\n"+text.simplified().left(110),list);
             item->setData(Qt::UserRole,v["id"].toString());item->setToolTip(text.left(800));
         }
         rebuilding=false;

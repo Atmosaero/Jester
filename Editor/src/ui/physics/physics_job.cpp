@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "automation/mcp_server.h"
 #include "ui/window/window.h"
 #include <QCheckBox>
@@ -32,7 +33,7 @@ void Window::clearPhysicsResult() {
     viewport->physicsPreview.reset();
     viewport->physicsDiagnostics={};
     applyPhysics->setEnabled(false);
-    physicsStats->setText("No preview");
+    bindUiText(physicsStats,"text","No preview");
     viewport->update();
 }
 bool Window::startPhysicsTask(bool ballistic, int startFrame, int endFrame, QString &error) {
@@ -49,7 +50,7 @@ bool Window::startPhysicsTask(const QString &operation,int startFrame,int endFra
     viewport->physicsPreview.reset();
     viewport->physicsDiagnostics={};
     applyPhysics->setEnabled(false);
-    physicsStats->setText("Calculating…");
+    bindUiText(physicsStats,"text","Calculating…");
     physicsProgress->setValue(0);
     physicsProgress->show();
     cancelPhysics->show();
@@ -73,12 +74,12 @@ void Window::pollPhysicsTask() {
     viewport->physicsPreview = physicsPreview;
     viewport->physicsDiagnostics=state["report"].toObject();
     applyPhysics->setEnabled(physicsPreview.has_value());
-    physicsStats->setText(status == "ready" ? state["summary"].toString()
+    bindUiTextFactory(physicsStats,"text",[state,status] {return status == "ready" ? translatedDiagnostic(state["summary"].toString())
                           : status == "stale"
-                              ? "Source document changed or closed; result discarded. Recalculate."
-                          : status == "failed"    ? state["error"].toString()
-                          : status == "cancelled" ? "Cancelled. Source motion preserved."
-                                                  : status);
+                              ? uiText("Source document changed or closed; result discarded. Recalculate.")
+                          : status == "failed"    ? translatedDiagnostic(state["error"].toString())
+                          : status == "cancelled" ? uiText("Cancelled. Source motion preserved.")
+                                                  : ownedValueLabel(status);});
     if (physicsPreview) {
         viewport->showPhysicsPreview = true;
         viewport->update();

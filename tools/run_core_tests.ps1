@@ -1,4 +1,4 @@
-param([string[]]$Suites=@('Core','Physics','MvpCore','MuJoCo','Media','Reliability'))
+param([string[]]$Suites=@('Core','Physics','MvpCore','MuJoCo','Media','Reliability','Settings'))
 $ErrorActionPreference='Stop'
 $jesterRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 New-Item -ItemType Directory -Force -Path (Join-Path $jesterRoot 'artifacts') | Out-Null

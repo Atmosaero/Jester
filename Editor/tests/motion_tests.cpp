@@ -629,8 +629,9 @@ class MotionTests : public QObject {
         auto p = s.positions(s.pose);
         QVERIFY(s.solveIK(8, p[8] + QVector3D(-.12f, .08f, .1f), s.defaultPole(8)));
         QVERIFY(s.captureCorrection(old, s.morphs, error));
-        QVERIFY(saveProject("examples/motion-correction.jst", s, error));
-        QVERIFY(exportGltf("examples/motion-correction.glb", s, error));
+        QTemporaryDir output;QVERIFY(output.isValid());
+        QVERIFY(saveProject(output.filePath("motion-correction.jst"), s, error));
+        QVERIFY(exportGltf(output.filePath("motion-correction.glb"), s, error));
         Window w;
         w.show();
         w.document().replace(s);

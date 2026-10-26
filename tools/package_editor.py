@@ -114,6 +114,7 @@ def asset_payload(project, engine, work):
         'ClassName':'AZStd::vector<SeedInfo, allocator>','ClassData':rows},indent=2)+'\n')
     extra = ['materials/jesterdefault.azmaterial','materials/jesterunlit.azmaterial']
     extra += ['shaders/skinnedmesh/linearskinningcs.azshader','shaders/morphtargets/morphtargetcs.azshader',
+              'shaders/skybox/skybox.azshader','shaders/skybox/skybox_twooutputs.azshader',
               'envhdri/photo_studio_01_4k_iblskyboxcm_iblspecular.exr.streamingimage',
               'envhdri/photo_studio_01_4k_iblskyboxcm_ibldiffuse.exr.streamingimage']
     extra += ['engine_dependencies.xml','materials/reflectionprobe/reflectionprobevisualization.azmaterial',
@@ -204,7 +205,7 @@ def main():
     shutil.copytree(source/'docs',output/'docs',ignore=shutil.ignore_patterns('IMPLEMENTATION_WORKLOG.md'))
     qt = qt_package_root(project)
     (output/'translations').mkdir(exist_ok=True)
-    for name in ['jester_ru.qm','qtbase_ru.qm']:
+    for name in ['jester_ru.qm','jester_en.qm','qtbase_ru.qm']:
         catalog=binaries/'translations'/name
         if not catalog.is_file():
             raise RuntimeError('Translation catalog was not built: '+str(catalog))

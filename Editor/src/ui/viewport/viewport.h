@@ -67,12 +67,17 @@ class Viewport : public QWidget {
     void annotationsPaint(QPainter *painter);
   public:
     void fit();
+    void frameCharacter();
     void setDocument(Document *document);
     void viewPreset(int preset);
     bool isDragging() const {
         return dragging || selectingNodes;
     }
     void drawOverlay(QPainter &painter);
+    // The native child can cover this widget completely, so Qt may omit its
+    // paint event. Every explicit view update must dirty the separate overlay.
+    using QWidget::update;
+    void update() {overlayDirty=true;QWidget::update();}
 
   protected:
     bool event(QEvent *) override;
@@ -123,4 +128,4 @@ class Viewport : public QWidget {
 };
 } // namespace trickster
 
-namespace trickster { QImage captureEditorWidget(QWidget* widget); }
+namespace trickster { QImage captureEditorWidget(QWidget* widget,bool overlays=true); }

@@ -1,5 +1,6 @@
 #include "io/project/project_io.h"
 #include "settings/appearance.h"
+#include "ui/widgets/localized_ui.h"
 #include "ui/window/window.h"
 #include "ui/notes/notes_ui.h"
 #include "ui/notes/notes_card.h"
@@ -86,7 +87,7 @@ class NotesTests:public QObject {
         QTest::mouseClick(w.viewport,Qt::RightButton,Qt::NoModifier,anchor);
         bool clicked=false;
         QTimer::singleShot(50,&w,[&]{auto menu=qobject_cast<QMenu*>(QApplication::activePopupWidget());if(!menu)return;
-            for(auto action:menu->actions())if(action->text()=="Add note"){clicked=true;QTest::mouseClick(menu,Qt::LeftButton,Qt::NoModifier,menu->actionGeometry(action).center());return;}
+            for(auto action:menu->actions())if(uiSourceText(action)=="Add note"){clicked=true;QTest::mouseClick(menu,Qt::LeftButton,Qt::NoModifier,menu->actionGeometry(action).center());return;}
             menu->close();});
         QContextMenuEvent event(QContextMenuEvent::Mouse,anchor,w.viewport->mapToGlobal(anchor));QApplication::sendEvent(w.viewport,&event);
         QVERIFY(clicked);QVERIFY(card(w));QCOMPARE(card(w)->original["nodes"].toArray(),QJsonArray{15});QCOMPARE(d.frame,22);dismiss(w);finish(w);
@@ -178,15 +179,15 @@ class NotesTests:public QObject {
         QSize originalSize=w.size();w.resize(std::max(760,w.width()-80),w.height());QTest::qWait(60);QVERIFY(w.viewport->rect().contains(c->geometry()));w.resize(originalSize);QTest::qWait(60);
 
         QString scale=QString::number(w.devicePixelRatioF());
-        QDir().mkpath("docs/notes");captureEditorWidget(&w).save("docs/notes/card-"+scale+".png");dismiss(w);
+        QDir().mkpath("artifacts/notes");captureEditorWidget(&w).save("artifacts/notes/card-"+scale+".png");dismiss(w);
         auto camera=w.viewport->camera();camera.yaw+=50;w.viewport->setCamera(camera);QTest::qWait(80);
         auto moved=w.viewport->property("annotationMarkers").toMap();QVERIFY(moved.contains(id));QVERIFY(moved[id].toRect()!=rect);
         auto before=moved[id].toRect();d.scene.pose[0].t+=QVector3D(.12f,.04f,0);emit d.changed();QTest::qWait(80);QVERIFY(w.viewport->property("annotationMarkers").toMap()[id].toRect()!=before);
-        d.play(true);QTest::qWait(90);QVERIFY(w.viewport->property("annotationMarkers").toMap().empty());d.play(false);d.seek(22);QTest::qWait(60);
-        auto action=w.findChild<QAction*>("noteMarkersAction");QVERIFY(action);action->setChecked(false);QTest::qWait(60);QVERIFY(w.viewport->property("annotationMarkers").toMap().empty());action->setChecked(true);
+        d.play(true);QTRY_VERIFY_WITH_TIMEOUT(w.viewport->property("annotationMarkers").toMap().empty(),2000);d.play(false);d.seek(22);QTest::qWait(60);
+        auto action=w.findChild<QAction*>("noteMarkersAction");QVERIFY(action);action->setChecked(false);QTRY_VERIFY_WITH_TIMEOUT(w.viewport->property("annotationMarkers").toMap().empty(),2000);action->setChecked(true);
         d.selectAnnotation(id);dismiss(w);int y=w.timeline->contextTrackCenter(id);QVERIFY(y>22 && y<w.timeline->height()-22);
         QTest::mouseClick(w.timeline,Qt::LeftButton,Qt::NoModifier,QPoint(70,y));QVERIFY(card(w));QCOMPARE(d.activeAnnotation,id);dismiss(w);
-        captureEditorWidget(&w).save("docs/notes/panel-"+scale+".png");
+        captureEditorWidget(&w).save("artifacts/notes/panel-"+scale+".png");
         // Behind the camera or outside the viewport: hide the bone marker, keep the panel row.
         d.scene.pose[0].t+=QVector3D(1000,0,0);emit d.changed();QTest::qWait(70);QVERIFY(!w.viewport->property("annotationMarkers").toMap().contains(id));
         QCOMPARE(w.findChild<QListWidget*>("notesList")->count(),3);
@@ -214,10 +215,10 @@ class NotesTests:public QObject {
         Window w;expose(w);auto &d=w.document();d.scene.keys[0]={d.scene.pose,{},d.scene.morphs};d.select(15);d.seek(0);
         auto motion=d.motionRevision;auto count=d.undo.count();notes(w)->addNote();auto c=card(w);QVERIFY(c);
         c->findChild<QTextEdit*>("noteText")->setPlainText("Explicit key attachment");
-        for(auto button:c->findChildren<QToolButton*>())if(button->text()=="Advanced")button->click();
+        for(auto button:c->findChildren<QToolButton*>())if(uiSourceText(button)=="Advanced")button->click();
         auto bones=c->findChild<QListWidget*>("noteBindings");QVERIFY(bones);
         for(int i=0;i<bones->count();++i){auto item=bones->item(i);item->setCheckState(item->data(Qt::UserRole).toInt()==8?Qt::Checked:Qt::Unchecked);}
-        for(auto button:c->findChildren<QPushButton*>())if(button->text().startsWith("Attach to key"))button->click();
+        for(auto button:c->findChildren<QPushButton*>())if(uiSourceText(button).startsWith("Attach to key"))button->click();
         QTest::keyClick(c->findChild<QTextEdit*>("noteText"),Qt::Key_Return,Qt::ControlModifier);QCoreApplication::sendPostedEvents(nullptr,QEvent::DeferredDelete);
         QCOMPARE(d.undo.count(),count+1);QCOMPARE(d.motionRevision,motion);QCOMPARE(d.scene.keys.size(),1);QCOMPARE(d.scene.annotations.size(),1);
         auto note=d.scene.annotations[0].toObject();QCOMPARE(note["nodes"].toArray(),QJsonArray{8});QCOMPARE(note["attachment"].toObject()["status"].toString(),QString("attached"));QVERIFY(!d.scene.keys[0].id.isEmpty());

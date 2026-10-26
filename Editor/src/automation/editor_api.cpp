@@ -1,6 +1,8 @@
+#include <QFontInfo>
 #include "settings/action_registry.h"
 #include "settings/preferences_service.h"
 #include "settings/localization.h"
+#include "ui/widgets/localized_ui.h"
 #include "io/project/project_format.h"
 #include "io/project/project_io.h"
 #include "core/scene/runtime_error.h"
@@ -271,7 +273,7 @@ QJsonObject EditorApi::call(const QString &name, const QJsonObject &args) {
             auto target = args["target"].toString("window") == "viewport"
                               ? static_cast<QWidget *>(w->viewport)
                               : static_cast<QWidget *>(w);
-            QImage image = captureEditorWidget(target);
+            QImage image = captureEditorWidget(target,args["overlays"].toBool(true));
             if (target == w)
                 if (auto modal = QApplication::activeModalWidget()) {
                     QPainter painter(&image);
@@ -297,7 +299,13 @@ QJsonObject EditorApi::call(const QString &name, const QJsonObject &args) {
         }
         return textResult(execute(name, args));
     } catch (const std::exception &e) {
-        return textResult({{"error", QString::fromUtf8(e.what())}, {"tool", name}}, true);
+        const auto message=QString::fromUtf8(e.what());
+        QJsonObject result{{"error",message},{"tool",name}};
+        if(message.startsWith("visual.") || message.startsWith("preferences.") || message.startsWith("language."))
+            result["code"]=message.section(":",0,0);
+        else if(name=="scene_visuals" || name=="editor_preferences")
+            result["code"]=name=="scene_visuals"?"visual.invalid_request":"preferences.invalid_request";
+        return textResult(result,true);
     }
 }
 QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
@@ -326,7 +334,7 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
         }
         const auto &locale=LocalizationService::instance();
         return {{"preferences",service.current().toJson()},{"language",locale.language()},
-                {"qtTranslationLoaded",locale.qtTranslationLoaded()},{"fontFamily",QApplication::font().family()},
+                {"qtTranslationLoaded",locale.qtTranslationLoaded()},{"fontFamily",QFontInfo(QApplication::font()).family()},{"requestedFontFamily",QApplication::font().family()},
                 {"fontPointSize",QApplication::font().pointSizeF()},{"actions",registry.state()}};
     }
     if (name == "motion_correction" && (op == "select" || op == "compare")) {
@@ -546,7 +554,7 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
         QString preset = a["preset"].toString();
         if (!preset.isEmpty()) {
             if (preset == "fit")
-                v->fit();
+                v->frameCharacter();
             else
                 v->viewPreset(QStringList{"perspective", "front", "side", "top"}.indexOf(preset));
             c = v->camera();
@@ -574,7 +582,7 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
                 return;
             field = a[key].toBool();
             for (auto act : w->findChildren<QAction *>())
-                if (act->text().startsWith(actionPrefix)) {
+                if (uiSourceText(act).startsWith(actionPrefix)) {
                     act->setChecked(field);
                     break;
                 }
@@ -707,7 +715,7 @@ QJsonObject EditorApi::execute(const QString &name, const QJsonObject &a) {
                 require(!requestCancelled || !requestCancelled(), "Recording cancelled");
                 QWidget *target =
                     a["target"] == "window" ? static_cast<QWidget *>(w) : static_cast<QWidget *>(w->viewport);
-                auto image = captureEditorWidget(target);
+                auto image = captureEditorWidget(target,a["overlays"].toBool(true));
                 int max = a["maxWidth"].toInt(1440);
                 if (image.width() > max)
                     image = image.scaledToWidth(max, Qt::SmoothTransformation);

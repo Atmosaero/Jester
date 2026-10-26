@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "io/project/project_io.h"
 #include "ui/window/window.h"
 #include <QApplication>
@@ -19,16 +20,16 @@
 #include <algorithm>
 namespace trickster {
 void Window::buildHelpers() {
-    auto group = new QGroupBox("Joint limit", selectionLabel->parentWidget());
+    auto group = translatedWidget<QGroupBox>("Joint limit", selectionLabel->parentWidget());
     auto row = new QHBoxLayout(group);
-    limitEnabled = new QCheckBox("Limit from rest", group);
+    limitEnabled = translatedWidget<QCheckBox>("Limit from rest", group);
     limitEnabled->setObjectName("limitEnabled");
-    limitEnabled->setToolTip("Constrain the total rotation angle relative to this joint's rest rotation. "
+    bindUiText(limitEnabled,"toolTip","Constrain the total rotation angle relative to this joint's rest rotation. "
                              "This is a cone limit, not an anatomical hinge.");
     limitAngle = new QDoubleSpinBox(group);
     limitAngle->setObjectName("limitAngle");
     limitAngle->setRange(0, 180);
-    limitAngle->setSuffix("°");
+    bindUiText(limitAngle,"suffix","°");
     limitAngle->setDecimals(1);
     limitAngle->setValue(150);
     limitAngle->setKeyboardTracking(false);
@@ -59,11 +60,11 @@ void Window::buildHelpers() {
     };
     connect(limitEnabled, &QCheckBox::toggled, this, updateLimit);
     connect(limitAngle, &QDoubleSpinBox::editingFinished, this, updateLimit);
-    auto pose = menuBar()->addMenu("&Pose");
+    auto pose = addTranslatedMenu(menuBar(),"&Pose");
     pose->setObjectName("poseMenu");
-    auto mirror = pose->addAction("Flip entire pose across X");
+    auto mirror = addTranslatedAction(pose,"Flip entire pose across X");
     mirror->setShortcut(QKeySequence("Ctrl+M"));
-    mirror->setToolTip("Mirror rest-relative offsets across X; pairs Left/Right, .L/.R or _L/_R. Best on "
+    bindUiText(mirror,"toolTip","Mirror rest-relative offsets across X; pairs Left/Right, .L/.R or _L/_R. Best on "
                        "symmetric humanoid rigs.");
     connect(mirror, &QAction::triggered, this, [this] {
         QStringList missing;
@@ -72,21 +73,21 @@ void Window::buildHelpers() {
                 missing << document().scene.nodes[n].name;
         document().edit("Flip entire pose", [](Scene &s) { s.mirrorPose(); });
         if (!missing.isEmpty())
-            report("Unpaired side bones were left unchanged: " + missing.join(", ") +
+            report(QString("Unpaired side bones were left unchanged: ") + missing.join(", ") +
                        ". Review Character profile > Mirror pairs.",
                    true);
     });
-    symmetryAction = pose->addAction("Symmetric editing across X");
+    symmetryAction = addTranslatedAction(pose,"Symmetric editing across X");
     symmetryAction->setObjectName("symmetryAction");
-    symmetryAction->setToolTip("Mirror the edited FK bone / IK chain to its assigned partner, with one Undo. "
+    bindUiText(symmetryAction,"toolTip","Mirror the edited FK bone / IK chain to its assigned partner, with one Undo. "
                                "Shift+M. Review pairs in Character profile.");
     symmetryAction->setCheckable(true);
     symmetryAction->setShortcut(QKeySequence("Shift+M"));
     connect(symmetryAction, &QAction::toggled, this, [this](bool value) { document().setSymmetry(value); });
-    auto presets = pose->addMenu("Pose presets");
-    auto rest = presets->addAction("Rest pose");
+    auto presets = addTranslatedMenu(pose,"Pose presets");
+    auto rest = addTranslatedAction(presets,"Rest pose");
     connect(rest, &QAction::triggered, this, [this] { document().resetPose(); });
-    auto crouch = presets->addAction("Crouch · named humanoid");
+    auto crouch = addTranslatedAction(presets,"Crouch · named humanoid");
     connect(crouch, &QAction::triggered, this, [this] {
         int hips = document().scene.profile.roles.value("pelvis", -1);
         for (int i = document().scene.profile.configured ? int(document().scene.nodes.size()) : 0;
@@ -97,7 +98,7 @@ void Window::buildHelpers() {
                 break;
             }
         if (hips < 0) {
-            report("Crouch preset needs a Hips or Pelvis joint. You can pose this rig manually.");
+            report(QString("Crouch preset needs a Hips or Pelvis joint. You can pose this rig manually."));
             return;
         }
         document().edit("Crouch preset", [&](Scene &s) {
@@ -111,19 +112,19 @@ void Window::buildHelpers() {
         });
     });
     pose->addSeparator();
-    assistAction = pose->addAction("Body assists unreachable IK goals · heuristic");
+    assistAction = addTranslatedAction(pose,"Body assists unreachable IK goals · heuristic");
     assistAction->setObjectName("bodyAssistAction");
     assistAction->setCheckable(true);
-    assistAction->setToolTip("For named humanoids, move the hips slightly and turn the chest toward a "
+    bindUiText(assistAction,"toolTip","For named humanoids, move the hips slightly and turn the chest toward a "
                              "distant goal. Existing pins are solved again. This is not neural posing.");
     connect(assistAction, &QAction::toggled, this, [this](bool on) {
         if (!refreshing && on != document().scene.bodyAssist)
             document().edit("Toggle body assistance", [on](Scene &s) { s.bodyAssist = on; }, false);
     });
-    auto contacts = pose->addAction("Foot contact intervals…");
+    auto contacts = addTranslatedAction(pose,"Foot contact intervals…");
     contacts->setObjectName("contactsAction");
     connect(contacts, &QAction::triggered, this, &Window::contactDialog);
-    auto balance = pose->addAction("Show center of mass / support");
+    auto balance = addTranslatedAction(pose,"Show center of mass / support");
     balance->setCheckable(true);
     balance->setObjectName("balanceAction");
     connect(balance, &QAction::toggled, this, [this](bool on) {
@@ -131,10 +132,10 @@ void Window::buildHelpers() {
         viewport->update();
     });
     pose->addSeparator();
-    auto bake = pose->addAction("Bake corrections to project copy…");
+    auto bake = addTranslatedAction(pose,"Bake corrections to project copy…");
     bake->setObjectName("bakeCopyAction");
     connect(bake, &QAction::triggered, this, [this] { bakedCopyDialog(false); });
-    auto arc = pose->addAction("Ballistic COM arc to copy · experimental…");
+    auto arc = addTranslatedAction(pose,"Ballistic COM arc to copy · experimental…");
     arc->setObjectName("arcCopyAction");
     arc->setVisible(false);
     connect(arc, &QAction::triggered, this, [this] { bakedCopyDialog(true); });
@@ -144,10 +145,10 @@ void Window::contactDialog() {
     document().play(false);
     QDialog dialog(this);
     dialog.setObjectName("contactDialog");
-    dialog.setWindowTitle("Jester · Contacts");
+    bindUiText(&dialog,"windowTitle","Jester · Contacts");
     dialog.resize(600, 540);
     auto layout = new QVBoxLayout(&dialog);
-    auto hint = new QLabel("Choose an IK effector and interval. Capture its current target or place it on "
+    auto hint = translatedWidget<QLabel>("Choose an IK effector and interval. Capture its current target or place it on "
                            "Ground Y. Limits stay active.",
                            &dialog);
     hint->setWordWrap(true);
@@ -163,7 +164,7 @@ void Window::contactDialog() {
         if (document().scene.isEffector(n))
             effector->addItem(document().scene.nodes[n].name, n);
     effector->setCurrentIndex(effector->findData(document().selected));
-    form->addRow("Effector", effector);
+    addTranslatedRow(form,"Effector", effector);
     auto range = new QWidget(&dialog);
     auto rangeLayout = new QHBoxLayout(range);
     rangeLayout->setContentsMargins(0, 0, 0, 0);
@@ -176,7 +177,7 @@ void Window::contactDialog() {
     }
     begin->setValue(document().frame);
     end->setValue(document().scene.last);
-    form->addRow("Interval", range);
+    addTranslatedRow(form,"Interval", range);
     std::array<QDoubleSpinBox *, 3> targetFields{}, orientationFields{};
     auto vectorFields = [&](auto &fields, QString prefix) {
         auto row = new QWidget(&dialog);
@@ -187,19 +188,19 @@ void Window::contactDialog() {
             spin->setRange(-100000, 100000);
             spin->setDecimals(4);
             spin->setKeyboardTracking(false);
-            spin->setPrefix(QString("XYZ")[i] + QString(" "));
+            spin->setPrefix(QString("XYZ")[i] + uiText(" "));
             spin->setObjectName(prefix + QString::number(i));
             l->addWidget(spin);
             fields[i] = spin;
         }
         return row;
     };
-    form->addRow("World position", vectorFields(targetFields, "contactTarget"));
-    auto orient = new QCheckBox("Hold orientation", &dialog);
+    addTranslatedRow(form,"World position", vectorFields(targetFields, "contactTarget"));
+    auto orient = translatedWidget<QCheckBox>("Hold orientation", &dialog);
     orient->setObjectName("contactOrientation");
     orient->setChecked(true);
     form->addRow(orient);
-    form->addRow("World Euler °", vectorFields(orientationFields, "contactRotation"));
+    addTranslatedRow(form,"World Euler °", vectorFields(orientationFields, "contactRotation"));
     auto fades = new QWidget(&dialog);
     auto fl = new QHBoxLayout(fades);
     fl->setContentsMargins(0, 0, 0, 0);
@@ -211,15 +212,15 @@ void Window::contactDialog() {
         f->setValue(3);
         fl->addWidget(f);
     }
-    form->addRow("Fade in / out", fades);
+    addTranslatedRow(form,"Fade in / out", fades);
     layout->addLayout(form);
     auto feedback = new QLabel(&dialog);
     feedback->setObjectName("contactFeedback");
     feedback->setWordWrap(true);
     layout->addWidget(feedback);
     auto captureRow = new QHBoxLayout;
-    auto capture = new QPushButton("Capture current", &dialog),
-         ground = new QPushButton("On ground", &dialog);
+    auto capture = translatedWidget<QPushButton>("Capture current", &dialog),
+         ground = translatedWidget<QPushButton>("On ground", &dialog);
     capture->setObjectName("contactCaptureButton");
     ground->setObjectName("contactGroundButton");
     captureRow->addWidget(capture);
@@ -249,7 +250,7 @@ void Window::contactDialog() {
         list->clear();
         for (const auto &c : document().scene.contacts)
             list->addItem(
-                QString("%1 · %2–%3").arg(document().scene.nodes[c.node].name).arg(c.first).arg(c.last));
+                uiText("%1 · %2–%3").arg(document().scene.nodes[c.node].name).arg(c.first).arg(c.last));
         if (selected >= 0 && selected < list->count())
             list->setCurrentRow(selected);
     };
@@ -270,8 +271,8 @@ void Window::contactDialog() {
         }
     });
     auto row = new QHBoxLayout;
-    auto add = new QPushButton("Add", &dialog), update = new QPushButton("Update", &dialog),
-         remove = new QPushButton("Remove", &dialog), check = new QPushButton("Check", &dialog);
+    auto add = translatedWidget<QPushButton>("Add", &dialog), update = translatedWidget<QPushButton>("Update", &dialog),
+         remove = translatedWidget<QPushButton>("Remove", &dialog), check = translatedWidget<QPushButton>("Check", &dialog);
     add->setObjectName("contactAddButton");
     update->setObjectName("contactUpdateButton");
     remove->setObjectName("contactRemoveButton");
@@ -281,11 +282,11 @@ void Window::contactDialog() {
     layout->addLayout(row);
     auto write = [&](bool replace) {
         if (effector->currentIndex() < 0) {
-            feedback->setText("Assign an IK chain in Profile before adding a contact.");
+            bindUiText(feedback,"text","Assign an IK chain in Profile before adding a contact.");
             return;
         }
         if (replace && list->currentRow() < 0) {
-            feedback->setText("Choose an existing contact to update.");
+            bindUiText(feedback,"text","Choose an existing contact to update.");
             return;
         }
         QJsonArray p, q;
@@ -306,7 +307,7 @@ void Window::contactDialog() {
                             {"fadeOut", fadeOut->value()}},
                            replace ? "Update contact" : "Add contact")) {
             fill();
-            feedback->setText("Saved. Check the interval for reach and limit conflicts.");
+            bindUiText(feedback,"text","Saved. Check the interval for reach and limit conflicts.");
         } else
             feedback->setText(statusBar()->currentMessage());
     };
@@ -321,11 +322,11 @@ void Window::contactDialog() {
     });
     connect(check, &QPushButton::clicked, &dialog, [&] {
         auto report = document().scene.diagnoseContacts();
-        feedback->setText(QString("%1 half-frame samples · maximum %2 mm / %3°")
+        feedback->setText(uiText("%1 half-frame samples · maximum %2 mm / %3°")
                               .arg(report.samples)
                               .arg(report.position * 1000, 0, 'f', 2)
                               .arg(report.angle, 0, 'f', 2) +
-                          (report.warnings.empty() ? QString() : "\n" + report.warnings.join("\n")));
+                          (report.warnings.empty() ? QString() : uiText("\n") + report.warnings.join(uiText("\n"))));
     });
     auto close = new QDialogButtonBox(QDialogButtonBox::Close, &dialog);
     connect(close, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
@@ -339,16 +340,15 @@ void Window::bakedCopyDialog(bool arc) {
     int from = document().scene.first, to = document().scene.last;
     float height = document().scene.height() * .2f;
     if (qint64(to - from + 1) * qint64(document().scene.nodes.size()) > 5000000) {
-        report("Clip is too large to bake in memory. Shorten the range.", true);
+        report(QString("Clip is too large to bake in memory. Shorten the range."), true);
         return;
     }
     if (arc) {
         QDialog dialog(this);
         dialog.setObjectName("arcDialog");
-        dialog.setWindowTitle("Jester · Experimental COM arc");
+        bindUiText(&dialog,"windowTitle","Jester · Experimental COM arc");
         auto layout = new QVBoxLayout(&dialog);
-        auto label = new QLabel(
-            "Writes a separate project copy. The estimated COM follows a parabola between the chosen "
+        auto label = translatedWidget<QLabel>("Writes a separate project copy. The estimated COM follows a parabola between the chosen "
             "endpoint COM positions. Foot contacts and pins are baked and removed in the copy. No collision, "
             "landing or dynamic balance solver is applied. Units follow the imported rig.",
             &dialog);
@@ -365,9 +365,9 @@ void Window::bakedCopyDialog(bool arc) {
         apex->setRange(0, 10000);
         apex->setDecimals(3);
         apex->setValue(height);
-        form->addRow("Takeoff frame", a);
-        form->addRow("Landing frame", b);
-        form->addRow("Apex above endpoint line", apex);
+        addTranslatedRow(form,"Takeoff frame", a);
+        addTranslatedRow(form,"Landing frame", b);
+        addTranslatedRow(form,"Apex above endpoint line", apex);
         layout->addLayout(form);
         auto buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
         layout->addWidget(buttons);
@@ -379,21 +379,21 @@ void Window::bakedCopyDialog(bool arc) {
         to = b->value();
         height = float(apex->value());
         if (from >= to) {
-            report("Landing must be after takeoff.", true);
+            report(QString("Landing must be after takeoff."), true);
             return;
         }
     }
     QString path =
-        QFileDialog::getSaveFileName(this, arc ? "Save experimental arc copy" : "Save baked project copy",
+        QFileDialog::getSaveFileName(this, arc ? uiText("Save experimental arc copy") : uiText("Save baked project copy"),
                                      lastDirectory + (arc ? "/root-arc.jst" : "/baked.jst"),
-                                     "Jester project (*.jst)");
+                                     uiText("Jester project (*.jst)"));
     if (path.isEmpty())
         return;
     if (!path.endsWith(".jst", Qt::CaseInsensitive))
         path += ".jst";
     if (!document().path.isEmpty() &&
         QFileInfo(path).absoluteFilePath() == QFileInfo(document().path).absoluteFilePath()) {
-        report("Choose a different filename for the copy.", true);
+        report(QString("Choose a different filename for the copy."), true);
         return;
     }
     QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -402,7 +402,7 @@ void Window::bakedCopyDialog(bool arc) {
     bool ok = saveProject(path, result, error);
     QApplication::restoreOverrideCursor();
     if (ok)
-        report("Saved separate project copy: " + path);
+        report(QString("Saved separate project copy: ") + path);
     else
         report(error, true);
 }

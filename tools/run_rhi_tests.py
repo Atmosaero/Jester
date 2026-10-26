@@ -21,11 +21,12 @@ def read_text(path):
     return data.decode(encoding, errors='replace')
 
 
-def execute(command, project, folder, backend, scale, timeout):
+def execute(command, project, folder, backend, scale, timeout, language='en'):
     folder.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env['QT_SCALE_FACTOR'] = str(scale)
     env['JESTER_PREFERENCES_FILE'] = str(folder/'preferences.json')
+    (folder/'preferences.json').write_text(json.dumps({'format':'JesterPreferences','version':1,'language':language}),encoding='utf-8')
     env['JESTER_VISUAL_TEST_OUTPUT'] = str(folder)
     env['JESTER_RHI'] = backend
     env.pop('QT_QPA_PLATFORM',None)
@@ -42,7 +43,8 @@ def execute(command, project, folder, backend, scale, timeout):
     log_text = read_text(folder / 'engine.log')
     actual = [r.lower() for r in re.findall(r'Registering\s+(dx12|vulkan)\s+RHI', log_text, re.I)]
     errors = len(re.findall(r'Trace::(?:Error|Assert)', log_text))
-    return dict(backend=backend, scale=scale, exitCode=code, timedOut=timed_out,
+    return dict(backend=backend, scale=scale, language=language, exitCode=code, timedOut=timed_out,
+                executable=str(command[0]),executableSha256=hashlib.sha256(Path(command[0]).read_bytes()).hexdigest(),
                 seconds=round(time.monotonic()-started, 2), registeredRhi=actual,
                 traceErrors=errors, engineLog=str(folder / 'engine.log'),
                 passed=code == 0 and not timed_out and errors == 0 and actual == [backend])
@@ -62,6 +64,7 @@ def main():
     parser.add_argument('--skip-smoke', action='store_true')
     parser.add_argument('--smoke-only', action='store_true')
     parser.add_argument('--timeout', type=int, default=600)
+    parser.add_argument('--language',choices=['en','ru','system'],default='en')
     args = parser.parse_args()
     if args.timeout < 1:
         parser.error('--timeout must be positive')
@@ -109,7 +112,7 @@ def main():
                         (project / 'artifacts' / name).unlink(missing_ok=True)
                     command = [str(binaries / 'Jester.exe'), f'--project-path={project}',
                                f'--rhi={backend}', '--unattended', '--smoke']
-                    result = execute(command, project, folder, backend, scale, min(args.timeout, 90))
+                    result = execute(command, project, folder, backend, scale, min(args.timeout, 90),args.language)
                     result['suite'] = 'Smoke'
                     report = project / 'artifacts/poc-smoke.json'
                     result['report'] = json.loads(read_text(report)) if report.exists() else None
@@ -136,7 +139,7 @@ def main():
                 test_log.unlink(missing_ok=True)
                 command = [str(binaries / f'Jester{suite}Tests.exe'), f'--project-path={project}',
                            f'--rhi={backend}', '--unattended', '-o', f'{test_log},txt']
-                result = execute(command, project, folder, backend, scale, args.timeout)
+                result = execute(command, project, folder, backend, scale, args.timeout,args.language)
                 result['suite'] = suite
                 totals = re.search(r'Totals: (\d+) passed, (\d+) failed, (\d+) skipped',
                                    read_text(test_log) if test_log.exists() else '')

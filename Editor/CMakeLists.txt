@@ -73,7 +73,7 @@ add_library(JesterUI STATIC
     src/ui/window/layout_ui.cpp src/ui/window/window.cpp src/ui/window/helpers_ui.cpp src/ui/window/scenes_ui.cpp src/ui/viewport/viewport.cpp
     src/ui/timeline/timeline.cpp src/automation/editor_api.cpp src/automation/editor_ui_api.cpp src/automation/mcp_server.cpp src/automation/automation_ui.cpp)
 qt_add_resources(JesterUI mcp_catalog PREFIX "/trickster" FILES src/automation/mcp_tools.json)
-qt_add_lrelease(TS_FILES translations/jester_ru.ts
+qt_add_lrelease(TS_FILES translations/jester_ru.ts translations/jester_en.ts
     QM_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/translations"
     QM_FILES_OUTPUT_VARIABLE JESTER_QM_FILES LRELEASE_TARGET JesterTranslations)
 qt_add_resources(JesterUI editor_translations PREFIX "/jester/translations"

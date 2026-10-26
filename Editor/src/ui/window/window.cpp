@@ -7,6 +7,7 @@
 #include "ui/widgets/localized_ui.h"
 #include "settings/action_registry.h"
 #include "settings/preferences_service.h"
+#include "settings/editor_appearance.h"
 #include <QToolButton>
 #include <QMenu>
 #include "core/scene/edit_service.h"
@@ -41,6 +42,15 @@
 #include <utility>
 namespace trickster {
 namespace {
+QString recordingContextLabel(const Document &document) {
+    const auto &scene=document.scene;const auto &layer=scene.correction();
+    const QString source=scene.sourceClip>=0 && scene.clips?(*scene.clips)[scene.sourceClip].name:uiText("Pose keys");
+    if(scene.compareOriginal)return uiText("Viewing source: %1 | Recording OFF - turn off Compare to edit").arg(source);
+    if(layer.present)return uiText("%1%2 | %3 | Source: %4").arg(layer.enabled && layer.editing?uiText("Record: "):uiText("Locked: "),layer.name,
+        layer.world?uiText("World offsets"):uiText("Local offsets"),source);
+    if(scene.sourceClip>=0)return uiText("Source: %1 (read-only) | First edit creates a correction layer").arg(source);
+    return uiText("Record: whole-pose keys | TRS + pins + morphs");
+}
 QWidget *vectorRow(std::array<QDoubleSpinBox *, 3> &fields, QWidget *parent, const QString &prefix) {
     auto row = new QWidget(parent);
     auto l = new QHBoxLayout(row);
@@ -53,7 +63,7 @@ QWidget *vectorRow(std::array<QDoubleSpinBox *, 3> &fields, QWidget *parent, con
         box->setRange(-100000, 100000);
         box->setDecimals(3);
         box->setSingleStep(.01);
-        box->setPrefix(axes[i] + QString(" "));
+        box->setPrefix(axes[i] + uiText(" "));
         box->setKeyboardTracking(false);
         box->setMinimumWidth(70);
         box->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
@@ -65,7 +75,7 @@ QWidget *vectorRow(std::array<QDoubleSpinBox *, 3> &fields, QWidget *parent, con
 } // namespace
 Window::Window() {
     setObjectName("JesterWindow");
-    setWindowTitle("Jester");
+    bindUiText(this,"windowTitle","Jester");
     auto available = QGuiApplication::primaryScreen()->availableGeometry();
     resize(std::min(1440, available.width()), std::min(940, available.height()));
     setMinimumSize(760, 420);
@@ -95,7 +105,7 @@ Window::Window() {
     workspaceLayout->addWidget(sceneTabs);
     workspaceLayout->addWidget(viewport, 1);
     setCentralWidget(centralWorkspace);
-    auto skeleton = new QDockWidget("Outliner", this);
+    auto skeleton = translatedWidget<QDockWidget>("Outliner", this);
     skeleton->setObjectName("skeletonDock");
     tree = new QTreeWidget(skeleton);
     tree->setObjectName("skeletonTree");
@@ -126,7 +136,7 @@ Window::Window() {
     installSceneSettings(*this);
     auto *preferences=new QAction(this);preferences->setObjectName("preferencesAction");bindUiText(preferences,"text","Preferences");preferences->setShortcut(QKeySequence("Ctrl+,"));
     menuBar()->addAction(preferences);addAction(preferences);connect(preferences,&QAction::triggered,this,[this]{showPreferences(*this);});
-    connect(&PreferencesService::instance(),&PreferencesService::changed,this,[this] {ActionRegistry(*this).apply(PreferencesService::instance().current());viewport->update();});
+    connect(&PreferencesService::instance(),&PreferencesService::changed,this,[this] {ActionRegistry(*this).apply(PreferencesService::instance().current());fitCompactLayout();viewport->update();});
     statusBar()->setSizeGripEnabled(true);
     frameInfo = new QLabel(this);
     statusBar()->addPermanentWidget(frameInfo);
@@ -149,13 +159,22 @@ Window::Window() {
     rebuildTree();
     refresh();
     viewport->fit();
-    report("Empty scene. Choose Scene (Ctrl+Shift+O), open a character or create a mannequin.");
+    report(QString("Empty scene. Choose Scene (Ctrl+Shift+O), open a character or create a mannequin."));
     buildRecovery();
     buildAutomation();
     ActionRegistry(*this).apply(PreferencesService::instance().current());
+    applyEditorAppearance(*qApp,PreferencesService::instance().current());
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,[this] {
+        const auto restore=preserveUiDrafts(*this);
+        // Refresh translated dynamic summaries without committing numeric or
+        // layer-name fields back into the document.
+        std::vector<std::unique_ptr<QSignalBlocker>> blocked;
+        for(auto *widget:findChildren<QWidget*>())blocked.push_back(std::make_unique<QSignalBlocker>(widget));
+        refresh();restore();viewport->update();timeline->update();
+    });
 }
 void Window::buildInspector() {
-    auto dock = new QDockWidget("Inspector", this);
+    auto dock = translatedWidget<QDockWidget>("Inspector", this);
     dock->setObjectName("inspectorDock");
     auto scroll = new QScrollArea(dock);
     scroll->setObjectName("inspectorScroll");
@@ -171,12 +190,12 @@ void Window::buildInspector() {
     mirrorLabel->setWordWrap(true);
     layout->addWidget(mirrorLabel);
     auto mirrorTools = new QHBoxLayout;
-    auto opposite = new QPushButton("Opposite", body);
+    auto opposite = translatedWidget<QPushButton>("Opposite", body);
     opposite->setObjectName("selectOppositeButton");
-    auto copyOpposite = new QPushButton("Copy", body);
+    auto copyOpposite = translatedWidget<QPushButton>("Copy", body);
     copyOpposite->setObjectName("copyOppositeButton");
-    copyOpposite->setToolTip("Copy selected FK bone / IK chain to its opposite, preserving the source");
-    auto configure = new QPushButton("Pairs...", body);
+    bindUiText(copyOpposite,"toolTip","Copy selected FK bone / IK chain to its opposite, preserving the source");
+    auto configure = translatedWidget<QPushButton>("Pairs...", body);
     configure->setObjectName("configureMirrorPairsButton");
     mirrorTools->addWidget(opposite);
     mirrorTools->addWidget(copyOpposite);
@@ -196,34 +215,34 @@ void Window::buildInspector() {
             s.copyToOpposite(nodes);
         });
     });
-    auto transform = new QGroupBox("Stored local TRS (FK)", body);
+    auto transform = translatedWidget<QGroupBox>("Stored local TRS (FK)", body);
     transform->setObjectName("localTransformGroup");
     auto f = new QFormLayout(transform);
     f->setRowWrapPolicy(QFormLayout::WrapAllRows);
-    f->addRow("Position", vectorRow(position, transform, "position"));
-    f->addRow("Rotation", vectorRow(rotation, transform, "rotation"));
+    addTranslatedRow(f,"Position", vectorRow(position, transform, "position"));
+    addTranslatedRow(f,"Rotation", vectorRow(rotation, transform, "rotation"));
     for (int i = 0; i < 3; ++i) {
         rotation[i]->setSingleStep(1);
         connect(position[i], &QDoubleSpinBox::editingFinished, this, [this] { readTransform(false); });
         connect(rotation[i], &QDoubleSpinBox::editingFinished, this, [this] { readTransform(true); });
     }
     layout->addWidget(transform);
-    auto ik = new QGroupBox("IK", body);
+    auto ik = translatedWidget<QGroupBox>("IK", body);
     ikBox = ik;
     auto form = new QFormLayout(ik);
     form->setRowWrapPolicy(QFormLayout::WrapAllRows);
-    pin = new QCheckBox("Pin in world space", ik);
+    pin = translatedWidget<QCheckBox>("Pin in world space", ik);
     pin->setObjectName("pinCheck");
     form->addRow(pin);
-    form->addRow("Target", vectorRow(target, ik, "target"));
-    form->addRow("Pole", vectorRow(pole, ik, "pole"));
+    addTranslatedRow(form,"Target", vectorRow(target, ik, "target"));
+    addTranslatedRow(form,"Pole", vectorRow(pole, ik, "pole"));
     weight = new QDoubleSpinBox(ik);
     weight->setObjectName("pinWeight");
     weight->setRange(0, 1);
     weight->setSingleStep(.1);
     weight->setDecimals(2);
     weight->setKeyboardTracking(false);
-    form->addRow("Pin weight", weight);
+    addTranslatedRow(form,"Pin weight", weight);
     connect(pin, &QCheckBox::toggled, this, [this] {
         if (!refreshing)
             document().togglePin();
@@ -240,17 +259,17 @@ void Window::buildInspector() {
         connect(pole[i], &QDoubleSpinBox::editingFinished, this, [this] { readIK(true); });
     }
     layout->addWidget(ik);
-    auto pins = new QPushButton("Pin both feet", body);
+    auto pins = translatedWidget<QPushButton>("Pin both feet", body);
     pins->setObjectName("pinFeetButton");
-    pins->setToolTip("Find foot/ankle joints by name and keep both at their current world positions.");
+    bindUiText(pins,"toolTip","Find foot/ankle joints by name and keep both at their current world positions.");
     connect(pins, &QPushButton::clicked, this, [this] { document().pinFeet(); });
     layout->insertWidget(1, pins);
-    auto reset = new QPushButton("Reset pose", body);
+    auto reset = translatedWidget<QPushButton>("Reset pose", body);
     reset->setObjectName("resetPoseButton");
     connect(reset, &QPushButton::clicked, this, [this] { document().resetPose(); });
     layout->addWidget(reset);
     auto tip =
-        new QLabel("1  Move to a frame\n2  Drag a hand, foot or rotation ring\n3  Every pose edit creates a "
+        translatedWidget<QLabel>("1  Move to a frame\n2  Drag a hand, foot or rotation ring\n3  Every pose edit creates a "
                    "key\n4  Space to play · Ctrl+S to save\n\nGreen controls are pinned.\nPurple diamonds "
                    "steer elbows and knees.\nUnreachable IK goals clamp to limb length.",
                    body);
@@ -265,16 +284,16 @@ void Window::buildInspector() {
     resizeDocks({dock}, {320}, Qt::Horizontal);
 }
 void Window::buildTimeline() {
-    auto dock = new QDockWidget("Animation", this);
+    auto dock = translatedWidget<QDockWidget>("Animation", this);
     dock->setObjectName("animationDock");
     auto body = new QWidget;
     auto l = new QVBoxLayout(body);
     l->setContentsMargins(6, 3, 6, 3);
     l->setSpacing(3);
     auto controls = new QHBoxLayout;
-    auto previous = new QPushButton("|◀", body);
+    auto previous = translatedWidget<QPushButton>("|◀", body);
     previous->setObjectName("previousKeyButton");
-    previous->setToolTip("Previous key (,)");
+    bindUiText(previous,"toolTip","Previous key (,)");
     connect(previous, &QPushButton::clicked, this, [this] {
         document().play(false);
         const auto nav = timeline->navigationKeys();
@@ -286,14 +305,14 @@ void Window::buildTimeline() {
             document().seek(document().scene.first);
     });
     controls->addWidget(previous);
-    auto play = new QPushButton("Play / Pause", body);
+    auto play = translatedWidget<QPushButton>("Play / Pause", body);
     play->setObjectName("playButton");
-    play->setToolTip("Space");
+    bindUiText(play,"toolTip","Space");
     connect(play, &QPushButton::clicked, this, [this] { document().play(!document().playing); });
     controls->addWidget(play);
-    auto next = new QPushButton("▶|", body);
+    auto next = translatedWidget<QPushButton>("▶|", body);
     next->setObjectName("nextKeyButton");
-    next->setToolTip("Next key (.)");
+    bindUiText(next,"toolTip","Next key (.)");
     connect(next, &QPushButton::clicked, this, [this] {
         document().play(false);
         const auto nav = timeline->navigationKeys();
@@ -301,13 +320,13 @@ void Window::buildTimeline() {
         document().seek(it == nav.cend() ? document().scene.last : *it);
     });
     controls->addWidget(next);
-    auto loop = new QCheckBox("Loop", body);
+    auto loop = translatedWidget<QCheckBox>("Loop", body);
     loop->setObjectName("loopCheck");
     loop->setChecked(true);
     connect(loop, &QCheckBox::toggled, this, [this](bool on) { document().loop = on; });
     controls->addWidget(loop);
     auto spin = [&](QString text, QString name, int min, int max) {
-        controls->addWidget(new QLabel(text, body));
+        controls->addWidget(translatedLabel(text, body));
         auto box = new QSpinBox(body);
         box->setObjectName(name);
         box->setRange(min, max);
@@ -320,41 +339,41 @@ void Window::buildTimeline() {
     last = spin("Out", "lastFrame", 0, 100000);
     fps = spin("fps", "fps", 1, 240);
     controls->addStretch();
-    auto insert = new QPushButton("◆ Insert key  I", body);
+    auto insert = translatedWidget<QPushButton>("◆ Insert key  I", body);
     insert->setObjectName("insertKeyButton");
     connect(insert, &QPushButton::clicked, this, [this] { timeline->insertKey(); });
     controls->addWidget(insert);
-    auto contextButton = new QPushButton("Notes",body);
+    auto contextButton = translatedWidget<QPushButton>("Notes",body);
     contextButton->setObjectName("motionContextButton");
-    contextButton->setToolTip("Frame and interval intentions, observations and hypotheses");
+    bindUiText(contextButton,"toolTip","Frame and interval intentions, observations and hypotheses");
     connect(contextButton,&QPushButton::clicked,this,[this]{timeline->editContext();});
     controls->addWidget(contextButton);
     auto motionTools=new QToolButton(body);
     motionTools->setObjectName("motionToolsButton");
-    motionTools->setText("Motion tools");motionTools->setPopupMode(QToolButton::InstantPopup);
+    bindUiText(motionTools,"text","Motion tools");motionTools->setPopupMode(QToolButton::InstantPopup);
     auto motionMenu=new QMenu(motionTools);
-    motionMenu->addAction("Graph Editor",this,&Window::showGraphEditor)->setObjectName("graphEditorAction");
-    motionMenu->addAction("Motion Paths / measurements",this,&Window::showMotionAnalysis)->setObjectName("motionAnalysisAction");
-    motionMenu->addAction("Humanoid retarget",this,&Window::showRetarget)->setObjectName("retargetAction");
+    addTranslatedAction(motionMenu,"Graph Editor",this,&Window::showGraphEditor)->setObjectName("graphEditorAction");
+    addTranslatedAction(motionMenu,"Motion Paths / measurements",this,&Window::showMotionAnalysis)->setObjectName("motionAnalysisAction");
+    addTranslatedAction(motionMenu,"Humanoid retarget",this,&Window::showRetarget)->setObjectName("retargetAction");
     motionTools->setMenu(motionMenu);controls->addWidget(motionTools);
     l->addLayout(controls);
     recordingLabel = new QLabel(body);
     recordingLabel->setObjectName("timelineRecordingContext");
     recordingLabel->setWordWrap(false);
     recordingLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
-    recordingLabel->setText(document().recordingContext());
+    recordingLabel->setText(recordingContextLabel(document()));
     auto options = new QHBoxLayout;
-    auto selectedOnly = new QCheckBox("Selection", body);
+    auto selectedOnly = translatedWidget<QCheckBox>("Selection", body);
     selectedOnly->setObjectName("timelineSelectedOnly");
     selectedOnly->setChecked(true);
-    selectedOnly->setToolTip("Only show selected bones/controllers. Shift-click to select several.");
-    auto symmetry = new QCheckBox("Symmetry X", body);
+    bindUiText(selectedOnly,"toolTip","Only show selected bones/controllers. Shift-click to select several.");
+    auto symmetry = translatedWidget<QCheckBox>("Symmetry X", body);
     symmetry->setObjectName("timelineSymmetry");
-    symmetry->setToolTip("Mirror the edited bone/IK chain to its assigned partner; one Undo. Missing pairs "
+    bindUiText(symmetry,"toolTip","Mirror the edited bone/IK chain to its assigned partner; one Undo. Missing pairs "
                          "leave the other side unchanged and are reported.");
-    auto compare = new QCheckBox("Compare", body);
+    auto compare = translatedWidget<QCheckBox>("Compare", body);
     compare->setObjectName("timelineCompare");
-    compare->setToolTip("Compare source: show the uncorrected animation, with recording disabled");
+    bindUiText(compare,"toolTip","Compare source: show the uncorrected animation, with recording disabled");
     options->addWidget(recordingLabel, 1);
     options->addWidget(selectedOnly);
     options->addWidget(symmetry);
@@ -368,12 +387,11 @@ void Window::buildTimeline() {
     connect(timeline,&Timeline::graphRequested,this,&Window::showGraphEditor);
     connect(selectedOnly, &QCheckBox::toggled, timeline, &Timeline::setOnlySelected);
     connect(timeline, &Timeline::scopeChanged, this, [insert](const QString &scope) {
-        insert->setToolTip("Insert key (I): " + scope);
+        insert->setToolTip(uiText("Insert key (I): ") + scope);
         insert->setAccessibleName("Insert key: " + scope);
     });
     l->addWidget(timeline);
     dock->setWidget(body);
-    dock->setMinimumHeight(body->minimumSizeHint().height() + 24);
     addDockWidget(Qt::BottomDockWidgetArea, dock);
     connect(current, &QSpinBox::valueChanged, this, [this](int f) {
         if (!refreshing) {
@@ -388,7 +406,7 @@ void Window::buildTimeline() {
         if (a == document().scene.first && b == document().scene.last && rate == document().scene.fps)
             return;
         if (a > b) {
-            report("In frame must be at or before Out frame.");
+            report(QString("In frame must be at or before Out frame."));
             refresh();
             return;
         }
@@ -408,15 +426,16 @@ void Window::buildTimeline() {
     connect(fps, &QSpinBox::editingFinished, this, range);
 }
 void Window::buildActions() {
-    auto file = menuBar()->addMenu("&File");
-    auto edit = menuBar()->addMenu("&Edit");
-    auto view = menuBar()->addMenu("&View");
-    auto help = menuBar()->addMenu("&Help");
-    auto toolbar = addToolBar("Main");
+    auto file = addTranslatedMenu(menuBar(),"&File");
+    auto edit = addTranslatedMenu(menuBar(),"&Edit");
+    auto view = addTranslatedMenu(menuBar(),"&View");
+    auto help = addTranslatedMenu(menuBar(),"&Help");
+    auto toolbar = addToolBar(uiText("Main"));
+    bindUiText(toolbar,"windowTitle","Main");
     toolbar->setObjectName("mainToolbar");
     toolbar->setMovable(false);
     auto add = [&](QMenu *menu, QString text, QKeySequence shortcut, auto callback) {
-        auto a = menu->addAction(text);
+        auto a = addTranslatedAction(menu,text);
         if (!shortcut.isEmpty())
             a->setShortcut(shortcut);
         connect(a, &QAction::triggered, this, callback);
@@ -443,14 +462,23 @@ void Window::buildActions() {
     add(file, "Quit", QKeySequence::Quit, [this] { close(); });
 
     auto undo = workspace.history.createUndoAction(this, "Undo");
+    undo->setObjectName("undo");undo->setProperty("jesterSourceText","Undo");
     undo->setShortcut(QKeySequence::Undo);
     edit->addAction(undo);
     auto redo = workspace.history.createRedoAction(this, "Redo");
+    redo->setObjectName("redo");redo->setProperty("jesterSourceText","Redo");
     redo->setShortcuts({QKeySequence::Redo, QKeySequence("Ctrl+Shift+Z")});
     edit->addAction(redo);
     toolbar->addSeparator();
     toolbar->addAction(undo);
     toolbar->addAction(redo);
+    auto historyText=[this,undo,redo] {
+        undo->setText(workspace.history.undoText().isEmpty()?uiText("Undo"):uiText("Undo %1").arg(translatedDiagnostic(workspace.history.undoText())));
+        redo->setText(workspace.history.redoText().isEmpty()?uiText("Redo"):uiText("Redo %1").arg(translatedDiagnostic(workspace.history.redoText())));
+    };
+    connect(&workspace.history,&QUndoGroup::undoTextChanged,this,historyText);
+    connect(&workspace.history,&QUndoGroup::redoTextChanged,this,historyText);
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,this,historyText);historyText();
     edit->addSeparator();
     add(edit, "Insert key in recording target", QKeySequence("I"), [this] { timeline->insertKey(); });
     add(edit, "Pin / release selected", QKeySequence("P"), [this] { document().togglePin(); });
@@ -492,14 +520,14 @@ void Window::buildActions() {
     add(edit, "Previous key", QKeySequence(","),
         [this] { findChild<QPushButton *>("previousKeyButton")->click(); });
     add(edit, "Next key", QKeySequence("."), [this] { findChild<QPushButton *>("nextKeyButton")->click(); });
-    add(view, "Frame character", QKeySequence("F"), [this] { viewport->fit(); });
+    add(view, "Frame character", QKeySequence("F"), [this] { viewport->frameCharacter(); });
     add(view, "Perspective", QKeySequence("0"), [this] { viewport->viewPreset(0); });
     add(view, "Front", QKeySequence("1"), [this] { viewport->viewPreset(1); });
     add(view, "Side", QKeySequence("3"), [this] { viewport->viewPreset(2); });
     add(view, "Top", QKeySequence("7"), [this] { viewport->viewPreset(3); });
     view->addSeparator();
     auto check = [&](QString text, bool *member, bool initial) {
-        auto a = view->addAction(text);
+        auto a = addTranslatedAction(view,text);
         a->setCheckable(true);
         a->setChecked(initial);
         connect(a, &QAction::toggled, this, [this, member](bool on) {
@@ -516,9 +544,7 @@ void Window::buildActions() {
         view->addAction(dock->toggleViewAction());
     add(view, "Restore default layout", {}, [this] { resetLayout(); });
     add(help, "Quick start", QKeySequence::HelpContents, [this] {
-        QMessageBox::information(
-            this, "Jester · Quick start",
-            "Open a glTF/GLB character or use the built-in mannequin.\n\n1. Select Hips and click Pin both "
+        showUiMessage(QMessageBox::Information,this,[&] {return uiText("Jester · Quick start");},[&] {return translatedDiagnostic(uiText("Open a glTF/GLB character or use the built-in mannequin.\n\n1. Select Hips and click Pin both "
             "feet. Drag the pelvis down.\n2. Drag a hand or foot for IK. Use the purple pole for bend "
             "direction.\n3. Choose a new frame and pose again. Every completed edit creates a full pose "
             "key.\n4. Space plays the clip. I inserts a key without changing the pose.\n5. Ctrl+S saves a "
@@ -528,15 +554,11 @@ void Window::buildActions() {
             "selected key.\nCtrl+Z / Ctrl+Shift+Z: undo / redo. Escape cancels a viewport drag.\n\nIK is "
             "analytic two-bone IK. Unreachable targets clamp to limb length.\n\nFBX, GLB and glTF retain "
             "textures and blend shapes. Physics panel: fit bodies, preview simulation or a gravity-based "
-            "flight, then open the result as a scene.");
+            "flight, then open the result as a scene."));});
     });
     add(help, "About Jester", {}, [this] {
         const auto backend=viewport->renderingStats()["rhi"].toString().toUpper();
-        QMessageBox::about(this, "Jester",
-                           QString("Jester " TRICKSTER_VERSION " | " TRICKSTER_BUILD_ID
-                           "\nCharacter animation editor\nC++20 / Qt 6 Widgets / O3DE Atom (%1)"
-                           "\n\nApplication code: MIT\nThird-party licenses: see THIRD_PARTY.md."
-                           "\nExperimental physics: MuJoCo 3.3.7. FBX: ufbx.").arg(backend));
+        showUiMessage(QMessageBox::Information,this,[&] {return uiText("Jester");},[&] {return translatedDiagnostic(uiText("Jester %1 | %2\nCharacter animation editor\nC++20 / Qt 6 Widgets / O3DE Atom (%3)\n\nApplication code: MIT\nThird-party licenses: see THIRD_PARTY.md.\nExperimental physics: MuJoCo 3.3.7. FBX: ufbx.").arg(TRICKSTER_VERSION,TRICKSTER_BUILD_ID,backend));});
     });
 }
 void Window::rebuildTree() {
@@ -548,7 +570,7 @@ void Window::rebuildTree() {
         item->setText(0, document().scene.nodes[i].name);
         item->setData(0, Qt::UserRole, i);
         item->setIcon(0, icon(document().scene.nodes[i].joint ? Glyph::Bones : Glyph::Mesh));
-        item->setToolTip(0, QString("%1 · node %2").arg(document().scene.nodes[i].name).arg(i));
+        item->setToolTip(0, uiText("%1 · node %2").arg(document().scene.nodes[i].name).arg(i));
         items.push_back(item);
     }
     for (int i = 0; i < int(items.size()); ++i) {
@@ -582,8 +604,8 @@ void Window::refresh() {
     if (mirrorLabel)
         mirrorLabel->setText(partner >= 0
                                  ? s.nodes[document().selected].name + " <-> " + s.nodes[partner].name
-                             : document().selected >= 0 ? "Mirror partner not assigned - Pairs..."
-                                                        : "Select a bone to inspect its mirror pair");
+                             : document().selected >= 0 ? uiText("Mirror partner not assigned - Pairs...")
+                                                        : uiText("Select a bone to inspect its mirror pair"));
     findChild<QPushButton *>("selectOppositeButton")->setEnabled(partner >= 0);
     findChild<QPushButton *>("copyOppositeButton")->setEnabled(partner >= 0 && canRecord);
     bool feet = false;
@@ -592,8 +614,8 @@ void Window::refresh() {
             feet = true;
     findChild<QPushButton *>("pinFeetButton")->setEnabled(feet && canRecord);
     if (recordingLabel) {
-        recordingLabel->setText(document().recordingContext());
-        recordingLabel->setToolTip(document().recordingContext());
+        recordingLabel->setText(recordingContextLabel(document()));
+        recordingLabel->setToolTip(recordingContextLabel(document()));
     }
     if (auto box = findChild<QCheckBox *>("timelineSymmetry")) {
         QSignalBlocker b(box);
@@ -613,7 +635,7 @@ void Window::refresh() {
     playAction->setEnabled(hasCharacter);
     findChild<QPushButton *>("playButton")->setEnabled(hasCharacter);
     if (!hasCharacter || document().selected < 0) {
-        selectionLabel->setText(hasCharacter ? "No selection" : "No character selected");
+        selectionLabel->setText(hasCharacter ? uiText("No selection") : uiText("No character selected"));
         tree->setCurrentItem(nullptr);
         ikBox->hide();
         limitEnabled->setChecked(false);
@@ -623,7 +645,7 @@ void Window::refresh() {
             rotation[i]->setValue(0);
         }
     }
-    setWindowTitle(QString("%1%2 — Jester")
+    setWindowTitle(uiText("%1%2 — Jester")
                        .arg(document().path.isEmpty() ? s.name : QFileInfo(document().path).fileName(),
                             document().dirty() ? " *" : ""));
     current->setRange(s.first, s.last);
@@ -631,12 +653,12 @@ void Window::refresh() {
     first->setValue(s.first);
     last->setValue(s.last);
     fps->setValue(s.fps);
-    frameInfo->setText(s.compareOriginal ? "Source / compare"
+    frameInfo->setText(s.compareOriginal ? uiText("Source / compare")
                        : s.correction().present
-                           ? (s.correction().editing && s.correction().enabled ? "REC: " : "Locked: ") +
+                           ? (s.correction().editing && s.correction().enabled ? uiText("REC: ") : uiText("Locked: ")) +
                                  s.correction().name
-                       : s.sourceClip >= 0 ? "Source / auto correction"
-                                           : "Whole-pose keys");
+                       : s.sourceClip >= 0 ? uiText("Source / auto correction")
+                                           : uiText("Whole-pose keys"));
     if (document().selected >= 0 && document().selected < int(s.nodes.size())) {
         int n = document().selected;
         bool contact = false;
@@ -647,32 +669,31 @@ void Window::refresh() {
         auto angles = (viewport->local ? t.r : s.globalRotation(n, s.pose)).toEulerAngles();
         auto displayedPosition = viewport->local ? t.t : s.positions(s.pose)[n];
         findChild<QGroupBox *>("localTransformGroup")
-            ->setTitle(viewport->local ? "Local transform (FK)" : "World transform (FK)");
+            ->setTitle(viewport->local ? uiText("Local transform (FK)") : uiText("World transform (FK)"));
         findChild<QGroupBox *>("localTransformGroup")
-            ->setToolTip("Numeric fields use the gizmo coordinate space. Select one bone for numeric "
-                         "editing; drag the gizmo to transform a group.");
+            ->setToolTip(uiText("Numeric fields use the gizmo coordinate space. Select one bone for numeric "
+                         "editing; drag the gizmo to transform a group."));
         selectionLabel->setText((document().selection().size() > 1
-                                     ? QString("%1 selected / ").arg(document().selection().size())
+                                     ? uiText("%1 selected / ").arg(document().selection().size())
                                      : QString()) +
-                                s.nodes[n].name + " / " + (s.isEffector(n) ? "Move: IK chain" : "Move: FK") +
-                                " / Gizmo: " + (viewport->local ? "Local" : "World"));
-        selectionLabel->setToolTip(contact           ? "Planted contact"
-                                   : s.isEffector(n) ? "End effector · drag for IK"
-                                                     : "Local FK transform");
+                                s.nodes[n].name + " / " + (s.isEffector(n) ? uiText("Move: IK chain") : uiText("Move: FK")) +
+                                uiText(" / Gizmo: ") + (viewport->local ? uiText("Local") : uiText("World")));
+        selectionLabel->setToolTip(contact           ? uiText("Planted contact")
+                                   : s.isEffector(n) ? uiText("End effector · drag for IK")
+                                                     : uiText("Local FK transform"));
         float step = std::pow(10.f, std::floor(std::log10(viewport->characterHeight())) - 2);
         for (int i = 0; i < 3; ++i) {
             position[i]->setValue(displayedPosition[i]);
             rotation[i]->setValue(angles[i]);
             position[i]->setSingleStep(step);
         }
-        qobject_cast<QGroupBox *>(ikBox)->setTitle(document().selection().size() > 1 ? "IK: active controller"
+        qobject_cast<QGroupBox *>(ikBox)->setTitle(document().selection().size() > 1 ? uiText("IK: active controller")
                                                                                      : "IK");
         ikBox->setVisible(s.isEffector(n));
         ikBox->setEnabled(canRecord && s.isEffector(n) && s.ikDiagnostic(n).isEmpty());
         ikBox->setToolTip(s.ikDiagnostic(n));
         if (s.profile.configured && !s.isEffector(n))
-            selectionLabel->setToolTip(
-                "FK joint. Assign an IK chain in Motion → Character profile to use it as an effector.");
+            bindToolTip(selectionLabel,"FK joint. Assign an IK chain in Motion → Character profile to use it as an effector.");
         pin->setChecked(s.pins.contains(n));
         limitEnabled->setChecked(s.rotationLimits.contains(n) || s.jointLimits.contains(n));
         limitAngle->setEnabled(s.rotationLimits.contains(n) && !s.jointLimits.contains(n));
@@ -697,8 +718,8 @@ void Window::refresh() {
             for (const auto &c : s.contacts)
                 if (c.node == idx && document().frame >= c.first && document().frame <= c.last)
                     activeContact = true;
-            (*it)->setText(0, s.nodes[idx].name + (s.pins.contains(idx) ? "  [pin]"
-                                                   : activeContact      ? "  [contact]"
+            (*it)->setText(0, s.nodes[idx].name + (s.pins.contains(idx) ? uiText("  [pin]")
+                                                   : activeContact      ? uiText("  [contact]")
                                                                         : ""));
             (*it)->setSelected(document().selection().contains(idx));
             if (idx == n && tree->currentItem() != *it)
@@ -723,7 +744,7 @@ bool Window::applyOperation(const QString &name, const QJsonObject &arguments, Q
         EditService::execute(document(), name, arguments, label);
         return true;
     } catch (const std::exception &error) {
-        report(QString::fromUtf8(error.what()));
+        report(translatedDiagnostic(QString::fromUtf8(error.what())));
         refresh();
         return false;
     }
@@ -771,25 +792,30 @@ void Window::readIK(bool changePole) {
                    changePole ? "Set IK pole" : "Set IK target");
 }
 void Window::report(QString text, bool error) {
-    statusBar()->showMessage(text, error ? 15000 : 8000);
+    auto *bar=statusBar();bar->setProperty("jesterStatusSource",text);
+    if(!bar->property("jesterStatusBound").toBool()) {
+        bar->setProperty("jesterStatusBound",true);
+        connect(&LocalizationService::instance(),&LocalizationService::languageChanged,bar,[bar] {
+            if(!bar->currentMessage().isEmpty())bar->showMessage(translatedDiagnostic(bar->property("jesterStatusSource").toString()),8000);
+        });
+    }
+    bar->showMessage(translatedDiagnostic(text), error ? 15000 : 8000);
     if (error)
-        QMessageBox::warning(this, "Jester", text);
+        showUiMessage(QMessageBox::Warning,this,[&] {return uiText("Jester");},[&] {return translatedDiagnostic(text);});
 }
 bool Window::mayClose() {
     if (!document().dirty())
         return true;
-    auto result = QMessageBox::question(
-        this, "Jester · Unsaved changes", "Save changes to this animation before continuing?",
-        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    auto result = showUiMessage(QMessageBox::Question,this,[&] {return uiText("Jester · Unsaved changes");},[&] {return translatedDiagnostic(uiText("Save changes to this animation before continuing?"));},QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,QMessageBox::Save);
     return result == QMessageBox::Discard || (result == QMessageBox::Save && save());
 }
 bool Window::save(bool as) {
     commitPendingEditor();
     QString path = document().path;
     if (path.isEmpty() || as) {
-        QFileDialog dialog(this,tr("Save Jester project"),
+        QFileDialog dialog(this,uiText("Save Jester project"),
                            QDir(lastDirectory).filePath(suggestedProjectFileName(document().scene.name)),
-                           tr("Jester project (*.jst)"));
+                           uiText("Jester project (*.jst)"));
         dialog.setAcceptMode(QFileDialog::AcceptSave);
         dialog.setFileMode(QFileDialog::AnyFile);
         dialog.setDefaultSuffix("jst");
@@ -803,7 +829,7 @@ bool Window::save(bool as) {
             QFileInfo(workspace.documents[i]->path)
                     .absoluteFilePath()
                     .compare(QFileInfo(path).absoluteFilePath(), Qt::CaseInsensitive) == 0) {
-            report("This project is open in another scene. Choose a different filename.", true);
+            report(QString("This project is open in another scene. Choose a different filename."), true);
             return false;
         }
     QString error;
@@ -815,12 +841,12 @@ bool Window::save(bool as) {
     lastDirectory = QFileInfo(path).absolutePath();
     document().undo.setClean();
     refresh();
-    report("Saved project: " + path);
+    report(QString("Saved project: ") + path);
     return true;
 }
 bool Window::open(const QString &path) {
     if(!isSupportedSceneFile(path)) {
-        report(tr("Unsupported scene file. Open a Jester project (.jst), FBX, GLB or glTF."),true);
+        report(QString("Unsupported scene file. Open a Jester project (.jst), FBX, GLB or glTF."),true);
         return false;
     }
     if (isNativeProjectFile(path)) {
@@ -830,7 +856,7 @@ bool Window::open(const QString &path) {
             if (!canonical.isEmpty() && !existing.isEmpty() &&
                 QFileInfo(existing).canonicalFilePath() == canonical) {
                 switchScene(i);
-                report("Project already open; switched to its scene.");
+                report(QString("Project already open; switched to its scene."));
                 return true;
             }
         }
@@ -844,7 +870,7 @@ bool Window::open(const QString &path) {
                   : loadCharacter(path, s, error);
     QApplication::restoreOverrideCursor();
     if (!ok) {
-        report("Cannot open character/project: " + error, true);
+        report(QString("Cannot open character/project: ") + error, true);
         return false;
     }
     bool project = isNativeProjectFile(path);
@@ -858,27 +884,27 @@ bool Window::open(const QString &path) {
     while (recent.size() > 12)
         recent.removeLast();
     settings.setValue("recentScenes", recent);
-    report("Opened " + QFileInfo(path).fileName());
+    report(QString("Opened ") + QFileInfo(path).fileName());
     if (!warnings.isEmpty())
-        report("Opened " + QFileInfo(path).fileName() + " · Import notes: " + warnings.join(" · "));
+        report(QString("Opened ") + QFileInfo(path).fileName() + " · Import notes: " + warnings.join(" · "));
     return true;
 }
 void Window::chooseOpen() {
     commitPendingEditor();
     document().play(false);
     auto path =
-        QFileDialog::getOpenFileName(this, "Open character or project", lastDirectory,
-                                     "Characters and projects (*.glb *.gltf *.fbx *.jst);;glTF "
-                                     "character (*.glb *.gltf *.fbx);;Jester project (*.jst)");
+        QFileDialog::getOpenFileName(this, uiText("Open character or project"), lastDirectory,
+                                     uiText("Characters and projects (*.glb *.gltf *.fbx *.jst);;glTF "
+                                     "character (*.glb *.gltf *.fbx);;Jester project (*.jst)"));
     if (!path.isEmpty())
         open(path);
 }
 void Window::chooseExport() {
     commitPendingEditor();
     document().play(false);
-    QFileDialog dialog(this, "Export baked animation", lastDirectory + "/animation.glb");
+    QFileDialog dialog(this,uiText("Export baked animation"),lastDirectory+"/animation.glb");
     dialog.setAcceptMode(QFileDialog::AcceptSave);
-    dialog.setNameFilters({"Binary glTF (*.glb)", "Embedded glTF (*.gltf)", "FBX (*.fbx)"});
+    dialog.setNameFilters({uiText("Binary glTF (*.glb)"),uiText("Embedded glTF (*.gltf)"),"FBX (*.fbx)"});
     dialog.setDefaultSuffix("glb");
     connect(&dialog, &QFileDialog::filterSelected, &dialog, [&dialog](QString filter) {
         QString suffix = filter.contains("*.fbx") ? "fbx" : filter.contains("*.gltf") ? "gltf" : "glb";
@@ -910,7 +936,7 @@ void Window::chooseExport() {
                    .arg(path) +
                physicsExportStatus(document().scene));
     } else
-        report("Export failed: " + error, true);
+        report(QString("Export failed: ") + error, true);
 }
 void Window::newCharacter(bool demo) {
     Scene s;
@@ -921,8 +947,8 @@ void Window::newCharacter(bool demo) {
     } else
         s = Scene::mannequin();
     appendScene(std::move(s));
-    report(demo ? "Animation demo opened in its own scene."
-                : "Mannequin ready. Drag a hand to start posing.");
+    report(demo ? QString("Animation demo opened in its own scene.")
+                : QString("Mannequin ready. Drag a hand to start posing."));
 }
 void Window::saveDemo(const QString &directory) {
     QDir().mkpath(directory);

@@ -4,7 +4,9 @@
 
 - Add native Atom GPU skinning with eight influences, morphs, shear-correct normal transforms, precise tagged TBN deltas and CPU fallback; verify native output against CPU on DX12/Vulkan.
 - Add authored Lit/Unlit/mesh Wireframe, Scene controls, studio IBL, separate visual floor, presets and pipeline exposure/tonemapping/grading/Bloom.
-- Add shared preference persistence, searchable preview/apply/cancel UI, stable action bindings/layouts, scene presets, and initial Qt translation infrastructure.
+- Add shared preference persistence, searchable preview/apply/cancel UI, stable action bindings/layouts, scene presets, and live English/Russian Qt localization with packaged application/standard-dialog catalogs.
+- Apply editor themes, fonts, density and overlay colors to the existing timeline, curves, notes, panels and dialogs; preserve text and numeric drafts across language/appearance preview.
+- Fix repeated native material initialization overriding sampler updates; compare Clamp and UV1 CPU/GPU output. Drain final IBL uploads before native scene shutdown.
 - Expose scene capabilities/authored/applied state and editor preferences through shared MCP validation.
 
 - Persist scene visuals in schema 9 with independent visual Undo/Redo and revision tracking, preserving motion analysis and physics provenance.

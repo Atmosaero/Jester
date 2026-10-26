@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/motion/analysis_views.h"
 #include "core/analysis/motion_analysis.h"
 #include "core/animation/retarget.h"
@@ -14,6 +15,7 @@
 #include <QProgressBar>
 #include <QSaveFile>
 #include <QScreen>
+#include <QSignalBlocker>
 #include <QScrollArea>
 #include <QTabWidget>
 #include <QTableView>
@@ -24,7 +26,7 @@ namespace trickster {
 void Window::showMotionAnalysis() {
     auto &d = document();
     QDialog dialog(this);
-    dialog.setWindowTitle("Motion Paths / numerical analysis");
+    bindUiText(&dialog,"windowTitle","Motion Paths / numerical analysis");
     dialog.resize(880, 660);
     auto available = screen()->availableGeometry();
     available.setSize(available.size().boundedTo(size()));
@@ -63,35 +65,35 @@ void Window::showMotionAnalysis() {
         start->setValue(d.timeSelection->first);
         end->setValue(d.timeSelection->second);
     }
-    form->addRow("Start seconds", start);
-    form->addRow("End seconds", end);
-    form->addRow("Step seconds", step);
+    addTranslatedRow(form,"Start seconds", start);
+    addTranslatedRow(form,"End seconds", end);
+    addTranslatedRow(form,"Step seconds", step);
     auto source = new QComboBox;
-    source->addItems({"evaluated", "original"});
-    form->addRow("Source", source);
+    addTranslatedItems(source,{"evaluated", "original"});
+    addTranslatedRow(form,"Source", source);
     auto pointKind = new QComboBox;
-    pointKind->addItems({"origin", "end", "offset"});
-    form->addRow("Sample point", pointKind);
+    addTranslatedItems(pointKind,{"origin", "end", "offset"});
+    addTranslatedRow(form,"Sample point", pointKind);
     auto reference = new QComboBox;
     reference->setObjectName("trajectorySpace");
-    reference->addItems({"world", "parent", "root"});
-    form->addRow("Reference", reference);
+    addTranslatedItems(reference,{"world", "parent", "root"});
+    addTranslatedRow(form,"Reference", reference);
     auto units = new QComboBox;
     units->setObjectName("trajectoryUnits");
-    units->addItems({"scene", "metres"});
-    form->addRow("Linear units", units);
-    auto pathLabels = new QCheckBox("Event and frame labels");
+    addTranslatedItems(units,{"scene", "metres"});
+    addTranslatedRow(form,"Linear units", units);
+    auto pathLabels = translatedWidget<QCheckBox>("Event and frame labels");
     pathLabels->setChecked(viewport->motionPathLabels);
-    auto speedColors = new QCheckBox("Speed colours (0 to 3 scene units/s)");
-    auto autoUpdate = new QCheckBox("Update paths automatically after motion edits");
+    auto speedColors = translatedWidget<QCheckBox>("Speed colours (0 to 3 scene units/s)");
+    auto autoUpdate = translatedWidget<QCheckBox>("Update paths automatically after motion edits");
     form->addRow(pathLabels);
     form->addRow(speedColors);
     form->addRow(autoUpdate);
     auto pathWindow = new QDoubleSpinBox;
     pathWindow->setRange(-1, 10000);
     pathWindow->setValue(-1);
-    pathWindow->setSpecialValueText("Whole calculated interval");
-    form->addRow("Past/future window seconds", pathWindow);
+    bindUiText(pathWindow,"specialValueText","Whole calculated interval");
+    addTranslatedRow(form,"Past/future window seconds", pathWindow);
     auto offsetLayout = new QHBoxLayout;
     std::array<QDoubleSpinBox *, 3> offsets;
     for (int c = 0; c < 3; ++c) {
@@ -101,18 +103,18 @@ void Window::showMotionAnalysis() {
         offsets[c] = v;
         offsetLayout->addWidget(v);
     }
-    form->addRow("Local offset (scene units)", offsetLayout);
+    addTranslatedRow(form,"Local offset (scene units)", offsetLayout);
     auto mode = new QComboBox;
     mode->setObjectName("motionAnalysisMode");
-    mode->addItems({"Motion paths", "Compare open documents", "Validate motion"});
-    form->addRow("Tool", mode);
+    addTranslatedItems(mode,{"Motion paths", "Compare open documents", "Validate motion"});
+    addTranslatedRow(form,"Tool", mode);
     auto other = new QComboBox;
     for (int i = 0; i < int(workspace.documents.size()); ++i)
         other->addItem(workspace.documents[i]->scene.name, i);
-    form->addRow("Compare against", other);
+    addTranslatedRow(form,"Compare against", other);
     auto alignment = new QComboBox;
-    alignment->addItems({"time", "phase", "event"});
-    form->addRow("Alignment", alignment);
+    addTranslatedItems(alignment,{"time", "phase", "event"});
+    addTranslatedRow(form,"Alignment", alignment);
     auto leftEvent = new QComboBox, rightEvent = new QComboBox;
     for (auto value : d.scene.annotations) {
         auto event = value.toObject();
@@ -129,14 +131,14 @@ void Window::showMotionAnalysis() {
     };
     connect(other, &QComboBox::currentIndexChanged, &dialog, updateEvents);
     updateEvents();
-    form->addRow("This event", leftEvent);
-    form->addRow("Other event", rightEvent);
+    addTranslatedRow(form,"This event", leftEvent);
+    addTranslatedRow(form,"Other event", rightEvent);
     auto timeOffset = new QDoubleSpinBox;
     timeOffset->setRange(-1e5, 1e5);
     timeOffset->setDecimals(6);
-    form->addRow("Other time offset seconds", timeOffset);
+    addTranslatedRow(form,"Other time offset seconds", timeOffset);
     QJsonArray comparisonMapping;
-    auto mappingButton = new QPushButton("Review bone pairs / anatomical calibration");
+    auto mappingButton = translatedWidget<QPushButton>("Review bone pairs / anatomical calibration");
     form->addRow(mappingButton);
     connect(other, &QComboBox::currentIndexChanged, &dialog, [&] { comparisonMapping = {}; });
     connect(mappingButton, &QPushButton::clicked, &dialog, [&] {
@@ -144,12 +146,12 @@ void Window::showMotionAnalysis() {
             return;
         const auto &target = workspace.documents[other->currentData().toInt()]->scene;
         QDialog review(&dialog);
-        review.setWindowTitle("Comparison pairs / calibrated rest-local axes");
+        bindUiText(&review,"windowTitle","Comparison pairs / calibrated rest-local axes");
         review.resize(std::min(1000, available.width() - 40), std::min(600, available.height() - 50));
         auto box = new QVBoxLayout(&review);
         auto pairs = new QTableWidget;
         pairs->setColumnCount(16);
-        pairs->setHorizontalHeaderLabels({"Role", "This bone", "Other bone", "Explicit axes", "Axis L X",
+        bindHeaders(pairs,{"Role", "This bone", "Other bone", "Explicit axes", "Axis L X",
                                           "L Y", "L Z", "Axis R X", "R Y", "R Z", "Rest L X", "L Y", "L Z",
                                           "Rest R X", "R Y", "R Z"});
         box->addWidget(pairs, 1);
@@ -197,7 +199,7 @@ void Window::showMotionAnalysis() {
                 appendPair(pair.toObject());
         auto controls = new QHBoxLayout;
         box->addLayout(controls);
-        auto addPair = new QPushButton("Add pair"), removePair = new QPushButton("Remove pair");
+        auto addPair = translatedWidget<QPushButton>("Add pair"), removePair = translatedWidget<QPushButton>("Remove pair");
         controls->addWidget(addPair);
         controls->addWidget(removePair);
         connect(addPair, &QPushButton::clicked, &review, [&] { appendPair({}); });
@@ -231,30 +233,30 @@ void Window::showMotionAnalysis() {
             }
         }
     });
-    auto normalize = new QCheckBox("Normalize root position/orientation and height");
+    auto normalize = translatedWidget<QCheckBox>("Normalize root position/orientation and height");
     form->addRow(normalize);
-    auto relative = new QCheckBox("Compare rest-relative rotations");
+    auto relative = translatedWidget<QCheckBox>("Compare rest-relative rotations");
     relative->setChecked(true);
     form->addRow(relative);
-    auto lag = new QCheckBox("Estimate phase lag (sampled grid search)");
+    auto lag = translatedWidget<QCheckBox>("Estimate phase lag (sampled grid search)");
     form->addRow(lag);
-    auto surface = new QCheckBox("Check explicit mesh pair surfaces");
+    auto surface = translatedWidget<QCheckBox>("Check explicit mesh pair surfaces");
     surface->setObjectName("motionSurfaceCheck");
     form->addRow(surface);
-    auto selfSurface = new QCheckBox("Check self-intersection / nested components");
+    auto selfSurface = translatedWidget<QCheckBox>("Check self-intersection / nested components");
     form->addRow(selfSurface);
-    auto adaptive = new QCheckBox("Refine time near rapid motion / suspected intervals");
+    auto adaptive = translatedWidget<QCheckBox>("Refine time near rapid motion / suspected intervals");
     adaptive->setChecked(true);
     form->addRow(adaptive);
     auto meshA = new QComboBox, meshB = new QComboBox;
     for (int i = 0; i < int(d.scene.meshes.size()); ++i) {
-        meshA->addItem(QString("Mesh %1").arg(i), i);
-        meshB->addItem(QString("Mesh %1").arg(i), i);
+        meshA->addItem(uiText("Mesh %1").arg(i), i);
+        meshB->addItem(uiText("Mesh %1").arg(i), i);
     }
     if (meshB->count() > 1)
         meshB->setCurrentIndex(1);
-    form->addRow("Surface A", meshA);
-    form->addRow("Surface B", meshB);
+    addTranslatedRow(form,"Surface A", meshA);
+    addTranslatedRow(form,"Surface B", meshB);
     auto updateSettings = [&] {
         bool trajectory = mode->currentIndex() == 0, comparison = mode->currentIndex() == 1,
              validation = mode->currentIndex() == 2;
@@ -266,8 +268,8 @@ void Window::showMotionAnalysis() {
         for (QWidget *widget :
              std::array<QWidget *, 7>{other, alignment, normalize, relative, lag, timeOffset, mappingButton})
             form->setRowVisible(widget, comparison);
-        form->setRowVisible(leftEvent, comparison && alignment->currentText() == "event");
-        form->setRowVisible(rightEvent, comparison && alignment->currentText() == "event");
+        form->setRowVisible(leftEvent, comparison && choiceText(alignment) == "event");
+        form->setRowVisible(rightEvent, comparison && choiceText(alignment) == "event");
         for (QWidget *widget : std::array<QWidget *, 3>{surface, selfSurface, adaptive})
             form->setRowVisible(widget, validation);
         form->setRowVisible(meshA, validation && surface->isChecked());
@@ -279,20 +281,19 @@ void Window::showMotionAnalysis() {
     updateSettings();
     auto buttons = new QHBoxLayout;
     layout->addLayout(buttons);
-    auto calculate = new QPushButton("Calculate / update paths"), clear = new QPushButton("Clear paths"),
-         save = new QPushButton("Export JSON");
+    auto calculate = translatedWidget<QPushButton>("Calculate / update paths"), clear = translatedWidget<QPushButton>("Clear paths"),
+         save = translatedWidget<QPushButton>("Export JSON");
     buttons->addWidget(calculate);
     buttons->addWidget(clear);
     buttons->addWidget(save);
-    auto csv = new QPushButton("Export CSV");
+    auto csv = translatedWidget<QPushButton>("Export CSV");
     buttons->addWidget(csv);
-    auto cancel = new QPushButton("Cancel");
+    auto cancel = translatedWidget<QPushButton>("Cancel");
     buttons->addWidget(cancel);
     auto progress = new QProgressBar;
     progress->setRange(0, 100);
     layout->addWidget(progress);
-    auto status = new QLabel(
-        "World coordinates; scene units. Paths are sampled hints, not a continuous collision proof.");
+    auto status = translatedWidget<QLabel>("World coordinates; scene units. Paths are sampled hints, not a continuous collision proof.");
     status->setWordWrap(true);
     layout->addWidget(status);
     auto results = new QTabWidget;
@@ -303,17 +304,22 @@ void Window::showMotionAnalysis() {
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    results->addTab(table, "Numbers / issues");
+    addTranslatedTab(results,table,"Numbers / issues");
+    auto problemText=[](const QJsonObject &issue) {
+        return uiText("%1 \u2013 %2 s / %3 / %4 / %5")
+            .arg(issue["firstSeconds"].toDouble(),0,'g',5).arg(issue["lastSeconds"].toDouble(),0,'g',5)
+            .arg(ownedValueLabel(issue["kind"].toString()),ownedValueLabel(issue["status"].toString()),issue["problemId"].toString());
+    };
     auto problemPage = new QWidget;
     auto problemLayout = new QVBoxLayout(problemPage);
     auto problemFilter = new QLineEdit;
-    problemFilter->setPlaceholderText("Filter problem type, status or ID");
+    bindUiText(problemFilter,"placeholderText","Filter problem type, status or ID");
     auto problems = new QListWidget;
     problems->setObjectName("motionProblems");
     auto navigation = new QHBoxLayout;
-    auto previousProblem = new QPushButton("Previous"), nextProblem = new QPushButton("Next");
-    auto transparent = new QCheckBox("Transparent mesh");
-    auto volumes = new QCheckBox("Approximate proxy volumes");
+    auto previousProblem = translatedWidget<QPushButton>("Previous"), nextProblem = translatedWidget<QPushButton>("Next");
+    auto transparent = translatedWidget<QCheckBox>("Transparent mesh");
+    auto volumes = translatedWidget<QCheckBox>("Approximate proxy volumes");
     navigation->addWidget(previousProblem);
     navigation->addWidget(nextProblem);
     navigation->addWidget(transparent);
@@ -321,7 +327,14 @@ void Window::showMotionAnalysis() {
     problemLayout->addWidget(problemFilter);
     problemLayout->addWidget(problems, 1);
     problemLayout->addLayout(navigation);
-    results->addTab(problemPage, "Problems / intervals");
+    addTranslatedTab(results,problemPage,"Problems / intervals");
+    connect(&LocalizationService::instance(),&LocalizationService::languageChanged,&dialog,[problems,problemText] {
+        const QSignalBlocker blocker(problems);
+        for(int i=0;i<problems->count();++i) {
+            auto *item=problems->item(i);const auto issue=item->data(Qt::UserRole).toJsonObject();
+            item->setText(problemText(issue));item->setToolTip(translatedDiagnostic(issue["method"].toString())+"\n"+translatedDiagnostic(issue["uncertainty"].toString()));
+        }
+    });
     connect(problemFilter, &QLineEdit::textChanged, &dialog, [=](QString text) {
         for (int i = 0; i < problems->count(); ++i)
             problems->item(i)->setHidden(!problems->item(i)->text().contains(text, Qt::CaseInsensitive));
@@ -373,7 +386,7 @@ void Window::showMotionAnalysis() {
     auto plotControls = new QHBoxLayout;
     plotLayout->addLayout(plotControls);
     auto metric = new QComboBox;
-    metric->addItems({"speed", "position", "velocity", "acceleration", "angularVelocity", "positionError",
+    addTranslatedItems(metric,{"speed", "position", "velocity", "acceleration", "angularVelocity", "positionError",
                       "orientationErrorDegrees", "linearVelocityError", "angularVelocityError",
                       "swingErrorDegrees", "twistErrorDegrees"});
     auto component = new QSpinBox;
@@ -386,12 +399,12 @@ void Window::showMotionAnalysis() {
     plotControls->addWidget(plotBone);
     auto plot = new ComputedMotionPlot;
     plotLayout->addWidget(plot, 1);
-    results->addTab(plotPage, "Computed graph (read-only)");
+    addTranslatedTab(results,plotPage,"Computed graph (read-only)");
     plot->seek = [&](double seconds) {
         d.seek(std::clamp(qRound(seconds * d.scene.fps), d.scene.first, d.scene.last));
     };
     auto updateMetric = [&] {
-        plot->setMetric(metric->currentText(), component->value(), plotBone->currentData().toInt());
+        plot->setMetric(choiceText(metric), component->value(), plotBone->currentData().toInt());
     };
     connect(metric, &QComboBox::currentIndexChanged, &dialog, updateMetric);
     connect(component, &QSpinBox::valueChanged, &dialog, updateMetric);
@@ -418,14 +431,9 @@ void Window::showMotionAnalysis() {
             problems->clear();
             for (auto value : d.motionProblems) {
                 auto issue = value.toObject();
-                auto item = new QListWidgetItem(QString("%1 – %2 s / %3 / %4 / %5")
-                                                    .arg(issue["firstSeconds"].toDouble(), 0, 'g', 5)
-                                                    .arg(issue["lastSeconds"].toDouble(), 0, 'g', 5)
-                                                    .arg(issue["kind"].toString(), issue["status"].toString(),
-                                                         issue["problemId"].toString()),
-                                                problems);
+                auto item = new QListWidgetItem(problemText(issue),problems);
                 item->setData(Qt::UserRole, issue);
-                item->setToolTip(issue["method"].toString() + "\n" + issue["uncertainty"].toString());
+                item->setToolTip(translatedDiagnostic(issue["method"].toString()) + "\n" + translatedDiagnostic(issue["uncertainty"].toString()));
             }
             timeline->update();
         }
@@ -477,22 +485,22 @@ void Window::showMotionAnalysis() {
         }
         viewport->motionPathRevision = resultRevision;
         viewport->update();
-        status->setText(comparison ? QString("%1 samples; RMS %2 %3; orientation %4 degrees; %5")
-                                         .arg(rows.size())
+        bindUiTextFactory(status,"text",[completed,comparison,validation,count=rows.size(),issueCount=model->rowCount()] {return comparison ? uiText("%1 samples; RMS %2 %3; orientation %4 degrees; %5")
+                                         .arg(count)
                                          .arg(completed["rmsPosition"].toDouble())
-                                         .arg(completed["positionUnits"].toString())
+                                         .arg(ownedValueLabel(completed["positionUnits"].toString()))
                                          .arg(completed["rmsOrientationDegrees"].toDouble())
-                                         .arg(completed["status"].toString())
+                                         .arg(ownedValueLabel(completed["status"].toString()))
                         : validation
-                            ? QString("%1 sampled instants / %2 issues. Fixed sampling can miss "
+                            ? uiText("%1 sampled instants / %2 issues. Fixed sampling can miss "
                                       "events; double-click to inspect.")
-                                  .arg(rows.size())
-                                  .arg(model->rowCount())
-                            : QString("%1 samples; %2; %3 / seconds / rad/s. Path display is capped "
+                                  .arg(count)
+                                  .arg(issueCount)
+                            : uiText("%1 samples; %2; %3 / seconds / rad/s. Path display is capped "
                                       "near 2000 points per bone / 8000 total; numeric results are retained.")
-                                  .arg(rows.size())
-                                  .arg(completed["status"].toString())
-                                  .arg(completed["positionUnits"].toString()));
+                                  .arg(count)
+                                  .arg(ownedValueLabel(completed["status"].toString()))
+                                  .arg(ownedValueLabel(completed["positionUnits"].toString()));});
     };
     connect(&poll, &QTimer::timeout, &dialog, [&] {
         analysisJobs.poll();
@@ -504,7 +512,7 @@ void Window::showMotionAnalysis() {
         poll.stop();
         calculate->setEnabled(true);
         if (stateName != "ready") {
-            status->setText(stateName + ": " + state["error"].toString());
+            status->setText(ownedValueLabel(stateName) + ": " + translatedDiagnostic(state["error"].toString()));
             return;
         }
         try {
@@ -544,8 +552,8 @@ void Window::showMotionAnalysis() {
                                 {"start", start->value()},
                                 {"end", end->value()},
                                 {"step", step->value()},
-                                {"source", source->currentText()},
-                                {"alignment", alignment->currentText()},
+                                {"source", choiceText(source)},
+                                {"alignment", choiceText(alignment)},
                                 {"normalizeRoot", normalize->isChecked()},
                                 {"normalizeHeight", normalize->isChecked()}};
             request["restRelative"] = relative->isChecked();
@@ -556,9 +564,9 @@ void Window::showMotionAnalysis() {
                 request["mapping"] = comparisonMapping;
             if (mode->currentIndex() == 1 && lag->isChecked())
                 request["operation"] = "lag";
-            request["pointKind"] = pointKind->currentText();
-            request["space"] = reference->currentText();
-            request["units"] = units->currentText();
+            request["pointKind"] = choiceText(pointKind);
+            request["space"] = choiceText(reference);
+            request["units"] = choiceText(units);
             request["point"] = QJsonArray{offsets[0]->value(), offsets[1]->value(), offsets[2]->value()};
             request["surface"] = surface->isChecked() || selfSurface->isChecked();
             request["selfIntersections"] = selfSurface->isChecked();
@@ -575,10 +583,10 @@ void Window::showMotionAnalysis() {
                                             request, second);
             jobId = state["id"].toString();
             calculate->setEnabled(false);
-            status->setText("Calculating an immutable motion snapshot...");
+            bindUiText(status,"text","Calculating an immutable motion snapshot...");
             poll.start(50);
         } catch (const std::exception &e) {
-            QMessageBox::warning(&dialog, "Motion analysis", e.what());
+            showUiMessage(QMessageBox::Warning,&dialog,[&] {return uiText("Motion analysis");},[&] {return translatedDiagnostic(translatedDiagnostic(QString::fromUtf8(e.what())));});
         }
     });
     connect(cancel, &QPushButton::clicked, &dialog, [&] {
@@ -599,7 +607,7 @@ void Window::showMotionAnalysis() {
         plot->setReport({});
     });
     connect(save, &QPushButton::clicked, &dialog, [&] {
-        auto path = QFileDialog::getSaveFileName(&dialog, "Export sampled trajectory", {}, "JSON (*.json)");
+        auto path = QFileDialog::getSaveFileName(&dialog, uiText("Export sampled trajectory"), {}, uiText("JSON (*.json)"));
         if (path.isEmpty())
             return;
         QSaveFile file(path);
@@ -617,10 +625,10 @@ void Window::showMotionAnalysis() {
     });
     connect(csv, &QPushButton::clicked, &dialog, [&] {
         if (completed.contains("alignment") || completed.contains("surfaceEnabled")) {
-            status->setText("Use JSON for mapped comparison data.");
+            bindUiText(status,"text","Use JSON for mapped comparison data.");
             return;
         }
-        auto path = QFileDialog::getSaveFileName(&dialog, "Export trajectory CSV", {}, "CSV (*.csv)");
+        auto path = QFileDialog::getSaveFileName(&dialog, uiText("Export trajectory CSV"), {}, uiText("CSV (*.csv)"));
         if (path.isEmpty())
             return;
         QSaveFile file(path);

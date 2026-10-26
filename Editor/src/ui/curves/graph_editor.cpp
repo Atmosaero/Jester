@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/curves/curve_canvas.h"
 #include "ui/curves/native_curve_plot.h"
 #include "core/scene/edit_service.h"
@@ -27,10 +28,11 @@ namespace trickster {
 class CurveEnumDelegate : public QStyledItemDelegate {
   public:
     using QStyledItemDelegate::QStyledItemDelegate;
+    QString displayText(const QVariant &value,const QLocale &) const override {return uiText(value.toString());}
     QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &,
                           const QModelIndex &index) const override {
         auto box = new QComboBox(parent);
-        box->addItems(index.column() == 2
+        addTranslatedItems(box,index.column() == 2
                           ? QStringList{"Step", "Linear", "Bezier", "Hermite", "Bounce", "Elastic", "Back"}
                       : index.column() == 3
                           ? QStringList{"Free", "Aligned", "Vector", "Automatic", "AutoClamped"}
@@ -38,10 +40,10 @@ class CurveEnumDelegate : public QStyledItemDelegate {
         return box;
     }
     void setEditorData(QWidget *editor, const QModelIndex &index) const override {
-        qobject_cast<QComboBox *>(editor)->setCurrentText(index.data().toString());
+        setChoiceText(qobject_cast<QComboBox *>(editor),index.data(Qt::EditRole).toString());
     }
     void setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const override {
-        model->setData(index, qobject_cast<QComboBox *>(editor)->currentText());
+        model->setData(index,choiceText(qobject_cast<QComboBox *>(editor)));
     }
 };
 
@@ -49,7 +51,7 @@ class CurveEnumDelegate : public QStyledItemDelegate {
 void Window::showGraphEditor() {
     auto &d = document();
     QDialog dialog(this);
-    dialog.setWindowTitle("Graph Editor — authored local channels");
+    bindUiText(&dialog,"windowTitle","Graph Editor — authored local channels");
     dialog.resize(1000, 690);
     auto available = screen()->availableGeometry();
     available.setSize(available.size().boundedTo(size()));
@@ -60,7 +62,7 @@ void Window::showGraphEditor() {
     outer->addWidget(tabs);
     auto scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
-    tabs->addTab(scroll, "Authored channels");
+    addTranslatedTab(tabs,scroll,"Authored channels");
     auto content = new QWidget;
     scroll->setWidget(content);
     auto layout = new QVBoxLayout(content);
@@ -72,12 +74,12 @@ void Window::showGraphEditor() {
     bones->setCurrentIndex(std::max(0, d.selected));
     controls->addWidget(bones);
     auto scope = new QComboBox;
-    scope->addItem("Source override", QString());
+    addTranslatedItem(scope,"Source override", QString());
     for (auto &layer : d.scene.layers)
         scope->addItem("Offset: " + layer.name, layer.id);
     controls->addWidget(scope);
     auto paths = new QComboBox;
-    paths->addItems({"position", "rotationEuler", "rotationQuaternion", "scale", "morph", "ikTarget",
+    addTranslatedItems(paths,{"position", "rotationEuler", "rotationQuaternion", "scale", "morph", "ikTarget",
                      "ikPole", "ikWeight"});
     controls->addWidget(paths);
     auto component = new QSpinBox;
@@ -85,22 +87,22 @@ void Window::showGraphEditor() {
     controls->addWidget(component);
     auto componentRange = [=, &d] {
         int n = bones->currentIndex();
-        int count = (paths->currentText() == "rotationQuaternion" || paths->currentText() == "ikWeight") ? 1
-                    : paths->currentText() == "morph" && n >= 0 ? int(d.scene.morphWeights(n).size())
+        int count = (choiceText(paths) == "rotationQuaternion" || choiceText(paths) == "ikWeight") ? 1
+                    : choiceText(paths) == "morph" && n >= 0 ? int(d.scene.morphWeights(n).size())
                                                                 : 3;
         component->setRange(0, std::max(0, count - 1));
     };
     connect(paths, &QComboBox::currentIndexChanged, &dialog, componentRange);
     connect(bones, &QComboBox::currentIndexChanged, &dialog, componentRange);
 
-    auto create = new QPushButton("Create / select channel");
+    auto create = translatedWidget<QPushButton>("Create / select channel");
     controls->addWidget(create);
     auto channels = new QComboBox;
     controls->addWidget(channels);
     auto visibility = new QListWidget;
     visibility->setMaximumHeight(80);
     layout->addWidget(visibility);
-    visibility->setToolTip("Check channels to overlay with the active channel. Only matching units/path are "
+    bindUiText(visibility,"toolTip","Check channels to overlay with the active channel. Only matching units/path are "
                            "shown. The dropdown chooses the editable channel.");
     auto canvas = new CurveCanvas(&d);
     connect(visibility, &QListWidget::itemChanged, &dialog, [=](QListWidgetItem *item) {
@@ -114,9 +116,9 @@ void Window::showGraphEditor() {
     layout->addWidget(canvas, 1);
     auto keyPage = new QSpinBox;
     keyPage->setObjectName("curveKeyPage");
-    keyPage->setPrefix("Key page ");
+    bindUiText(keyPage,"prefix","Key page ");
     keyPage->setMinimum(1);
-    keyPage->setToolTip("512 editable rows per page; the curve and selection retain all keys.");
+    bindUiText(keyPage,"toolTip","512 editable rows per page; the curve and selection retain all keys.");
     layout->addWidget(keyPage);
     int keyOffset = 0;
     auto table = new QTableWidget;
@@ -124,7 +126,7 @@ void Window::showGraphEditor() {
     table->setColumnCount(12);
     for (int column : {2, 3, 8})
         table->setItemDelegateForColumn(column, new CurveEnumDelegate(table));
-    table->setHorizontalHeaderLabels({"Seconds", "Value", "Interpolation", "Handles", "In seconds",
+    bindHeaders(table,{"Seconds", "Value", "Interpolation", "Handles", "In seconds",
                                       "In value", "Out seconds", "Out value", "Ease", "Overshoot",
                                       "Amplitude", "Period"});
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
@@ -132,15 +134,15 @@ void Window::showGraphEditor() {
     layout->addWidget(table);
     auto footer = new QHBoxLayout;
     layout->addLayout(footer);
-    auto add = new QPushButton("Add at playhead"), remove = new QPushButton("Delete selected keys"),
-         fit = new QPushButton("Fit");
+    auto add = translatedWidget<QPushButton>("Add at playhead"), remove = translatedWidget<QPushButton>("Delete selected keys"),
+         fit = translatedWidget<QPushButton>("Fit");
     footer->addWidget(add);
     footer->addWidget(remove);
     footer->addWidget(fit);
-    auto quaternionEdit = new QPushButton("Quaternion / angular tangents");
+    auto quaternionEdit = translatedWidget<QPushButton>("Quaternion / angular tangents");
     footer->addWidget(quaternionEdit);
     footer->addStretch();
-    auto note = new QLabel("I: key; Shift-drag: box select; Ctrl+C/V: keys. Source TRS uses local values; "
+    auto note = translatedWidget<QLabel>("I: key; Shift-drag: box select; Ctrl+C/V: keys. Source TRS uses local values; "
                            "layer TRS uses additive offsets. IK target/pole: world coordinates; weight "
                            "clamps to [0,1]. Euler: YXZ degrees. Quaternion graph: computed angle.");
     note->setWordWrap(true);
@@ -186,7 +188,7 @@ void Window::showGraphEditor() {
         QSignalBlocker visibilityBlock(visibility);
         visibility->clear();
         for (auto &c : d.scene.curves) {
-            auto item = new QListWidgetItem(QString("%1 / %2 %3 / %4")
+            auto item = new QListWidgetItem(uiText("%1 / %2 %3 / %4")
                                                 .arg(d.scene.nodes[c.node].name, c.path)
                                                 .arg(c.component)
                                                 .arg(c.layer.isEmpty() ? "source" : c.layer),
@@ -195,7 +197,7 @@ void Window::showGraphEditor() {
             item->setCheckState(canvas->visibleChannels.contains(c.id) ? Qt::Checked : Qt::Unchecked);
         }
         for (auto &c : d.scene.curves)
-            channels->addItem(QString("%1 / %2 %3").arg(d.scene.nodes[c.node].name, c.path).arg(c.component),
+            channels->addItem(uiText("%1 / %2 %3").arg(d.scene.nodes[c.node].name, c.path).arg(c.component),
                               c.id);
         int index = channels->findData(id);
         channels->setCurrentIndex(index < 0 ? 0 : index);
@@ -211,7 +213,7 @@ void Window::showGraphEditor() {
             refresh();
             canvas->update();
         } catch (const std::exception &e) {
-            QMessageBox::warning(&dialog, "Curve", QString::fromUtf8(e.what()));
+            showUiMessage(QMessageBox::Warning,&dialog,[&] {return uiText("Curve");},[&] {return translatedDiagnostic(translatedDiagnostic(QString::fromUtf8(e.what())));});
             refresh();
         }
     };
@@ -224,7 +226,7 @@ void Window::showGraphEditor() {
         if (bones->currentIndex() < 0)
             return;
         for (auto &c : d.scene.curves)
-            if (c.node == bones->currentIndex() && c.path == paths->currentText() &&
+            if (c.node == bones->currentIndex() && c.path == choiceText(paths) &&
                 c.component == component->value() && c.layer == scope->currentData().toString()) {
                 canvas->id = c.id;
                 reload();
@@ -233,7 +235,7 @@ void Window::showGraphEditor() {
         ScalarCurve c;
         c.layer = scope->currentData().toString();
         c.node = bones->currentIndex();
-        c.path = paths->currentText();
+        c.path = choiceText(paths);
         c.component = component->value();
         c.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         double value = 0;
@@ -364,8 +366,8 @@ void Window::showGraphEditor() {
         }
     });
     auto mode = new QComboBox;
-    mode->addItems({"Step", "Linear", "Bezier", "Hermite", "Bounce", "Elastic", "Back"});
-    auto bulk = new QPushButton("Interpolation for selected keys");
+    addTranslatedItems(mode,{"Step", "Linear", "Bezier", "Hermite", "Bounce", "Elastic", "Back"});
+    auto bulk = translatedWidget<QPushButton>("Interpolation for selected keys");
     auto bulkRow = new QHBoxLayout;
     bulkRow->addWidget(mode);
     bulkRow->addWidget(bulk);
@@ -380,13 +382,13 @@ void Window::showGraphEditor() {
             rows.insert(item->row() + keyOffset);
         for (int row : rows)
             if (row < int(c.keys.size()))
-                c.keys[row].interpolation = mode->currentText();
+                c.keys[row].interpolation = choiceText(mode);
         apply(c);
     });
     connect(quaternionEdit, &QPushButton::clicked, &dialog, [&] {
         auto ptr = canvas->curve();
         if (!ptr || ptr->path != "rotationQuaternion") {
-            note->setText("Choose a rotationQuaternion channel first. The graph shows computed geodesic "
+            bindUiText(note,"text","Choose a rotationQuaternion channel first. The graph shows computed geodesic "
                           "angle, not quaternion components.");
             return;
         }
@@ -396,7 +398,7 @@ void Window::showGraphEditor() {
         auto c = *ptr;
         auto &k = c.keys[row + keyOffset];
         QDialog edit(&dialog);
-        edit.setWindowTitle("Quaternion XYZW / local angular velocity rad/s");
+        bindUiText(&edit,"windowTitle","Quaternion XYZW / local angular velocity rad/s");
         auto form = new QFormLayout(&edit);
         std::array<QDoubleSpinBox *, 10> fields;
         for (int i = 0; i < 10; ++i) {
@@ -407,8 +409,8 @@ void Window::showGraphEditor() {
                             : i < 7 ? k.angularIn[i - 4]
                                     : k.angularOut[i - 7]);
             fields[i] = field;
-            form->addRow(i < 4 ? QString("Quaternion %1").arg(QString("XYZW")[i])
-                               : QString("%1 omega %2")
+            form->addRow(i < 4 ? uiText("Quaternion %1").arg(QString("XYZW")[i])
+                               : uiText("%1 omega %2")
                                      .arg(i < 7 ? "Incoming" : "Outgoing")
                                      .arg(QString("XYZ")[(i - 4) % 3]),
                          field);
@@ -421,7 +423,7 @@ void Window::showGraphEditor() {
             k.orientation =
                 QQuaternion(fields[3]->value(), fields[0]->value(), fields[1]->value(), fields[2]->value());
             if (k.orientation.lengthSquared() < 1e-12) {
-                note->setText("Zero quaternion rejected.");
+                bindUiText(note,"text","Zero quaternion rejected.");
                 return;
             }
             k.orientation.normalize();
@@ -445,7 +447,7 @@ void Window::showGraphEditor() {
         box->addLayout(bar);
         auto native = new QComboBox;
         auto axis = new QSpinBox;
-        auto extract = new QPushButton("Copy to authored override");
+        auto extract = translatedWidget<QPushButton>("Copy to authored override");
         bar->addWidget(native, 1);
         bar->addWidget(axis);
         bar->addWidget(extract);
@@ -460,8 +462,7 @@ void Window::showGraphEditor() {
             {"Seconds", "Value", "Incoming derivative", "Outgoing derivative", "Native mode"});
         keys->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
         box->addWidget(keys, 1);
-        auto hint = new QLabel(
-            "Native data stays intact. Scalar cubic channels copy as Hermite; cubic quaternion conversion "
+        auto hint = translatedWidget<QLabel>("Native data stays intact. Scalar cubic channels copy as Hermite; cubic quaternion conversion "
             "explicitly bakes SLERP with 0.02 degree sampled tolerance. Table shows up to 2000 native keys.");
         hint->setWordWrap(true);
         box->addWidget(hint);
@@ -509,10 +510,10 @@ void Window::showGraphEditor() {
                 reload();
                 tabs->setCurrentIndex(0);
             } catch (const std::exception &e) {
-                QMessageBox::warning(&dialog, "Native channel", e.what());
+                showUiMessage(QMessageBox::Warning,&dialog,[&] {return uiText("Native channel");},[&] {return translatedDiagnostic(translatedDiagnostic(QString::fromUtf8(e.what())));});
             }
         });
-        tabs->addTab(page, "Native source");
+        addTranslatedTab(tabs,page,"Native source");
         updateNative();
     }
     dialog.exec();

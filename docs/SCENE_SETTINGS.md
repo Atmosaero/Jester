@@ -10,9 +10,13 @@ The Scene dock contains main/fill direction, color and lux, main-light shadow qu
 
 The visual floor does not edit MuJoCo. **Follow MuJoCo ground height** is an explicit, one-way viewing link. Otherwise its height is independent.
 
+Visible background uses a small native solid/gradient sky cubemap, separate from the studio images used for actual IBL. It draws before transparent geometry. Sky exposure compensates manual scene EV; the selected tonemapper and grading still affect its display. Missing base normals in older native meshes are derived once in the rendering cache for both deformation paths, preserving the authored file data.
+
 Neutral, Studio and Silhouette presets are built in. Saved custom presets contain visual settings only. Scene edits support Undo/Redo; a slider drag is one undo command. They persist in `.jst` schema 9 without invalidating motion analysis or physics provenance.
 
 Post processing provides manual EV, ACES/Reinhard/display-sRGB mapping, saturation, contrast and optional Bloom. The global switch bypasses these effects and retains display conversion. Native captures and frame sequences use the same pipeline. Qt text, notes and manipulators are composited afterward and retain their separate overlay switch.
+
+MCP `screenshot` and `record_frames` accept `overlays: false` to capture the native scene without viewport annotations/manipulators. Their default is `true`; both use the same composition path. Framing in orthographic mode adjusts the authored view height, and the mouse wheel changes that height without editing motion.
 
 MCP `scene_visuals` accepts `get`, `set`, `capabilities`, `preset` and `reset`. `set` applies a partial nested patch using the same validation and history as the dock:
 

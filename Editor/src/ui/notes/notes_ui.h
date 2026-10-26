@@ -9,6 +9,8 @@ namespace trickster {
 class Window;
 class NotesCard;
 class NotesOverlay;
+QString noteTimeLabel(const QJsonObject &,int fps);
+QString noteBindingText(const Scene &,const QJsonObject &);
 class NotesController : public QObject {
     Q_OBJECT
   public:

@@ -196,7 +196,7 @@ Dynamics settings accept `prepareLanding` (default true) in addition to `endAtRe
 
 `pose_transform` and `pose_ik` accept `symmetric: true` to update the assigned opposite FK bone/IK chain in the same Undo transaction. `pose_operation` supports `copy_opposite` with `node`; `mirror` remains a whole-pose flip and reports unpaired side bones. The Qt symmetry toggle is available through `editor_action` (`symmetryAction`). Pair configuration remains in `character_profile`.
 
-`motion_correction` operations `key_move`, `key_copy` and `key_delete` accept `node` and `channels` (Position=1, Rotation=2, Scale=4; default 7), or `nodes` for an explicit controller chain. Scoped edits preserve other bones and morphs, merge disjoint destination components and reject conflicting destinations atomically. Omitting node scope intentionally edits the whole keyed bundle. Imported source channels are immutable. Current saves use schema 8. See [Motion editing](MOTION.md).
+`motion_correction` operations `key_move`, `key_copy` and `key_delete` accept `node` and `channels` (Position=1, Rotation=2, Scale=4; default 7), or `nodes` for an explicit controller chain. Scoped edits preserve other bones and morphs, merge disjoint destination components and reject conflicting destinations atomically. Omitting node scope intentionally edits the whole keyed bundle. Imported source channels are immutable. Current saves use schema 9. See [Motion editing](MOTION.md).
 
 `editor_state` includes `symmetryEditing`, `recordingContext` and each node's `mirrorPartner` (-1 if unassigned). The session symmetry mode also applies to MCP single/batch FK/IK edits unless `symmetric` is explicitly provided. Record-disabled layers and source comparison reject keyed pose edits and key insertion/reset as well as retiming.
 
@@ -294,3 +294,5 @@ context, never a generated constraint. See [NOTES.md](NOTES.md) for the editor
 workflow and data-safety policy.
 
 Scene display and editor preferences use `scene_visuals` and `editor_preferences`; see [Scene settings](SCENE_SETTINGS.md) and [personalization](PERSONALIZATION.md).
+
+`screenshot` and `record_frames` accept `overlays: false` for a native scene capture without viewport annotations/manipulators (default: true). Visual/preferences/language validation failures include a stable `code`, such as `visual.unsupported_parameter`, separately from the English diagnostic in `error`. Language changes do not translate tool enum values, keys, action IDs or error codes.

@@ -1,6 +1,7 @@
 #include "ui/window/scene_settings_panel.h"
 #include "ui/window/window.h"
 #include "ui/widgets/localized_ui.h"
+#include "ui/widgets/icons.h"
 #include <QActionGroup>
 #include <QDockWidget>
 #include <QHBoxLayout>
@@ -12,10 +13,13 @@
 namespace trickster {
 void installSceneSettings(Window &window) {
     auto *dock=new QDockWidget(&window);dock->setObjectName("sceneSettingsDock");bindUiText(dock,"windowTitle","Scene");
-    dock->setWidget(new SceneSettingsPanel(window.workspace,[&window] {window.viewport->fit();},dock));
+    dock->setWindowIcon(icon(Glyph::Mesh));
+    dock->setWidget(new SceneSettingsPanel(window.workspace,[&window] {window.viewport->frameCharacter();},dock));
     dock->setMinimumWidth(270);window.addDockWidget(Qt::RightDockWidgetArea,dock);
     if(auto *inspector=window.findChild<QDockWidget*>("inspectorDock")) {window.tabifyDockWidget(inspector,dock);inspector->raise();}
-    auto *menu=addTranslatedMenu(window.menuBar(),"Scene");menu->setObjectName("sceneMenu");
+    auto *menu=window.findChild<QMenu*>("sceneMenu");
+    if(!menu) {menu=addTranslatedMenu(window.menuBar(),"Scene");menu->setObjectName("sceneMenu");}
+    menu->addSeparator();
     auto *toggle=dock->toggleViewAction();toggle->setObjectName("toggleSceneSettings");bindUiText(toggle,"text","Scene settings");menu->addAction(toggle);
     menu->addSeparator();
     auto *header=new QWidget(&window);header->setObjectName("viewportHeader");
@@ -29,7 +33,7 @@ void installSceneSettings(Window &window) {
         auto *button=new QToolButton(header);button->setDefaultAction(action);button->setToolButtonStyle(Qt::ToolButtonTextOnly);row->addWidget(button);
         QObject::connect(action,&QAction::triggered,&window,[&window,mode=modes[i]] {
             auto settings=window.document().scene.visuals;QString error;
-            if(settings.setValue("mode",mode,error))window.document().editVisual(uiText("Display mode"),settings);
+            if(settings.setValue("mode",mode,error))window.document().editVisual("Display mode",settings);
         });
     }
     auto refresh=[&window,group] {

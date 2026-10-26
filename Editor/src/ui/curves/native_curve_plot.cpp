@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "ui/curves/native_curve_plot.h"
 #include "core/scene/edit_service.h"
 #include <QKeyEvent>
@@ -26,7 +27,7 @@ double NativeCurvePlot::sample(double time) {
     }
 void NativeCurvePlot::paintEvent(QPaintEvent *)  {
         QPainter p(this);
-        p.fillRect(rect(), QColor(28, 31, 36));
+        p.fillRect(rect(), palette().color(QPalette::Base));
         p.setRenderHint(QPainter::Antialiasing);
         const auto &c = (*snapshot.clips)[snapshot.sourceClip].channels[channel];
         double a = c.times.front(), b = std::max(a + .001, double(c.times.back())), low = INFINITY,
@@ -48,8 +49,8 @@ void NativeCurvePlot::paintEvent(QPaintEvent *)  {
             else
                 path.moveTo(point);
         }
-        p.setPen(QPen(QColor(130, 190, 240), 2));
+        p.setPen(QPen(palette().color(QPalette::Link), 2));
         p.drawPath(path);
-        p.drawText(8, 15, "Native source (read-only) / " + c.interpolation + " / seconds");
+        p.drawText(8, 15, uiText("Native source (read-only) / ") + c.interpolation + uiText(" / seconds"));
     }
 } // namespace trickster

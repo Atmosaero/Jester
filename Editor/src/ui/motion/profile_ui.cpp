@@ -1,3 +1,4 @@
+#include "ui/widgets/localized_ui.h"
 #include "core/scene/edit_service.h"
 #include "ui/window/window.h"
 #include <QApplication>
@@ -17,22 +18,22 @@ void Window::jointLimitDialog() {
     document().play(false);
     int node = document().selected;
     if (node < 0) {
-        report("Select a joint first.");
+        report(QString("Select a joint first."));
         return;
     }
     QDialog dialog(this);
     dialog.setObjectName("jointLimitDialog");
-    dialog.setWindowTitle("Jester · " + document().scene.nodes[node].name);
+    dialog.setWindowTitle(uiText("Jester · ") + document().scene.nodes[node].name);
     auto layout = new QVBoxLayout(&dialog);
     auto form = new QFormLayout;
     auto type = new QComboBox;
     type->setObjectName("jointLimitKind");
-    type->addItems({"Off", "Hinge", "Swing / twist"});
+    addTranslatedItems(type,{"Off", "Hinge", "Swing / twist"});
     const auto &scene = document().scene;
     const auto &limits = scene.physics.hasJointModel ? scene.physics.modelJointLimits : scene.jointLimits;
     auto limit = limits.value(node);
     type->setCurrentIndex(limits.contains(node) ? (limit.hinge ? 1 : 2) : 0);
-    form->addRow("Constraint", type);
+    addTranslatedRow(form,"Constraint", type);
     std::array<QDoubleSpinBox *, 3> axis;
     auto row = new QWidget;
     auto axes = new QHBoxLayout(row);
@@ -45,23 +46,22 @@ void Window::jointLimitDialog() {
         axis[i]->setObjectName("jointLimitAxis" + QString::number(i));
         axes->addWidget(axis[i]);
     }
-    form->addRow("Local rest axis", row);
+    addTranslatedRow(form,"Local rest axis", row);
     auto field = [&](QString name, float value) {
         auto box = new QDoubleSpinBox;
         box->setObjectName(name);
         box->setRange(-180, 180);
-        box->setSuffix("°");
+        bindUiText(box,"suffix","°");
         box->setValue(value);
         return box;
     };
     auto min = field("jointLimitMin", limit.minimum), max = field("jointLimitMax", limit.maximum),
          swing = field("jointLimitSwing", limit.swing);
     swing->setMinimum(0);
-    form->addRow("Minimum twist / bend", min);
-    form->addRow("Maximum twist / bend", max);
-    form->addRow("Maximum swing", swing);
-    auto note = new QLabel(
-        "Axis and angles are relative to the joint's rest orientation. Hinge removes "
+    addTranslatedRow(form,"Minimum twist / bend", min);
+    addTranslatedRow(form,"Maximum twist / bend", max);
+    addTranslatedRow(form,"Maximum swing", swing);
+    auto note = translatedWidget<QLabel>("Axis and angles are relative to the joint's rest orientation. Hinge removes "
         "swing; MuJoCo preserves hinge endpoints and reports its three-axis swing approximation separately.");
     note->setWordWrap(true);
     layout->addWidget(note);
@@ -81,7 +81,7 @@ void Window::jointLimitDialog() {
                                   {"maximum", max->value()}},
                                  "Joint limit");
         } catch (const std::exception &error) {
-            QMessageBox::information(&dialog, "Joint limit", QString::fromUtf8(error.what()));
+            showUiMessage(QMessageBox::Information,&dialog,[&] {return uiText("Joint limit");},[&] {return translatedDiagnostic(translatedDiagnostic(QString::fromUtf8(error.what())));});
             return;
         }
         dialog.accept();
@@ -131,12 +131,12 @@ void Window::characterProfileDialog() {
     commitPendingEditor();
     document().play(false);
     if (document().scene.nodes.empty()) {
-        report("Open a character first.");
+        report(QString("Open a character first."));
         return;
     }
     QDialog dialog(this);
     dialog.setObjectName("characterProfileDialog");
-    dialog.setWindowTitle("Jester · Character profile");
+    bindUiText(&dialog,"windowTitle","Jester · Character profile");
     dialog.resize(520, 650);
     auto layout = new QVBoxLayout(&dialog);
     auto scroll = new QScrollArea(&dialog);
@@ -145,14 +145,14 @@ void Window::characterProfileDialog() {
     auto form = new QFormLayout(content);
     auto profile =
         document().scene.profile.configured ? document().scene.profile : document().scene.suggestedProfile();
-    auto status = new QLabel("Review roles, IK poles and explicit mirror pairs. Missing roles disable only "
+    auto status = translatedWidget<QLabel>("Review roles, IK poles and explicit mirror pairs. Missing roles disable only "
                              "the related tools; assignments use saved node IDs and rest axes.");
     status->setWordWrap(true);
     layout->addWidget(status);
     QMap<QString, QComboBox *> roles;
     auto combo = [&](int node) {
         auto box = new QComboBox;
-        box->addItem("Unassigned", -1);
+        addTranslatedItem(box,"Unassigned", -1);
         for (int n = 0; n < int(document().scene.nodes.size()); ++n)
             box->addItem(document().scene.nodes[n].name, n);
         box->setCurrentIndex(node + 1);
@@ -166,13 +166,15 @@ void Window::characterProfileDialog() {
         auto box = combo(profile.roles.value(name, -1));
         box->setObjectName("profile_" + name);
         roles[name] = box;
-        form->addRow(name, box);
+        addTranslatedRow(form,roleSourceName(name),box);
     }
     QMap<QString, std::array<QDoubleSpinBox *, 3>> poles;
     for (auto side : {QString("left"), QString("right")})
         for (auto limb : {QString("Arm"), QString("Leg")}) {
             auto key = side + limb;
-            auto group = new QGroupBox(key + " pole direction");
+            const auto label=side=="left" ? (limb=="Arm"?"Left arm pole direction":"Left leg pole direction")
+                                          : (limb=="Arm"?"Right arm pole direction":"Right leg pole direction");
+            auto group = translatedGroupBox(label);
             auto row = new QHBoxLayout(group);
             int end = profile.roles.value(side + (limb == "Arm" ? "Hand" : "Foot"), -1);
             auto direction =
@@ -192,7 +194,7 @@ void Window::characterProfileDialog() {
     auto mirrors = new QTreeWidget;
     mirrors->setObjectName("profileMirrorPairs");
     mirrors->setColumnCount(2);
-    mirrors->setHeaderLabels({"Joint", "Mirror partner"});
+    bindHeaders(mirrors,{"Joint", "Mirror partner"});
     mirrors->setRootIsDecorated(false);
     mirrors->header()->setSectionResizeMode(QHeaderView::Stretch);
     mirrors->setMinimumHeight(130);
@@ -205,11 +207,11 @@ void Window::characterProfileDialog() {
     for (auto it = profile.mirrors.cbegin(); it != profile.mirrors.cend(); ++it)
         if (it.key() < it.value())
             pairRow(it.key(), it.value());
-    form->addRow("Mirror pairs", mirrors);
+    addTranslatedRow(form,"Mirror pairs", mirrors);
     auto pairButtons = new QWidget;
     auto pairLayout = new QHBoxLayout(pairButtons);
     pairLayout->setContentsMargins(0, 0, 0, 0);
-    auto addPair = new QPushButton("Add pair"), removePair = new QPushButton("Remove pair");
+    auto addPair = translatedWidget<QPushButton>("Add pair"), removePair = translatedWidget<QPushButton>("Remove pair");
     addPair->setObjectName("addMirrorPairButton");
     removePair->setObjectName("removeMirrorPairButton");
     pairLayout->addWidget(addPair);
@@ -262,7 +264,7 @@ void Window::characterProfileDialog() {
             int left = qobject_cast<QComboBox *>(mirrors->itemWidget(item, 0))->currentData().toInt();
             int right = qobject_cast<QComboBox *>(mirrors->itemWidget(item, 1))->currentData().toInt();
             if (left < 0 || right < 0 || left == right) {
-                QMessageBox::information(&dialog, "Mirror pair", "Assign two distinct joints to each pair.");
+                showUiMessage(QMessageBox::Information,&dialog,[&] {return uiText("Mirror pair");},[&] {return translatedDiagnostic(uiText("Assign two distinct joints to each pair."));});
                 return;
             }
             next.mirrors[left] = right;
@@ -272,7 +274,7 @@ void Window::characterProfileDialog() {
         check.profile = next;
         QString error;
         if (!check.validateProfile(&error)) {
-            QMessageBox::information(&dialog, "Profile assignments", error);
+            showUiMessage(QMessageBox::Information,&dialog,[&] {return uiText("Profile assignments");},[&] {return translatedDiagnostic(error);});
             return;
         }
         document().edit("Character profile", [&](Scene &s) { s.profile = next; }, false);

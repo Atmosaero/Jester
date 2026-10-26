@@ -342,9 +342,13 @@ class MVPUI : public QObject {
         auto scroll = w.findChild<QScrollArea *>("motionScroll");
         scroll->verticalScrollBar()->setValue(0);
         QTest::qWait(60);
+        qInfo()<<"Motion dock/scroll geometry"<<w.size()<<motion->geometry()<<scroll->viewport()->size();
+        w.grab().save(qEnvironmentVariable("JESTER_VISUAL_TEST_OUTPUT","artifacts")+"/motion-layout-widgets.png");
         for (auto id : {"motionLayers", "correctionKeyButton", "compareOriginalCheck"}) {
             auto control = w.findChild<QWidget *>(id);
-            QVERIFY(control && !control->visibleRegion().isEmpty());
+            QTRY_VERIFY2_WITH_TIMEOUT(control && !control->visibleRegion().isEmpty(),
+                qPrintable(QString("%1 not visible; scroll viewport %2x%3, offset %4").arg(id)
+                    .arg(scroll->viewport()->width()).arg(scroll->viewport()->height()).arg(scroll->verticalScrollBar()->value())),2000);
         }
         QDir().mkpath("artifacts/mvp-ui/" + kind);
         QVERIFY(captureEditorWidget(&w).save("artifacts/mvp-ui/" + kind + "/source-workspace-" +
